@@ -8,7 +8,7 @@ from antpy.equal import AntMap
 
 
 def render(v):
-    return render_in(v, True, [])
+    return render_in(v, True, set())
 
 
 ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\t": "\\t", "\r": "\\r"}
@@ -18,9 +18,10 @@ def quote(s):
     return '"' + "".join(ESCAPES.get(c, c) for c in s) + '"'
 
 
-def render_in(v, top, path):
-    """`top` is true at the top level, where a string renders bare; `path`
-    holds the containers being rendered, so a cycle renders as `...`."""
+def render_in(v, top, active):
+    """`top` is true at the top level, where a string renders bare; `active`
+    holds the ids of the containers being rendered (they stay alive while
+    they are in it), so a cycle renders as `...`."""
     t = type(v)
     k = KIND[t]
     if k == "string":
@@ -39,28 +40,27 @@ def render_in(v, top, path):
         return "func"
     if t is Tag:
         return v.name
-    if k == "sync":
-        return t.__name__
+    if k == "sync" or k == "file":
+        return t.__name__     # the class names are the namespace names
     if t is Record and v.tag is MODULE_TAG:
         return "Module"
-    for seen in path:
-        if seen is v:
-            return "..."
-    path.append(v)
+    if id(v) in active:
+        return "..."
+    active.add(id(v))
     try:
         if t is list:
-            return "[" + ", ".join(render_in(x, False, path) for x in v) + "]"
+            return "[" + ", ".join(render_in(x, False, active) for x in v) + "]"
         if t is AntMap:
             if v.size == 0:
                 return "Map{}"
             return "Map{ " + ", ".join(
-                render_in(a, False, path) + ": " + render_in(b, False, path) for a, b in v.items()) + " }"
+                render_in(a, False, active) + ": " + render_in(b, False, active) for a, b in v.items()) + " }"
         if not v.fields:
             return v.tag.name + "{}"
         return v.tag.name + "{ " + ", ".join(
-            n + ": " + render_in(x, False, path) for n, x in v.fields.items()) + " }"
+            n + ": " + render_in(x, False, active) for n, x in v.fields.items()) + " }"
     finally:
-        path.pop()
+        active.discard(id(v))
 
 
 def render_float(x, f32):

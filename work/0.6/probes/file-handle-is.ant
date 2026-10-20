@@ -1,0 +1,4 @@
+func main() {
+  var f = Result.unwrap(File.create(Os.args()[0] + "/h.txt"))
+  print(f is File)
+}

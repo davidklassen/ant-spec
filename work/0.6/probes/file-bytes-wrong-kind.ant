@@ -1,0 +1,3 @@
+func main() {
+  print(File.writeBytes(Os.args()[0] + "/b.bin", [1, 2]))
+}

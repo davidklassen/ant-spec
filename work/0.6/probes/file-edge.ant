@@ -1,0 +1,54 @@
+func show(label: string, r: Result[void, Error]): void {
+  if r is Ok { print(`${label}: Ok`) } else { print(`${label}: Err ${r.error.message}`) }
+}
+
+func main() {
+  var dir = Os.args()[0]
+  print(File.exists(dir))
+  show("remove dir", File.remove(dir))
+  print(File.write(dir + "/x.txt", "x\r\ny\nz"))
+  var l = File.list(dir + "/x.txt")
+  if l is Ok { print("list on file: Ok") } else { print(`list on file: Err ${l.error.message}`) }
+  var w = Result.unwrap(File.create(dir + "/w.txt"))
+  var rl = File.readLine(w)
+  if rl is Ok { print("readLine on created: Ok") } else { print(`readLine on created: Err ${rl.error.message}`) }
+  var r = Result.unwrap(File.open(dir + "/x.txt"))
+  show("writeLine on opened", File.writeLine(r, "no"))
+  print(Result.unwrap(File.readLine(r)))
+  print(String.length(Result.unwrap(File.readLine(r)) ?? ""))
+  var third = Result.unwrap(File.readLine(r))
+  print(third)
+  print(Result.unwrap(File.readLine(r)))
+  File.close(r)
+  File.close(r)
+  var closed = File.readLine(r)
+  if closed is Ok { print("readLine on closed: Ok") } else { print(`readLine on closed: Err ${closed.error.message}`) }
+  show("writeLine on closed", File.writeLine(w, "x"))
+  File.close(w)
+  show("writeLine on closed", File.writeLine(w, "x"))
+  var src = Result.unwrap(File.open(dir + "/x.txt"))
+  Result.unwrap(File.readLine(src))
+  var dst = Result.unwrap(File.create(dir + "/tail.txt"))
+  show("writeLine", File.writeLine(dst, "head"))
+  show("pipe", File.pipe(src, dst))
+  show("pipe again", File.pipe(src, dst))
+  File.close(src)
+  File.close(dst)
+  print(Result.unwrap(File.read(dir + "/tail.txt")))
+  show("pipe from closed", File.pipe(src, dst))
+  var missing = File.read(dir + "/missing.txt")
+  if missing is Err { print(missing.error.message) }
+  var invalid = File.writeBytes(dir + "/bad.bin", [byte(255)])
+  var bad = File.read(dir + "/bad.bin")
+  if bad is Err { print(bad.error.message) }
+  print(File.exists(dir + "/nope"))
+  show("remove missing", File.remove(dir + "/nope"))
+  var e = File.list(dir + "/nope")
+  if e is Err { print(e.error.message) }
+  print(File.exists(""))
+  show("write empty path", File.write("", "x"))
+  print(File.write(dir + "/empty.txt", ""))
+  print(Result.unwrap(File.read(dir + "/empty.txt")))
+  var ef = Result.unwrap(File.open(dir + "/empty.txt"))
+  print(Result.unwrap(File.readLine(ef)))
+}

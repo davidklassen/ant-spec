@@ -8,7 +8,9 @@ Modules:
   lower    the reference parser's AST to the evaluator's nodes
   interp   scopes, frames, evaluation, calls, loops, defers, modules, goroutines
   library  the data namespaces: Array, Map, String, Iter, Math, and the argument checks
-  sync     the sync objects: Mutex, RwMutex, WaitGroup, Once, Cond, Atomic, and Time.sleep
-  system   the Os namespace of stdlib.md (0.6 adds File, Json, Time.now/monotonic)
+  sync     the sync objects: Mutex, RwMutex, WaitGroup, Once, Cond, Atomic
+  system   the Os and Time namespaces of stdlib.md
+  fileio   the File namespace of stdlib.md
+  jsonio   the Json namespace of stdlib.md
   prelude  the prelude scope: tags, conversions, print, panic, Result, Record, Bits
 """

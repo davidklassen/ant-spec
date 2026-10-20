@@ -5,8 +5,9 @@ constants like `Math.PI`), so `Array.map` is an ordinary field read (section 10)
 A native is declared with its parameter names (named arguments resolve against
 them). One marked ctx=True receives (interp, frame, *args) and may call back
 into Ant with interp.call. The data namespaces (Array, Map, String, Iter,
-Math) live in library.py, the sync objects and Time in sync.py, and Os in
-system.py; this module holds Result, Record, Bits, and the scope itself."""
+Math) live in library.py, the sync objects in sync.py, Os and Time in
+system.py, File in fileio.py, and Json in jsonio.py; this module holds
+Result, Record, Bits, and the scope itself."""
 import functools
 import sys
 
@@ -17,11 +18,13 @@ from antpy.values import (
 from antpy import arith
 from antpy.render import render
 from antpy.library import (
-    need_func, need_record, record_field,
+    need_func, need_record, record_field, ok, err,
     ARRAY, MAP, STRING, ITER, MATH,
 )
-from antpy.sync import MUTEX, RWMUTEX, WAITGROUP, ONCE, COND, ATOMIC, TIME
-from antpy.system import OS
+from antpy.sync import MUTEX, RWMUTEX, WAITGROUP, ONCE, COND, ATOMIC
+from antpy.system import OS, TIME
+from antpy.fileio import FILE
+from antpy.jsonio import JSON
 
 
 # ----------------------------------------------------------------------------- Result and Record
@@ -30,14 +33,6 @@ def need_result(v):
     if type(v) is not Record or (v.tag is not OK and v.tag is not ERR):
         panic("wrong kind: expected a Result")
     return v
-
-
-def result_ok(v):
-    return Record(OK, {"value": v})
-
-
-def result_err(e):
-    return Record(ERR, {"error": e})
 
 
 def result_is_ok(r):
@@ -62,16 +57,16 @@ def result_map(interp, frame, r, f):
     need_result(r)
     need_func(f)
     if r.tag is ERR:
-        return result_err(record_field(r, "error"))
-    return result_ok(interp.call(f, [record_field(r, "value")], (), frame))
+        return err(record_field(r, "error"))
+    return ok(interp.call(f, [record_field(r, "value")], (), frame))
 
 
 def result_map_err(interp, frame, r, f):
     need_result(r)
     need_func(f)
     if r.tag is OK:
-        return result_ok(record_field(r, "value"))
-    return result_err(interp.call(f, [record_field(r, "error")], (), frame))
+        return ok(record_field(r, "value"))
+    return err(interp.call(f, [record_field(r, "error")], (), frame))
 
 
 def record_same(a, b):
@@ -123,8 +118,8 @@ NAMESPACES = {
         "wrapMul": (["a", "b"], arith.bits_wrap_mul),
     },
     "Result": {
-        "ok": (["value"], result_ok),
-        "err": (["error"], result_err),
+        "ok": (["value"], ok),
+        "err": (["error"], err),
         "isOk": (["r"], result_is_ok),
         "map": (["r", "f"], result_map, True),
         "mapErr": (["r", "f"], result_map_err, True),
@@ -140,8 +135,10 @@ NAMESPACES = {
     "Once": ONCE,
     "Cond": COND,
     "Atomic": ATOMIC,
+    "File": FILE,
     "Time": TIME,
     "Os": OS,
+    "Json": JSON,
 }
 
 # Type names bound to tags. `bool` and `string` are tags so that calling them

@@ -1,0 +1,13 @@
+func main() {
+  var a = Time.monotonic()
+  Time.sleep(0)
+  Time.sleep(-5)
+  var b = Time.monotonic()
+  print(b - a < 10)
+  print(Time.now() is int)
+  print(Time.monotonic() is int)
+  print(Time.sleep(1))
+  var n1 = Time.now()
+  Time.sleep(20)
+  print(Time.now() - n1 >= 15)
+}

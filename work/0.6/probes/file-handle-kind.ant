@@ -1,0 +1,20 @@
+// A handle is a reference value: renders as File, equal to itself only, usable as a map key.
+func main() {
+  var dir = Os.args()[0]
+  var f = Result.unwrap(File.create(dir + "/h.txt"))
+  var g = Result.unwrap(File.create(dir + "/h2.txt"))
+  print(f)
+  print([f, g])
+  print(f == f)
+  print(f == g)
+  var m = Map{}
+  m[f] = 1
+  m[g] = 2
+  m[f] = 3
+  print(Map.size(m))
+  print(m[f])
+  print(Json.stringify(f))
+  print(Json.stringify([f]))
+  File.close(f)
+  File.close(g)
+}

@@ -1,0 +1,1 @@
+func main() { print(Time.now(1)) }

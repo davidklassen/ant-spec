@@ -22,7 +22,7 @@ from antpy.equal import AntMap, eq
 from antpy import arith
 from antpy.render import render
 from antpy.lower import LoadError, parse_module, lower_file
-from antpy.library import record_field, entry, drive
+from antpy.library import record_field, entry, drive, err
 from antpy import prelude
 
 
@@ -406,7 +406,7 @@ class Interp:
             raise ReturnSignal(scope.frame, None)
         if type(v) is Record:
             if v.tag is ERR:
-                raise ReturnSignal(scope.frame, Record(ERR, {"error": record_field(v, "error")}))
+                raise ReturnSignal(scope.frame, err(record_field(v, "error")))
             if v.tag is OK:
                 return record_field(v, "value")
         return v

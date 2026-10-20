@@ -1,0 +1,7 @@
+func main() {
+  var f = Result.unwrap(File.create(Os.args()[0] + "/unclosed.txt"))
+  Result.unwrap(File.writeLine(f, "kept"))
+  var g = Result.unwrap(File.create(Os.args()[0] + "/piped.txt"))
+  var s = Result.unwrap(File.open(Os.args()[0] + "/unclosed.txt"))
+  Result.unwrap(File.pipe(s, g))
+}

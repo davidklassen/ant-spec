@@ -198,7 +198,8 @@ KIND = {
     Closure: "func", Native: "func", YieldFn: "func",
 }
 # equal.py adds its AntMap class under "map" (the map's lookup needs
-# structural equality and hashing), and sync.py its six classes under "sync".
+# structural equality and hashing), sync.py its six classes under "sync", and
+# fileio.py its File under "file".
 
 INT_CLASS = {
     "int8": Int8, "int16": Int16, "int32": Int32, "int64": int,

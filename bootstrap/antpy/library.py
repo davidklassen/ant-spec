@@ -18,7 +18,7 @@ import math
 import re
 
 from antpy.values import (
-    VOID, MISSING, Record, Native, YieldFn, UInt8, ENTRY, INDEXED,
+    VOID, MISSING, Record, Native, YieldFn, UInt8, OK, ERR, ERROR, ENTRY, INDEXED,
     KIND, INT_KINDS, NUMBER_KINDS, INT_RANGE, panic,
 )
 from antpy.equal import AntMap, eq
@@ -76,6 +76,22 @@ def need_float64(v):
     return need(v, float, "a float64")     # Float32 is its own type, so a float32 is `wrong kind`
 
 
+def need_bytes(v):
+    """An array of bytes (`uint8`) as Python bytes. The array is copied
+    before the check so that another goroutine cannot change it between the
+    check and the conversion (section 12: a data race cannot crash the
+    interpreter)."""
+    items = list(need_array(v))
+    for b in items:
+        need(b, UInt8, "a byte")
+    return bytes(items)
+
+
+def byte_array(data):
+    """Python bytes as an Ant array of `uint8`."""
+    return [UInt8(b) for b in data]
+
+
 ORDERED_KINDS = NUMBER_KINDS | frozenset(("string",))
 
 
@@ -102,6 +118,24 @@ def compare_values(a, b):
     if arith.binary("<", b, a):
         return 1
     return 0
+
+
+# ----------------------------------------------------------------------------- Result constructors
+
+# The prelude's Result shape (section 8): `Ok{ value }`, `Err{ error }`, and
+# the `Error{ message }` the I/O namespaces fail with. One definition, shared
+# by Result.ok/err and every native that returns a Result.
+
+def ok(v):
+    return Record(OK, {"value": v})
+
+
+def err(e):
+    return Record(ERR, {"error": e})
+
+
+def error(message):
+    return Record(ERROR, {"message": message})
 
 
 # ----------------------------------------------------------------------------- Array
@@ -448,11 +482,9 @@ def string_to_lower(s):
 
 def string_from_bytes(bs):
     """Strict UTF-8: any invalid sequence gives null, never a replacement."""
-    need_array(bs)
-    for b in bs:
-        need(b, UInt8, "a byte")
+    data = need_bytes(bs)
     try:
-        return bytes(bs).decode("utf-8")
+        return data.decode("utf-8")
     except UnicodeDecodeError:
         return None
 
@@ -485,7 +517,7 @@ def string_join(parts, sep):
 
 
 def string_to_bytes(s):
-    return [UInt8(b) for b in need_string(s).encode("utf-8")]
+    return byte_array(need_string(s).encode("utf-8"))
 
 
 def string_slice(s, start, end):

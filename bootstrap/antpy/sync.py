@@ -1,6 +1,6 @@
-"""The sync objects (section 9, "Synchronization"; section 11) and
-`Time.sleep` (stdlib.md). Goroutines are OS threads under the GIL, so each
-object is a thin wrapper over the threading module's primitives.
+"""The sync objects (section 9, "Synchronization"; section 11). Goroutines
+are OS threads under the GIL, so each object is a thin wrapper over the
+threading module's primitives.
 
 Every sync object is a reference value: it compares by identity (equal.py
 treats kind "sync" like a function) and renders as its class name, so the
@@ -14,7 +14,6 @@ with no argument, and unlock in a `finally` through the namespace's own
 unlock call, so a panic in `f` propagates after the release."""
 import collections
 import threading
-import time
 
 from antpy.values import VOID, KIND, panic
 from antpy.equal import eq
@@ -354,19 +353,3 @@ ATOMIC = {
     "compareAndSwap": (["a", "expected", "v"], atomic_compare_and_swap),
 }
 
-
-# ----------------------------------------------------------------------------- Time
-
-def time_sleep(ms):
-    """Blocks only the caller: time.sleep releases the GIL. A count of zero
-    or less returns at once. `Time.now` and `Time.monotonic` come with the
-    I/O namespaces (roadmap 0.6)."""
-    need_int(ms)
-    if ms > 0:
-        time.sleep(ms / 1000)
-    return VOID
-
-
-TIME = {
-    "sleep": (["ms"], time_sleep),
-}

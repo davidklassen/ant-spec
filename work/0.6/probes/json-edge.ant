@@ -1,0 +1,66 @@
+import "../../../src/tests/lib/expect.ant" Expect
+
+func parse(text: string): string {
+  var r = Json.parse(text)
+  if r is Ok { `Ok ${String.from(r.value)}` } else { `Err ${r.error.message}` }
+}
+
+type Point = { x: float64 }
+type Pair = { b: int, a: Array[bool | null] }
+
+func main() {
+  print(parse("1e400"))
+  print(parse("\"\\ud800\""))
+  print(parse("[\"a\", {\"k\": \"\\udc00\"}]"))
+  print(parse("{\"\\ud83d\\ude00\": 1}"))
+  print(parse("NaN"))
+  print(parse("Infinity"))
+  print(parse("-Infinity"))
+  print(parse(" 1 "))
+  print(parse(""))
+  print(parse("  "))
+  print(parse("01"))
+  print(parse("1."))
+  print(parse(".5"))
+  print(parse("[1,]"))
+  print(parse("{\"a\": 1, \"a\": 2}"))
+  print(parse("\"\\x41\""))
+  print(parse("\"tab\there\""))
+  print(parse("-0"))
+  print(parse("123456789012345678901234567890"))
+  print(parse("true"))
+  print(parse("[]"))
+  print(parse("{}"))
+  print(parse("\"\\n\\t\\\"\\\\\""))
+  var deep = String.repeat("[", 50000) + String.repeat("]", 50000)
+  var d = Json.parse(deep)
+  if d is Ok { print(String.length(Json.stringify(d.value))) } else { print(`deep: Err ${d.error.message}`) }
+  print(Json.stringify(void))
+  print(Json.stringify(Expect))
+  print(Json.stringify(Ok))
+  print(Json.stringify(Mutex.new()))
+  var xs: Array[Json] = [1.0]
+  Array.push(xs, xs)
+  print(Json.stringify(xs))
+  print(Json.stringify(float32(1.5)))
+  print(Json.stringify(float32(0.1)))
+  print(Json.stringify(Map{ Point{ x: 1.0 }: 2 }))
+  print(Json.stringify(Map{ "k": "v" }))
+  print(Json.stringify(Map{ 1.5: true }))
+  print(Json.stringify(Map{ [1, 2]: null }))
+  print(Json.stringify("a\"b\\c\nd\te\u{1}f\u{7f}é\u{1F600}"))
+  print(Json.stringify(1e21))
+  print(Json.stringify(1e-7))
+  print(Json.stringify(-0.0))
+  print(Json.stringify(Bits.not(uint64(0))))
+  print(Json.stringify(Ok{ value: 1 }))
+  print(Json.stringify(Point{ x: 1.0 }))
+  print(Json.stringify(Pair{ b: 1, a: [true, false, null] }))
+  print(Json.stringify(Math.PI))
+  print(Json.stringify(Entry{ key: "k", value: "v" }))
+  print(Json.stringify([[], {}, Map{}]))
+  var m = Map{ a: 1 }
+  m["self"] = m
+  print(Json.stringify(m))
+  print(Json.stringify([xs, xs]))
+}

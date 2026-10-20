@@ -72,7 +72,7 @@ KIND[AntMap] = "map"
 # Kinds whose values Python's == compares the way section 12 asks: numbers by
 # value with IEEE rules, strings by code point, bool/null/void by value.
 PRIMITIVE_KINDS = NUMBER_KINDS | frozenset(("bool", "string", "null", "void"))
-REFERENCE_KINDS = frozenset(("func", "tag", "sync"))
+REFERENCE_KINDS = frozenset(("func", "tag", "sync", "file"))
 
 
 def eq(a, b, pairs=None):
