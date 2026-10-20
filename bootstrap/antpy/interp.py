@@ -14,13 +14,14 @@ import traceback
 
 import antparse
 from antpy.values import (
-    VOID, UNINIT, MISSING, MODULE_TAG, FUNC_TYPES,
+    VOID, UNINIT, MISSING, MODULE_TAG, OK, ERR, FUNC_TYPES,
     Scope, Frame, Record, Tag, Closure, Native, YieldFn, AntPanic, panic,
 )
 from antpy.equal import AntMap, eq
 from antpy import arith
 from antpy.render import render
 from antpy.lower import LoadError, parse_module, lower_file
+from antpy.library import record_field, entry, drive
 from antpy import prelude
 
 
@@ -132,9 +133,7 @@ class Interp:
     def field(self, obj, name):
         if type(obj) is not Record:
             panic("not a record")
-        v = obj.fields.get(name, MISSING)
-        if v is MISSING:
-            panic("no field: " + name)
+        v = record_field(obj, name)
         if v is UNINIT:
             panic("not initialized: " + name)
         return v
@@ -399,10 +398,10 @@ class Interp:
         if v is None:
             raise ReturnSignal(scope.frame, None)
         if type(v) is Record:
-            if v.tag is prelude.ERR:
-                raise ReturnSignal(scope.frame, Record(prelude.ERR, {"error": prelude.result_payload(v, "error")}))
-            if v.tag is prelude.OK:
-                return prelude.result_payload(v, "value")
+            if v.tag is ERR:
+                raise ReturnSignal(scope.frame, Record(ERR, {"error": record_field(v, "error")}))
+            if v.tag is OK:
+                return record_field(v, "value")
         return v
 
     def ev_And(self, node, scope):
@@ -561,18 +560,14 @@ class Interp:
                     break
         elif t is AntMap:
             for k, v in it.items():
-                if not iteration(Record(prelude.ENTRY, {"key": k, "value": v})):
+                if not iteration(entry(k, v)):
                     break
         elif t is str:
             for c in it:
                 if not iteration(c):
                     break
         elif t in FUNC_TYPES:
-            y = YieldFn(iteration)
-            try:
-                self.call(it, [y], (), frame)
-            finally:
-                y.done = True
+            drive(self, frame, it, iteration)
         else:
             panic("not iterable")
         return VOID
@@ -581,10 +576,7 @@ class Interp:
         if type(v) is not Record:
             panic("not a record")
         for name, local in fields:
-            f = v.fields.get(name, MISSING)
-            if f is MISSING:
-                panic("no field: " + name)
-            vars[local] = f
+            vars[local] = record_field(v, name)
 
     def ev_Return(self, node, scope):
         value = VOID if node[1] is None else self.ev(node[1], scope)

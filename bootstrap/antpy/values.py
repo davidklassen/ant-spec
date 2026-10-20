@@ -114,6 +114,13 @@ class Tag:
 
 MODULE_TAG = Tag("Module")
 
+# The prelude's record tags (section 11), shared by the library and the evaluator.
+OK = Tag("Ok")
+ERR = Tag("Err")
+ERROR = Tag("Error")
+ENTRY = Tag("Entry")
+INDEXED = Tag("Indexed")
+
 
 class Closure:
     """A declared function, an anonymous function, or a lambda."""
