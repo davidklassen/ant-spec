@@ -1,0 +1,4 @@
+// A tag with the same name as shapes.ant's, declared in another module.
+export type Circle = { r: float64 }
+
+export func make(): Circle { Circle{ r: 1.0 } }

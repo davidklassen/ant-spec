@@ -1,0 +1,4 @@
+import "./a.ant" A
+import "./nope.ant" N
+
+func main() { print(A.v) }

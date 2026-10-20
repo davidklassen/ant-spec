@@ -1,0 +1,4 @@
+// a imports b, which imports a
+import "./b.ant" B
+
+export var v = 1

@@ -1,0 +1,7 @@
+import "./nope.ant" N
+
+var x = announce("init")
+
+func announce(s: string): bool { print(s); true }
+
+func main() { print("main") }

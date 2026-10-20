@@ -1,0 +1,7 @@
+import "./03-p4-unbound/m.ant" M
+
+func main() {
+  print("loaded")
+  print(M.yes)
+  print(M.nope)
+}

@@ -1,0 +1,7 @@
+// Known DIFF: the bootstrap rebinds a prelude name; the runtime panics
+// `unbound name` (section 10: prelude names count as imports).
+func main() {
+  print("start")
+  Math = 1
+  print(Math)
+}

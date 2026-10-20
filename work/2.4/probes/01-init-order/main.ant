@@ -1,0 +1,18 @@
+// A diamond (b and c both import d), d imported again directly, one file
+// imported twice in one module, and one file reached under three spellings.
+import "./b.ant" B
+import "./c.ant" C
+import "./d.ant" D
+import "./d.ant" { tick }
+import "./app/run.ant" App
+import "./lib/x.ant" X
+
+var started = tick("main")
+
+func main() {
+  print(B.started && C.started && D.started && App.started && started)
+  print(D == D)
+  print(App.x1() == X)
+  print(App.same())
+  print(tick == D.tick)
+}

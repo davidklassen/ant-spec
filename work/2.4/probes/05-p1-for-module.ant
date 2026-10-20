@@ -1,0 +1,6 @@
+import "./05-namespace-values/m.ant" M
+
+func main() {
+  print("start")
+  for x in M { print(x) }
+}

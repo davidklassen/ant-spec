@@ -1,0 +1,4 @@
+// the file geometry.ant exists; the import names it without the extension
+import "./geometry" G
+
+func main() { print(G.x) }

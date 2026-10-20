@@ -1,0 +1,3 @@
+export func tick(name: string): bool { print(name); true }
+
+export var started = tick("d")

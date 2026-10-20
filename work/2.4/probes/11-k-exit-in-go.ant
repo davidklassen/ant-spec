@@ -1,0 +1,6 @@
+func main() {
+  defer { print("main-defer") }
+  go { Os.exit(6) }
+  Time.sleep(2000)
+  print("never")
+}

@@ -1,0 +1,29 @@
+// Live imports and unchecked writes through them (G31): every reader sees
+// the exporter's current binding; a copy is a plain value.
+import "./counter.ant" { count, bump }
+import "./counter.ant" Counter
+import "./other.ant" Other
+
+func all(): Array[int] { [count, Counter.count, Counter.read(), Other.peek()] }
+
+func main() {
+  var copy = count
+  print(count)
+  bump()
+  print(all())
+  count = 5
+  print(all())
+  Counter.count = 6
+  print(all())
+  count += 1
+  print(all())
+  Counter.count += 1
+  print(all())
+  print(copy)
+  var f = bump
+  f()
+  print(count)
+  var g = Counter.bump
+  g()
+  print(Other.peek())
+}

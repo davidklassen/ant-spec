@@ -1,0 +1,12 @@
+func seq(yield: func(int): bool): void {
+  defer { print("seq-defer") }
+  yield(1)
+  yield(2)
+}
+
+func main() {
+  for x in seq {
+    print(x)
+    Os.exit(5)
+  }
+}

@@ -1,0 +1,8 @@
+// Known DIFF (as 16-reexport-through-namespace, destructured).
+import "./a.ant" { v, B }
+
+func main() {
+  print("start")
+  print(v)
+  print(B.w)
+}

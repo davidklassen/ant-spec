@@ -1,0 +1,13 @@
+import "./helper.ant" H
+
+export func main() {
+  defer { print("main-defer") }
+  print("start")
+  print(H.x)
+  var i = 0
+  while true {
+    i += 1
+    if i == 3 { print("returning"); return }
+  }
+  print("unreachable")
+}

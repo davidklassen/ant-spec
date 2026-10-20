@@ -1,0 +1,3 @@
+import "./c.ant" C
+
+export var w = 2

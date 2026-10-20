@@ -1,0 +1,8 @@
+import "../lib/x.ant" X1
+import "./../lib/x.ant" X2
+import "../lib/../lib/x.ant" X3
+
+export var started = X1.tick("app")
+
+export func x1() { X1 }
+export func same(): bool { X1 == X2 && X2 == X3 && Record.same(X1, X3) }

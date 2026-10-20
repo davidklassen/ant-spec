@@ -1,0 +1,9 @@
+// Known DIFF: the bootstrap rebinds a namespace import; the runtime panics
+// `cannot assign` (section 10: assigning to an import is a compile error).
+import "./a.ant" A
+
+func main() {
+  print("start")
+  A = 1
+  print(A)
+}

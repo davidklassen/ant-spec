@@ -1,0 +1,4 @@
+func main() {
+  defer { print("main-defer") }
+  print(Array.map([1, 2], { print(x); Os.exit(5); x }))
+}

@@ -1,0 +1,6 @@
+import "./a.ant" A
+import "./bad.ant" B
+
+var m = A.announce("main-init")
+
+func main() { print("main") }

@@ -1,0 +1,3 @@
+import "./nope.ant" N
+
+var x = 1

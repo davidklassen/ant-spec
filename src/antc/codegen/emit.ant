@@ -545,7 +545,13 @@ func unbound(fn: Fn, name: string): string {
   "ANT_VOID"
 }
 
-// A name written: a local, a module var, or an import (G31).
+// The store to something that is not an assignment target.
+func cannotAssign(fn: Fn): void {
+  emit(fn, `ant_panic("cannot assign"); goto ${exitOf(fn)};`)
+}
+
+// A name written: a local, a module var, or an import (G31). A namespace
+// import is bound but no target; a name nothing binds is unbound.
 func storeName(fn: Fn, name: string, expr: string): void {
   var v = lookup(fn, name)
   if v != null { return storeVar(fn, v, expr) }
@@ -553,6 +559,7 @@ func storeName(fn: Fn, name: string, expr: string): void {
   var idx = Map.get(m.nameIndex, name)
   if idx != null { return emit(fn, `ant_module_set(M_${m.index}, ${idx}, ${expr});`) }
   var b = Map.get(m.bindings, name)
+  if b != null && b.kind == "namespace" { return cannotAssign(fn) }
   if b != null && b.kind == "name" && b.field >= 0 {
     return emit(fn, `ant_module_set(M_${b.module}, ${b.field}, ${expr});`)
   }
@@ -896,7 +903,7 @@ func emitAssign(g: Gen, fn: Fn, e: Ast.Assign): string {
     emit(fn, `${chk(fn, `ant_index_set(${obj}, ${idx}, ${value})`)};`)
     return "ANT_VOID"
   }
-  emit(fn, `ant_panic("cannot assign"); goto ${exitOf(fn)};`)
+  cannotAssign(fn)
   "ANT_VOID"
 }
 

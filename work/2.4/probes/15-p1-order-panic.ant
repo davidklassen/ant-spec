@@ -1,0 +1,17 @@
+import "./15-stdout-order/a.ant" A
+import "./15-stdout-order/b.ant" B
+import "./15-stdout-order/c.ant" C
+
+var started = announce("main-init")
+
+func announce(s: string): bool { print(s); true }
+
+func main() {
+  print("main")
+  var i = 0
+  while i < 50 {
+    print(`line ${i}`)
+    i += 1
+  }
+  panic("end")
+}

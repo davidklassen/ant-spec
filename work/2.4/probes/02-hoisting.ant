@@ -1,0 +1,51 @@
+// Hoisting: functions and types used before their lines, mutual recursion,
+// a closure assigning a top-level var, destructuring at the top level,
+// defers in the blocks of an initializer, a function reading a later var
+// (G61) once init is over.
+var first = 1
+var second = addOne(first)
+var p = P{ a: 1 }
+type P = { a: int }
+var evenResult = isEven(10)
+var count = 0
+var inc = func() { count += 1 }
+var { a, b: c } = Q{ a: 10, b: 20 }
+type Q = { a: int, b: int }
+var blockValue = if true {
+  defer { print("if-defer") }
+  var i = 0
+  while i < 2 {
+    defer { print(`while-defer ${i}`) }
+    i += 1
+  }
+  for x in [1, 2] {
+    defer { print(`for-defer ${x}`) }
+    print(`for-body ${x}`)
+  }
+  print("if-body-end")
+  5
+} else { 0 }
+var afterBlocks = announce("after blocks")
+
+func addOne(n: int): int { n + 1 }
+func isEven(n: int): bool { if n == 0 { true } else { isOdd(n - 1) } }
+func isOdd(n: int): bool { if n == 0 { false } else { isEven(n - 1) } }
+func readsLater(): int { later }
+func announce(s: string): bool { print(s); true }
+
+var later = 7
+
+func main() {
+  print(second)
+  print(p.a)
+  print(evenResult)
+  inc()
+  inc()
+  inc()
+  print(count)
+  print([a, c])
+  print(readsLater())
+  print(blockValue)
+  print(p is P)
+  print(afterBlocks)
+}

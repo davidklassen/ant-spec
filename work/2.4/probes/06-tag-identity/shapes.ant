@@ -1,0 +1,5 @@
+export type Circle = { r: float64 }
+export type Square = { s: float64 }
+export type Shape = Circle | Square
+
+export func circle(r: float64): Circle { Circle{ r } }

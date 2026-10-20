@@ -1,0 +1,10 @@
+// Known DIFF: the bootstrap keeps a namespace import in the module's own
+// record, so A.B is a field read; the runtime's record has one field per
+// declaration (section 10: "There is no re-export").
+import "./a.ant" A
+
+func main() {
+  print("start")
+  print(A.v)
+  print(A.B.w)
+}

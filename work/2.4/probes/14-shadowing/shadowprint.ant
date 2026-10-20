@@ -1,0 +1,4 @@
+// The import wins over the prelude inside this module.
+import "./a.ant" { f: print }
+
+export func run(): void { print(1) }

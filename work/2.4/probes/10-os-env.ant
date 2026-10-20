@@ -1,0 +1,10 @@
+func main() {
+  print(Os.env("ANT_PROBE"))
+  print(Os.env("ANT_PROBE_UNSET_X"))
+  print(Os.env(""))
+  print(Os.env("PATH") != null)
+  print(Os.env(name: "ANT_PROBE"))
+  print(Os.env("ANT_PROBE") is string)
+  print(Os.env("ANT_PROBE_UNSET_X") ?? "default")
+  print(Os.env("ANT_PROBE") == "1")
+}

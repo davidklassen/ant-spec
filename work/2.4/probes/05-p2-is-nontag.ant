@@ -1,0 +1,6 @@
+import "./05-namespace-values/m.ant" M
+
+func main() {
+  print("start")
+  print(1 is M.counter)
+}

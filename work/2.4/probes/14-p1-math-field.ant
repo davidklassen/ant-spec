@@ -1,0 +1,6 @@
+import "./14-shadowing/m.ant" M
+
+func main() {
+  print("start")
+  print(M.pi())
+}

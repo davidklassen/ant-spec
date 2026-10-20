@@ -1,0 +1,4 @@
+
+import "./a.ant" A
+
+export var u = 3

@@ -1,0 +1,7 @@
+var a = announce("first")
+var b = if true { defer { print("never") }; Os.exit(3); 0 } else { 0 }
+var c = announce("third")
+
+func announce(s: string): bool { print(s); true }
+
+func main() { print("main") }

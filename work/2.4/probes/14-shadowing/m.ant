@@ -1,0 +1,5 @@
+// A top-level var named like a prelude namespace.
+var Math = 1
+
+export func mathIs(): int { Math }
+export func pi(): float64 { Math.PI }

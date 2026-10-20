@@ -1,0 +1,7 @@
+var { x } = later()
+var r = R{ x: 1 }
+type R = { x: int }
+
+func later(): R { print("later"); r }
+
+func main() { print(x) }

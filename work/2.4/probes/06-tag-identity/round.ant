@@ -1,0 +1,5 @@
+import "./shapes.ant" { Circle: Disc }
+
+export func isDisc(v: Disc | null): bool { v is Disc }
+export func disc(): Disc { Disc{ r: 2.0 } }
+export func discTag() { Disc }

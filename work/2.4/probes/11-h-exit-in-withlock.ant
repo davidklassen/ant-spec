@@ -1,0 +1,5 @@
+func main() {
+  var m = Mutex.new()
+  Mutex.withLock(m, func() { print("locked"); Os.exit(5) })
+  print("never")
+}

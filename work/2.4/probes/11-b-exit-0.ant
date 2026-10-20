@@ -1,0 +1,5 @@
+func main() {
+  print("x")
+  Os.exit(0)
+  print("never")
+}

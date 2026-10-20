@@ -1,0 +1,3 @@
+import "./counter.ant" { count }
+
+export func peek(): int { count }

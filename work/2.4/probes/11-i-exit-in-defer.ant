@@ -1,0 +1,5 @@
+func main() {
+  defer { print("outer-defer") }
+  defer { Os.exit(5) }
+  print("body")
+}

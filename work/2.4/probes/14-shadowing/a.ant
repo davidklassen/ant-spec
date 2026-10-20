@@ -1,0 +1,2 @@
+export func f(v: int): void { print(`a.f ${v}`) }
+export var x = "a.x"

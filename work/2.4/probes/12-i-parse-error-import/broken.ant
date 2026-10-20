@@ -1,0 +1,3 @@
+// a syntax error on line 3
+export var ok = 1
+export var bad = = 2

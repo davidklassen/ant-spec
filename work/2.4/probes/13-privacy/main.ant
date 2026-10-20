@@ -1,0 +1,11 @@
+// export is a checker rule: every field is readable at run time.
+import "./secrets.ant" S
+import "./secrets.ant" { secret, hidden, shown }
+
+func main() {
+  print(S.secret)
+  print(S.hidden())
+  print(secret)
+  print(hidden())
+  print([S.shown, shown])
+}

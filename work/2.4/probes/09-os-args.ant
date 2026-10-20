@@ -1,0 +1,11 @@
+func main() {
+  var args = Os.args()
+  print(Array.length(args))
+  for a in args { print(`[${a}]`) }
+  Array.push(args, "extra")
+  print(Array.length(Os.args()))
+  print(Os.args() == Os.args())
+  print(Os.args())
+  print(Os.args() == ["alpha", "b c", ""])
+  print(Array.same(Os.args(), Os.args()))
+}

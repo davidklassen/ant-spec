@@ -1,0 +1,26 @@
+// One tag under several names is one tag; same-named tags of two modules
+// are two tags.
+import "./shapes.ant" Shapes
+import "./shapes.ant" { Circle, Square }
+import "./round.ant" Round
+import "./other.ant" Other
+
+func main() {
+  print(Shapes.Circle == Circle)
+  print(Round.discTag() == Circle)
+  print(Shapes.Circle == Other.Circle)
+  print(Other.make() is Circle)
+  print(Other.make() is Other.Circle)
+  print(Round.isDisc(Shapes.circle(1.0)))
+  print(Round.isDisc(Other.make()))
+  print(Round.disc() is Shapes.Circle)
+  var a = Round.disc()
+  print(Record.same(a, a))
+  print(Record.same(Circle{ r: 2.0 }, Round.disc()))
+  print(Circle{ r: 2.0 } == Round.disc())
+  print(Other.make() == Circle{ r: 1.0 })
+  print(Shapes.Shape)
+  print(Shapes.circle(1.0) is Shapes.Shape)
+  print(Square)
+  print([Circle, Other.Circle])
+}

@@ -1,0 +1,4 @@
+// An imported module's `main` is an ordinary private function.
+export var x = 1
+
+func main() { panic("helper main ran") }

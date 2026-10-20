@@ -1,0 +1,3 @@
+import "./a.ant" A
+
+export var w = 2

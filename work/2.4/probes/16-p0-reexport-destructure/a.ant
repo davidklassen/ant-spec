@@ -1,0 +1,3 @@
+import "./b.ant" B
+
+export var v = 1

@@ -1,0 +1,9 @@
+func main() {
+  defer { print("main-defer") }
+  if true {
+    defer { print("block-defer") }
+    print("exiting")
+    Os.exit(9)
+  }
+  print("never")
+}

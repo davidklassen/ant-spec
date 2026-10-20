@@ -1,0 +1,6 @@
+var early = f()
+var late = 1
+
+func f(): int { print("f"); late }
+
+func main() { print("unreachable") }

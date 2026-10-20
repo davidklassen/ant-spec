@@ -1,0 +1,4 @@
+export var count = 0
+
+export func bump(): void { count += 1 }
+export func read(): int { count }

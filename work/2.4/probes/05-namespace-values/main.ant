@@ -1,0 +1,36 @@
+// A namespace as a value: rendering, equality, `is`, tags and functions
+// read through it, an empty module, a module with only a type.
+import "./m.ant" M
+import "./n.ant" N
+import "./eq1.ant" E1
+import "./eq2.ant" E2
+import "./empty.ant" E
+import "./onlytype.ant" OT
+
+func main() {
+  print(M)
+  print([M])
+  print(`<${M}>`)
+  print(String.from(M))
+  print(M == M)
+  print(M != M)
+  print(M == N)
+  print(E1 == E2)
+  print(E1 != E2)
+  print(M is Map)
+  print(M.Point)
+  var v = M.Point{ x: 1 }
+  print(v)
+  print(v is M.Point)
+  var g = M.f
+  print(g())
+  print(M.counter)
+  print(Map{ "k": M })
+  print(E)
+  print(E == E)
+  print(OT.T{ v: 2 })
+  print(OT.T{ v: 2 } is OT.T)
+  print(Array.map([1, 2], { M.counter + x }))
+  print(Record.same(M, M))
+  print(Record.same(M, N))
+}

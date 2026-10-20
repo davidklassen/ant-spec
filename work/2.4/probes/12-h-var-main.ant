@@ -1,0 +1,3 @@
+var main = { x }
+
+func helper(): int { 1 }

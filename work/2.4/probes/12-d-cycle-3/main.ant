@@ -1,0 +1,3 @@
+import "./a.ant" A
+
+func main() { print(A.v) }

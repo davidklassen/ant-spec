@@ -1,0 +1,12 @@
+import "./a.ant" A
+import "./b.ant" B
+import "./c.ant" C
+
+var started = announce("main-init")
+
+func announce(s: string): bool { print(s); true }
+
+func main() {
+  print("main")
+  print([A.v, B.v, C.v, started])
+}

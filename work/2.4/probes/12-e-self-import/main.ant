@@ -1,0 +1,3 @@
+import "./main.ant" Self
+
+func main() { print(Self) }

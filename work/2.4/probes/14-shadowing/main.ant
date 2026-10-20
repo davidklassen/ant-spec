@@ -1,0 +1,24 @@
+import "./m.ant" M
+import "./shadowprint.ant" SP
+import "./a.ant" { x }
+
+var x = "main.x"
+var top = 1
+
+func localPrint(): int {
+  var print = 1
+  print + 1
+}
+
+func param(top: int): int { top }
+
+func main() {
+  SP.run()
+  print(x)
+  print(M.mathIs())
+  print(Math.PI)
+  print(localPrint())
+  print(param(5))
+  print(top)
+  print(M.Math)
+}

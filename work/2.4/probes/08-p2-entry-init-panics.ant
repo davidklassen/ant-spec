@@ -1,0 +1,7 @@
+var a = announce("first")
+var b = panic("entry init")
+var c = announce("third")
+
+func announce(s: string): bool { print(s); true }
+
+func main() { print("main") }

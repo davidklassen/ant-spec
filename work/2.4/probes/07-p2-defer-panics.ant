@@ -1,0 +1,4 @@
+func main() {
+  defer { panic("in defer") }
+  print("body")
+}

@@ -1,0 +1,3 @@
+import "./d.ant" D
+
+export var started = D.tick("c")

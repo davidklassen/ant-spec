@@ -1,0 +1,6 @@
+var a = announce("first")
+var y = if true { continue } else { 0 }
+
+func announce(s: string): bool { print(s); true }
+
+func main() { print("main") }

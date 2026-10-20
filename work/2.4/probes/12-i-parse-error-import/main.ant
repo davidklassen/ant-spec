@@ -1,0 +1,3 @@
+import "./broken.ant" B
+
+func main() { print(B.ok) }

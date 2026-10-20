@@ -1,0 +1,7 @@
+import "./m.ant" { nope, yes }
+
+func main() {
+  print("loaded")
+  print(yes)
+  print(nope)
+}
