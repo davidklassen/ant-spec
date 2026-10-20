@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(String.repeat(1, -1))
+}

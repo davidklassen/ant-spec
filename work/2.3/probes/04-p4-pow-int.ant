@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Math.pow(2, 2.0))
+}

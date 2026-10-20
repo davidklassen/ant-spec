@@ -1,0 +1,8 @@
+func main() {
+  print("start")
+  var stage = Iter.map(Iter.range(0, 3), { x })
+  stage(func(v: int): bool {
+    print(v)
+    1
+  })
+}

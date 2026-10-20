@@ -169,7 +169,7 @@ static AntValue out_of_range(void) {
 }
 
 AntValue ant_convert(AntKind k, AntValue v) {
-  if (!ant_is_number(v.kind)) { ant_panic("wrong kind: expected a number"); return ANT_VOID; }
+  if (!ant_need_number(v)) return ANT_VOID;
   if (k == K_FLOAT64 || k == K_FLOAT32) {
     double d;
     if (v.kind == K_FLOAT64) d = v.as.f;
@@ -324,11 +324,16 @@ static bool need_f64(AntValue v) {
 
 static AntValue m_abs(AntFunc *self, int argc, AntValue *argv) {
   AntValue x = argv[0];
-  if (!ant_is_number(x.kind)) { ant_panic("wrong kind: expected a number"); return ANT_VOID; }
+  if (!ant_need_number(x)) return ANT_VOID;
   if (x.kind == K_FLOAT64) return ant_float(fabs(x.as.f));
   if (x.kind == K_FLOAT32) { x.as.f32 = fabsf(x.as.f32); return x; }
   if (x.kind >= K_UINT8 || x.as.i >= 0) return x;
   return ant_neg(x);
+}
+
+bool ant_need_number(AntValue v) {
+  if (!ant_is_number(v.kind)) { ant_panic("wrong kind: expected a number"); return false; }
+  return true;
 }
 
 bool ant_need_ordered(AntValue v) {

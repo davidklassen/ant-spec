@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(String.concat(["a", 1]))
+}

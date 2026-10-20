@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Bits.shiftRight(uint8(1), int8(1)))
+}

@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.concat([1], Map{}))
+}

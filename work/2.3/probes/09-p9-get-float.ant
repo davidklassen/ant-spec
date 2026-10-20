@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.get([1], 1.0))
+}

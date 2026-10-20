@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Iter.toArray(Iter.filter(Iter.range(0, 3), { 1 })))
+}

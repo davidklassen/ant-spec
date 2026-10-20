@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.map([1], 1))
+}

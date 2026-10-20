@@ -1,0 +1,5 @@
+type P = { a: int }
+func main() {
+  print("start")
+  print(Result.map(Ok{ value: 1 }, 1))
+}

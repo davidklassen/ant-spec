@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.sortWith([2, 1], func(a: int, b: int) { 1.0 }))
+}

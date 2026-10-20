@@ -1,0 +1,100 @@
+type K = { a: int }
+func main() {
+  var nan = 0.0 / 0.0
+  var m = Map{}
+  Map.set(m, nan, 1)
+  Map.set(m, nan, 2)
+  print(Map.size(m))
+  print(Map.get(m, nan))
+  print(Map.has(m, nan))
+  print(Map.remove(m, nan))
+  print(Map.size(m))
+  var n = Map{}
+  Map.set(n, null, "nil")
+  print(Map.get(n, null))
+  print(Map.has(n, null))
+  print(Map.entries(n))
+  print(Map.keys(n))
+  print(n)
+  var ak = Map{}
+  Map.set(ak, [1, 2], 1)
+  print(Map.get(ak, [1, 2]))
+  print(Map.has(ak, [1, 2, 3]))
+  var rk = Map{}
+  Map.set(rk, K{ a: 1 }, 7)
+  print(Map.get(rk, K{ a: 1 }))
+  print(Map.get(rk, K{ a: 2 }))
+  var mk = Map{}
+  Map.set(mk, Map{ 1: 2 }, 3)
+  print(Map.get(mk, Map{ 1: 2 }))
+  print(Map.get(mk, Map{ 1: 3 }))
+  var src = Map{ "a": 1, "b": 2 }
+  print(Map.fromEntries(Map.entries(src)) == src)
+  var merged = Map.merge(src, Map{})
+  print(merged == src)
+  print(Map.same(merged, src))
+  print(Map.merge(Map{ "a": 1 }, Map{ "a": 2, "b": 3 }) == Map{ "a": 2, "b": 3 })
+  var live = Map{ "a": 1 }
+  var mapped = Map.map(live, func(e: Entry[string, int]): int {
+    Map.set(live, "b", 2)
+    e.value * 10
+  })
+  print(mapped)
+  print(Map.size(live))
+  var live2 = Map{ "a": 1, "b": 2 }
+  var filtered = Map.filter(live2, func(e: Entry[string, int]): bool {
+    Map.remove(live2, "b")
+    e.value > 0
+  })
+  print(Map.size(filtered))
+  print(Map.size(live2))
+  var r = Map{ 1: "a", 2: "b", 3: "c" }
+  Map.remove(r, 2)
+  print(Array.sort(Map.keys(r)))
+  print(Array.sort(Map.values(r)))
+  Map.set(r, 2, "B")
+  print(Array.sort(Map.keys(r)))
+  var stored = Map{ "k": null }
+  print(Map.get(stored, "k"))
+  print(Map.has(stored, "k"))
+  print(Map.has(stored, "z"))
+  var rep = Map{ "k": 1 }
+  Map.set(rep, "k", 2)
+  print(Map.size(rep))
+  print(rep)
+  print(Map.remove(rep, "zz"))
+  print(Map.get(Map{ 1: "int" }, 1.0))
+  print(Map.get(Map{ 1: "int" }, int8(1)))
+  print(Map.get(Map{ "1": "str" }, 1))
+  print(Map.get(Map{ true: "b" }, true))
+  print(Map.isEmpty(Map{}))
+  print(Map.fromEntries([Entry{ key: 1, value: "a" }, Entry{ key: 1, value: "b" }]))
+  print(Map.fromEntries([K{ a: 1, key: "k", value: "v" }]))
+  print(Map.fromEntries([]))
+  print(Map.map(Map{}, { 1 }))
+  print(Map.map(Map{ "a": 1 }, { x.key + "!" }))
+  print(Map.filter(Map{ "a": 1 }, { false }))
+  print(Map.entries(Map{ "a": 1 }))
+  print(Map.entries(Map{ "a": 1 })[0] is Entry)
+  var entryless = Map.entries(Map{})
+  print(entryless)
+  print(Map{ 1: 1 } == Map{ 1.0: 1 })
+  print(Map{ 1: 1 } == Map{ 1: 1.0 })
+  var big = Map{}
+  var i = 0
+  while i < 1000 {
+    Map.set(big, i, i * i)
+    i += 1
+  }
+  var j = 0
+  while j < 1000 {
+    if j % 2 == 0 { Map.remove(big, j) }
+    j += 1
+  }
+  print(Map.size(big))
+  print(Map.get(big, 999))
+  print(Map.get(big, 998))
+  var total = 0
+  for e in big { total += e.value }
+  print(total)
+}

@@ -1,0 +1,15 @@
+func source(yield: func(int): bool): void {
+  defer { print("source defer") }
+  var i = 0
+  while i < 5 {
+    if !yield(i) { return }
+    i += 1
+  }
+}
+func main() {
+  print("start")
+  print(Iter.toArray(Iter.map(source, func(x: int): int {
+    if x == 1 { panic("boom") }
+    x
+  })))
+}

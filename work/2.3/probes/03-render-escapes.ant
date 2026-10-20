@@ -1,0 +1,24 @@
+type Empty = {}
+type Wrap = { s: string, inner: Map[string, Array[Map[int, string]]] }
+func main() {
+  var s = "a\\b\"c\nd\te\rf\u{1F600}g"
+  print(s)
+  print([s])
+  print(Map{ s: 1 })
+  print(Wrap{ s: s, inner: Map{ "k": [Map{ 1: "a" }] } })
+  print(["\u{0}"])
+  print([Empty{}, Empty{}])
+  print(String.from(`v=${Empty{}} ${[1, "x"]}`))
+  print(`${Map{ "a": [1.5, "s"] }}`)
+  print(int8(-128))
+  print(uint64(0) - uint64(0))
+  print([int8(-1), uint8(255), int16(-32768), uint16(65535), int32(-2147483648), uint32(4294967295)])
+  print(9223372036854775807)
+  print(-9223372036854775807 - 1)
+  print(Bits.not(uint64(0)))
+  print([null, void, true, false])
+  print(Map{})
+  print([[], Map{}, Empty{}])
+  print(["", " ", "`", "$", "'"])
+  print([1.0, -0.0, 1.0 / 0.0, -1.0 / 0.0, 0.0 / 0.0])
+}

@@ -1,0 +1,9 @@
+func main() {
+  var m = Mutex.new()
+  defer {
+    Mutex.lock(m)
+    print("relocked")
+    Mutex.unlock(m)
+  }
+  Mutex.withLock(m, { panic("inside") })
+}

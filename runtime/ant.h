@@ -151,8 +151,13 @@ void ant_sb_init(AntSb *sb);
 void ant_sb_append(AntSb *sb, const char *p, int64_t n);
 void ant_sb_append_cstr(AntSb *sb, const char *p);
 void ant_sb_append_str(AntSb *sb, AntValue s);
+void ant_sb_append_cp(AntSb *sb, int32_t cp);      /* as UTF-8 */
 AntValue ant_sb_finish(AntSb *sb);
 void ant_template_add(AntSb *sb, AntValue v);       /* appends ant_render(v) */
+
+/* unicase.c (generated): simple one-to-one case mappings, the input on a miss */
+int32_t ant_cp_upper(int32_t cp);
+int32_t ant_cp_lower(int32_t cp);
 
 /* number.c */
 AntValue ant_add(AntValue a, AntValue b);
@@ -169,6 +174,7 @@ AntValue ant_not(AntValue a);
 AntValue ant_convert(AntKind k, AntValue v);
 bool ant_less(AntValue a, AntValue b);      /* `<` as a C bool (sorting); the unwind flag reports panics */
 AntValue ant_conversion(const char *name, AntKind k);   /* the native `int8` ... `float64`, `int`, `byte` */
+bool ant_need_number(AntValue v);           /* a number, or `wrong kind` */
 bool ant_need_ordered(AntValue v);          /* a number or a string, or `wrong kind` */
 
 /* record.c */

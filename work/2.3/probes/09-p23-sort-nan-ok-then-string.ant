@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.sort([1.0, "a", 0.0]))
+}

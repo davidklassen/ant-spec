@@ -1,0 +1,90 @@
+type P = { v: int }
+func main() {
+  var xs = [1, 2, 3]
+  var mapped = Array.map(xs, func(x: int): int {
+    if x < 3 { Array.push(xs, x + 10) }
+    x * 2
+  })
+  print(mapped)
+  print(xs)
+  var ys = [1, 2, 3, 4]
+  var filtered = Array.filter(ys, func(x: int): bool {
+    Array.pop(ys)
+    x % 2 == 1
+  })
+  print(filtered)
+  print(ys)
+  var ps = [P{ v: 1 }, P{ v: 2 }]
+  var found = Array.find(ps, { x.v == 2 })
+  print(Record.same(found, ps[1]))
+  print(Array.find(ps, { x.v == 3 }))
+  print(Array.reduce([1, 2, 3], 10, func(acc: int, x: int): int { acc - x }))
+  print(Array.reduce([], "z", func(acc: string, x: string): string { acc + x }))
+  print(Array.map([1, 2], { print(x) }))
+  var calls = 0
+  print(Array.some([1, 2, 3, 4], func(x: int): bool {
+    calls += 1
+    x == 2
+  }))
+  print(calls)
+  calls = 0
+  print(Array.every([1, 2, 3, 4], func(x: int): bool {
+    calls += 1
+    x < 2
+  }))
+  print(calls)
+  print(Array.some([], { true }))
+  print(Array.every([], { false }))
+  var log: Array[int] = []
+  var sorted = Array.sortBy([3, 1, 2], func(x: int): int {
+    Array.push(log, x)
+    -x
+  })
+  print(sorted)
+  print(log)
+  print(Array.sortWith([3, 1, 2, 1], func(a: int, b: int): int { 0 }))
+  print(Array.sortWith([3, 1, 2], func(a: int, b: int): int { b - a }))
+  print(Array.sort([2.0, 1.0, 1.0]))
+  print(Array.sort(["b", "é", "a", "z", "Z", "ä", ""]))
+  print(Array.sort([int8(3), int8(-1), int8(2)]))
+  print(Array.sort([]))
+  print(Array.sort([uint8(200), uint8(100)]))
+  print(Array.sort([5, 3, 9, 1, 7, 2, 8, 6, 4, 0, 11, 10]))
+  var src = [2, 1]
+  var out = Array.sort(src)
+  print(src)
+  print(Array.same(src, out))
+  print(Array.sortBy([P{ v: 2 }, P{ v: 1 }], { x.v }))
+  print(Array.flatten([[1, [2]], [[3]], []]))
+  print(Array.flatten([]))
+  var filled = Array.filled(2, [])
+  Array.push(filled[0], 1)
+  print(filled)
+  print(Array.same(filled[0], filled[1]))
+  print(Array.filled(0, 1))
+  print(Array.range(-2, 1))
+  print(Array.range(3, 3))
+  print(Array.range(3, 1))
+  print(Array.sum([int8(1), int8(2)]) is int8)
+  print(Array.sum([int8(1), int8(2)]))
+  print(Array.sum([1.0, 2.0]))
+  print(Array.sum([]))
+  print(Array.sum([uint8(255)]))
+  print(Array.sum([float32(0.1), float32(0.2)]))
+  print(Array.sum([0.1, 0.2]))
+  print(Array.contains([1.0, 2.0], 2))
+  print(Array.contains([[1], [2]], [2]))
+  print(Array.indexOf([P{ v: 1 }, P{ v: 2 }], P{ v: 2 }))
+  print(Array.indexOf([1], 2))
+  print(Array.reverse([]))
+  print(Array.reverse([1, 2, 3]))
+  print(Array.entries(["a", "b"]))
+  print(Array.concat([], []))
+  print(Array.slice([1, 2, 3], 3, 3))
+  print(Array.get([1], -1))
+  print(Array.get([1], 1))
+  print(Array.pop([]))
+  var pushed = [1]
+  print(Array.push(pushed, 2))
+  print(pushed)
+}

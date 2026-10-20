@@ -1,0 +1,5 @@
+type P = { a: int }
+func main() {
+  print("start")
+  print(Result.mapErr(Err{ error: 1 }, func(a: int, b: int) { a }))
+}

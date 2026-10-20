@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.find([1], { null }))
+}

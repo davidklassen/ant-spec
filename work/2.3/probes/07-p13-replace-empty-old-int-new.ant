@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(String.replace("a", "", 1))
+}

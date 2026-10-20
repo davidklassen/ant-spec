@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Map.filter(Map{ 1: 1 }, { 1 }))
+}

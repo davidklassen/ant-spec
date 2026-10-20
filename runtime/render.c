@@ -22,15 +22,41 @@ static void active_push(Active *a, void *p) {
   a->items[a->n++] = p;
 }
 
+static bool reads_back(const char *buf, double x, bool f32) {
+  return f32 ? strtof(buf, NULL) == (float)x : strtod(buf, NULL) == x;
+}
+
+/* Replaces the mantissa of buf (d.ddde[+-]xx or de[+-]xx) by its successor at
+ * the same precision: the last digit plus one, carrying; when the carry runs
+ * off the front the mantissa becomes 1.00... and the exponent grows by one. */
+static void next_decimal(char *buf, size_t size) {
+  char *e = strchr(buf, 'e');
+  for (char *p = e - 1; ; p--) {
+    if (*p == '.') continue;
+    if (*p < '9') { (*p)++; return; }
+    *p = '0';
+    if (p == buf) {   /* every digit was 9: 9.99e+05 becomes 1.00e+06 */
+      *p = '1';
+      snprintf(e, size - (size_t)(e - buf), "e%+03d", atoi(e + 1) + 1);
+      return;
+    }
+  }
+}
+
 /* The shortest decimal digit string that reads back as x (x > 0, finite)
- * and the position n of the decimal point: x = 0.<digits> * 10^n. */
+ * and the position n of the decimal point: x = 0.<digits> * 10^n.
+ * At each precision the correctly rounded decimal is tried first; it is
+ * the nearest, but at a power of two the round-trip interval is asymmetric
+ * (narrower below), so the next decimal above it may read back when it
+ * does not. */
 static void shortest_digits(double x, bool f32, char *digits, int *n) {
   char buf[40];
   int maxp = f32 ? 9 : 17;
   for (int p = 1; p <= maxp; p++) {
     snprintf(buf, sizeof buf, "%.*e", p - 1, x);
-    bool back = f32 ? strtof(buf, NULL) == (float)x : strtod(buf, NULL) == x;
-    if (back || p == maxp) break;
+    if (reads_back(buf, x, f32) || p == maxp) break;
+    next_decimal(buf, sizeof buf);
+    if (reads_back(buf, x, f32)) break;
   }
   /* buf is d.ddde[+-]xx or de[+-]xx */
   char *e = strchr(buf, 'e');

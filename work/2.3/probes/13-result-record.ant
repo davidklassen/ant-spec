@@ -1,0 +1,37 @@
+type P = { a: int }
+func main() {
+  print(Result.map(Ok{ value: 1, extra: 2 }, { x + 1 }))
+  var ok = Ok{ value: 1 }
+  var mapped = Result.mapErr(ok, { x })
+  print(mapped)
+  print(Record.same(mapped, ok))
+  var err = Err{ error: "e" }
+  var mapped2 = Result.map(err, { x })
+  print(mapped2)
+  print(Record.same(mapped2, err))
+  print(Result.mapErr(err, { x + "!" }))
+  print(Result.mapErr(Err{ error: 1, more: 2 }, { x * 2 }))
+  print(Result.unwrapOr(Err{ error: 1 }, 5))
+  print(Result.unwrapOr(Ok{ value: 1 }, 5))
+  print(Result.unwrap(Ok{ value: "v" }))
+  print(Result.isOk(Ok{ value: 1 }))
+  print(Result.isOk(Err{ error: 1 }))
+  print(Result.ok(void))
+  print(Result.err(null))
+  print(Result.ok(1) == Ok{ value: 1 })
+  print(Result.ok(1) is Ok)
+  print(Result.err(1) is Err)
+  print(Record.same(P{ a: 1 }, P{ a: 1 }))
+  var p = P{ a: 1 }
+  print(Record.same(p, p))
+  print(Record.same(P{ a: 1 }, Ok{ value: 1 }))
+  print(Record.same(Ok{ value: 1 }, Err{ error: 1 }))
+  var e = Error{ message: "m" }
+  print(e)
+  print(Result.err(e))
+  print(Result.map(Ok{ value: 1 }, { print("in f") }))
+  print(Result.map(Ok{ value: 1 }, func(v: int): int { v + 41 }))
+  print(Result.unwrapOr(Err{ error: 1 }, null))
+  print(Entry{ key: 1, value: 2 })
+  print(Indexed{ index: 0, value: "a" })
+}

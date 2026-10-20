@@ -1,0 +1,5 @@
+func main() {
+  print("start")
+  var s = Iter.fromArray(Map{})
+  print("built")
+}

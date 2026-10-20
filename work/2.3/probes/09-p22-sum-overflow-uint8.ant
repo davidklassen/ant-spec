@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.sum([uint8(255), uint8(1)]))
+}

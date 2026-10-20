@@ -1,0 +1,5 @@
+func main() {
+  print("start")
+  var s = Iter.take(Iter.range(0, 1), -1)
+  print("built")
+}

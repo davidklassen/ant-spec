@@ -1,0 +1,33 @@
+func main() {
+  print(Array.slice([1, 2, 3], from: 1, to: 2))
+  print(Array.slice([1, 2, 3], 1, to: 3))
+  print(String.replace("banana", new: "x", old: "a"))
+  print(String.replace(s: "banana", old: "an", new: "AN"))
+  print([3, 1, 2] | Array.sort())
+  print([1, 2, 3] | Array.slice(1, 2))
+  print("a-b" | String.split("-"))
+  var f = Array.length
+  print(f([1, 2]))
+  var g = Math.abs
+  print(g(-3))
+  print(Math.PI > 3.14)
+  print(Math.abs)
+  print(Array.sort)
+  print(print)
+  print(Math.min(a: 1, b: 2))
+  print(Math.min(b: 1, a: 2))
+  print(Array.filled(v: "x", n: 2))
+  print(String.from(value: 1.5))
+  print(Iter.toArray(Iter.range(to: 3, from: 1)))
+  print(Array.map(f: { x * 2 }, xs: [1, 2]))
+  print(Result.unwrapOr(fallback: 9, r: Err{ error: 0 }))
+  print(Array.sum([1, 2]) ?? 0)
+  var ns = Array
+  print(ns.length([1]))
+  print(Array.range(0, 2) | Array.map({ x + 1 }) | Array.sum())
+  print(Math)
+  print(Array == Array)
+  print(String.length(s: "abc"))
+  print(Bits.shiftLeft(n: 2, a: 1))
+  print(Mutex.withLock(f: { 1 }, m: Mutex.new()))
+}

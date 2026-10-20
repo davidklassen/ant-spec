@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(String.slice("abc", 1.0, 2))
+}

@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(Array.slice("s", 1.0, 2))
+}

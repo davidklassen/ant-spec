@@ -19,7 +19,7 @@ static AntValue sync_new(const char *name, size_t size) {
 
 static void *need(AntValue v, const char *name) {
   if (v.kind != K_SYNC || ((AntSync *)v.as.p)->name != name) {
-    ant_panicf("wrong kind: expected a %s", name);
+    ant_panicf("wrong kind: expected a%s %s", name[0] == 'A' ? "n" : "", name);   /* "an Atomic" */
     return NULL;
   }
   return v.as.p;
@@ -269,13 +269,12 @@ static AntValue atomic_store(AntFunc *self, int argc, AntValue *argv) {
   return ANT_VOID;
 }
 
+/* Through `+` (section 12), so a delta of another kind is `kind mismatch`
+ * and an overflow `integer overflow`; returns the new value. */
 static AntValue atomic_add(AntFunc *self, int argc, AntValue *argv) {
   Atomic *a = need(argv[0], ATOMIC);
   if (!a) return ANT_VOID;
-  if (!ant_is_number(a->v.kind) || !ant_is_number(argv[1].kind) || a->v.kind != argv[1].kind) {
-    ant_panic("wrong kind: expected numbers of one kind");
-    return ANT_VOID;
-  }
+  if (!ant_need_number(argv[1]) || !ant_need_number(a->v)) return ANT_VOID;
   AntValue r = ant_add(a->v, argv[1]);
   if (ant_g->unwind.mode) return ANT_VOID;
   a->v = r;

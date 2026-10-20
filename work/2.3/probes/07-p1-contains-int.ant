@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(String.contains("a", 1))
+}

@@ -369,7 +369,7 @@ static AntValue a_sum(AntFunc *self, int argc, AntValue *argv) {
   ARR(argv[0], xs);
   if (xs->len == 0) return ANT_NULL;
   for (int64_t i = 0; i < xs->len; i++) {
-    if (!ant_is_number(xs->data[i].kind)) { ant_panic("wrong kind: expected a number"); return ANT_VOID; }
+    if (!ant_need_number(xs->data[i])) return ANT_VOID;
   }
   AntValue acc = xs->data[0];
   for (int64_t i = 1; i < xs->len; i++) {

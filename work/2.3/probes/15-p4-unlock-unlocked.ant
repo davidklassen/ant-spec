@@ -1,0 +1,9 @@
+func lockedRead(): RwMutex {
+  var rw = RwMutex.new()
+  RwMutex.readLock(rw)
+  rw
+}
+func main() {
+  print("start")
+  print(Mutex.unlock(Mutex.new()))
+}

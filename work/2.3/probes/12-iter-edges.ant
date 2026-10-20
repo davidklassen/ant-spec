@@ -1,0 +1,75 @@
+var runs = 0
+func counted(x: int): int {
+  runs += 1
+  x * 2
+}
+func source(yield: func(int): bool): void {
+  defer { print("source defer") }
+  var i = 0
+  while i < 5 {
+    if !yield(i) { return }
+    i += 1
+  }
+}
+func early(): int {
+  for v in source | Iter.map({ x + 1 }) | Iter.filter({ true }) | Iter.take(10) {
+    if v == 2 { return v * 100 }
+  }
+  0
+}
+func ignores(yield: func(int): bool): void {
+  yield(1)
+  yield(2)
+  yield(3)
+}
+func main() {
+  var s = Iter.range(0, 100) | Iter.map(counted) | Iter.take(3)
+  print(Iter.toArray(s))
+  print(runs)
+  print(Iter.toArray(s))
+  print(runs)
+  var touched = 0
+  var src = func(yield: func(int): bool): void {
+    touched += 1
+    yield(1)
+  }
+  print(Iter.toArray(Iter.take(src, 0)))
+  print(touched)
+  print(early())
+  print(Iter.toArray(ignores))
+  print(Iter.toArray(Iter.take(ignores, 1)))
+  var arr = [1, 2]
+  var fa = Iter.fromArray(arr)
+  var seen: Array[int] = []
+  for v in fa {
+    if v == 1 { Array.push(arr, 3) }
+    Array.push(seen, v)
+  }
+  print(seen)
+  var r = Iter.range(0, 3)
+  print(Iter.toArray(r))
+  print(Iter.toArray(r))
+  print(Iter.toArray(Iter.range(3, 0)))
+  print(Iter.toArray(Iter.filter(Iter.range(0, 10), { x % 3 == 0 })))
+  print(Iter.toArray(Iter.map(Iter.fromArray([]), { x })))
+  var ys: Array[int] = []
+  for v in Iter.range(0, 10) {
+    if v == 3 { break }
+    Array.push(ys, v)
+  }
+  print(ys)
+  var zs: Array[int] = []
+  for v in Iter.range(0, 5) {
+    if v % 2 == 0 { continue }
+    Array.push(zs, v)
+  }
+  print(zs)
+  print(Iter.toArray(Iter.take(Iter.range(0, 2), 5)))
+  var stage = Iter.map(Iter.range(0, 2), { x * 10 })
+  stage(func(v: int): bool {
+    print(v)
+    true
+  })
+  print(stage is func)
+  print(Iter.toArray(Iter.map(source, { x })))
+}

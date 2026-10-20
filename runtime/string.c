@@ -1,6 +1,5 @@
 /* Strings: immutable UTF-8 with the code point count computed once, a
  * builder, and the String namespace (section 11). */
-#include <ctype.h>
 #include <errno.h>
 #include <math.h>
 #include <stdlib.h>
@@ -154,6 +153,19 @@ void ant_sb_append_cstr(AntSb *sb, const char *p) {
 void ant_sb_append_str(AntSb *sb, AntValue s) {
   AntString *x = s.as.p;
   ant_sb_append(sb, x->data, x->nbytes);
+}
+
+/* Appends cp (a valid code point) as UTF-8: the lead byte of its length,
+ * then its six-bit groups from the top down. */
+void ant_sb_append_cp(AntSb *sb, int32_t cp) {
+  unsigned char b[4];
+  int n;
+  if (cp < 0x80) { b[0] = (unsigned char)cp; n = 1; }
+  else if (cp < 0x800) { b[0] = (unsigned char)(0xC0 | (cp >> 6)); n = 2; }
+  else if (cp < 0x10000) { b[0] = (unsigned char)(0xE0 | (cp >> 12)); n = 3; }
+  else { b[0] = (unsigned char)(0xF0 | (cp >> 18)); n = 4; }
+  for (int i = 1; i < n; i++) b[i] = (unsigned char)(0x80 | ((cp >> (6 * (n - 1 - i))) & 0x3F));
+  ant_sb_append(sb, (const char *)b, n);
 }
 
 AntValue ant_sb_finish(AntSb *sb) {
@@ -326,21 +338,23 @@ static AntValue s_replace(AntFunc *self, int argc, AntValue *argv) {
   return ant_sb_finish(&sb);
 }
 
-/* ASCII case mapping; other letters are left alone (a later step may widen this). */
-static AntValue case_map(AntValue v, int upper) {
+/* Simple one-to-one case mapping per code point (G36) through the generated
+ * tables of unicase.c; a code point without such a mapping stays. */
+static AntValue case_map(AntValue v, bool upper) {
   STR(v, s);
   AntSb sb;
   ant_sb_init(&sb);
-  for (int64_t i = 0; i < s->nbytes; i++) {
-    unsigned char c = (unsigned char)s->data[i];
-    char m = (char)(c < 0x80 ? (upper ? toupper(c) : tolower(c)) : c);
-    ant_sb_append(&sb, &m, 1);
+  int64_t i = 0;
+  while (i < s->nbytes) {
+    int32_t cp;
+    i += ant_utf8_decode(s->data + i, s->nbytes - i, &cp);
+    ant_sb_append_cp(&sb, upper ? ant_cp_upper(cp) : ant_cp_lower(cp));
   }
   return ant_sb_finish(&sb);
 }
 
-static AntValue s_to_upper(AntFunc *self, int argc, AntValue *argv) { return case_map(argv[0], 1); }
-static AntValue s_to_lower(AntFunc *self, int argc, AntValue *argv) { return case_map(argv[0], 0); }
+static AntValue s_to_upper(AntFunc *self, int argc, AntValue *argv) { return case_map(argv[0], true); }
+static AntValue s_to_lower(AntFunc *self, int argc, AntValue *argv) { return case_map(argv[0], false); }
 
 static AntValue s_chars(AntFunc *self, int argc, AntValue *argv) {
   STR(argv[0], s);

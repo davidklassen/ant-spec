@@ -1,0 +1,8 @@
+var once = Once.new()
+func main() {
+  defer {
+    Once.do(once, { print("second") })
+    print("done")
+  }
+  Once.do(once, { panic("first") })
+}

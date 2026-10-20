@@ -1,0 +1,4 @@
+func main() {
+  print("start")
+  print(print(1, 2))
+}
