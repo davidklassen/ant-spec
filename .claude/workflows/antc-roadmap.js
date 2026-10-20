@@ -23,6 +23,8 @@ const F31 = sec('smoke', 'lexical', 'variables', 'types') + ' --filter programs/
 const F32 = F31 + ' ' + sec('functions', 'expressions', 'stdlib')
 const F33 = F32 + ' ' + sec('nullability', 'errors', 'concurrency')
 
+const M2D = 'runtime/, src/antc/, Makefile, bootstrap/antpy/system.py'
+const OSEXEC = 'bootstrap/antpy/system.py is allowed for the Os.exec native only (ROADMAP.md, M2 introduction); nothing else under bootstrap/ may change.'
 const STEPS = {
   M0: [
     { id: '0.1', title: 'antpy-core', dirs: 'bootstrap/', accept: `${RUN} ${PY} ${RPU} ${F01}` },
@@ -39,14 +41,14 @@ const STEPS = {
     { id: '1.G', title: 'frontend gate', dirs: 'src/antc/, tools/compare_frontend.py', gate: true, accept: 'python3 -I tools/compare_frontend.py lex --all && python3 -I tools/compare_frontend.py parse --all' },
   ],
   M2: [
-    { id: '2.1', title: 'rt-core', dirs: 'runtime/, src/antc/, Makefile', accept: `${RUN} ${A0} ${RPU} ${F01}` },
-    { id: '2.2', title: 'rt-types-errors', dirs: 'runtime/, src/antc/, Makefile', accept: `${RUN} ${A0} ${RPU} ${sec('smoke', 'types', 'nullability', 'errors')}` },
-    { id: '2.3', title: 'rt-stdlib', dirs: 'runtime/, src/antc/, Makefile', accept: `${RUN} ${A0} ${RPU} ${sec('smoke', 'stdlib')}` },
-    { id: '2.4', title: 'rt-modules', dirs: 'runtime/, src/antc/, Makefile', accept: `${RUN} ${A0} ${RPU} --tier programs ${sec('smoke', 'modules')} --filter programs/ ${NOCONC}` },
-    { id: '2.5', title: 'self-host', dirs: 'runtime/, src/antc/, Makefile', accept: `make fixpoint && ${RUN} ${AN} ${RPU} --tier programs ${NOCONC}` },
-    { id: '2.6', title: 'rt-concurrency', dirs: 'runtime/, src/antc/, Makefile', accept: `make fixpoint && ${RUN} ${AN} ${RPU} --tier programs ${CONC}` },
-    { id: '2.7', title: 'rt-io', dirs: 'runtime/, src/antc/, Makefile', accept: `make fixpoint && ${RUN} ${AN} --tier io` },
-    { id: '2.G', title: 'runtime gate', dirs: 'runtime/, src/antc/, Makefile', gate: true, accept: `make fixpoint && ${RUN} ${AN} --consistency --tier run --tier panic --tier unchecked --tier programs --tier io` },
+    { id: '2.1', title: 'rt-core', dirs: M2D, note: OSEXEC, accept: `${RUN} ${A0} ${RPU} ${F01}` },
+    { id: '2.2', title: 'rt-types-errors', dirs: M2D, note: OSEXEC, accept: `${RUN} ${A0} ${RPU} ${sec('smoke', 'types', 'nullability', 'errors')}` },
+    { id: '2.3', title: 'rt-stdlib', dirs: M2D, note: OSEXEC, accept: `${RUN} ${A0} ${RPU} ${sec('smoke', 'stdlib')}` },
+    { id: '2.4', title: 'rt-modules', dirs: M2D, note: OSEXEC, accept: `${RUN} ${A0} ${RPU} --tier programs ${sec('smoke', 'modules')} --filter programs/ ${NOCONC}` },
+    { id: '2.5', title: 'self-host', dirs: M2D, note: OSEXEC, accept: `make fixpoint && ${RUN} ${AN} ${RPU} --tier programs ${NOCONC}` },
+    { id: '2.6', title: 'rt-concurrency', dirs: M2D, note: OSEXEC, accept: `make fixpoint && ${RUN} ${AN} ${RPU} --tier programs ${CONC}` },
+    { id: '2.7', title: 'rt-io', dirs: M2D, note: OSEXEC, accept: `make fixpoint && ${RUN} ${AN} --tier io` },
+    { id: '2.G', title: 'runtime gate', dirs: M2D, note: OSEXEC, gate: true, accept: `make fixpoint && ${RUN} ${AN} --consistency --tier run --tier panic --tier unchecked --tier programs --tier io` },
   ],
   M3: [
     { id: '3.1', title: 'check-core', dirs: 'src/antc/, Makefile', accept: `make fixpoint && ${RUN} ${CN} --tier check ${RPU} --tier programs ${F31}` },
@@ -100,7 +102,7 @@ Hard rules:
 - The acceptance command is the definition of done: it must exit 0 and its last line must report 0 failures. If a command may take longer than 10 minutes, run it in the background with output redirected to work/<step-id>/test.log and wait for it to finish.`
 
 const header = (step) => `Roadmap step ${step.id} "${step.title}" (see its row in ROADMAP.md). Allowed directories: ${step.dirs} (plus work/${step.id}/).
-Acceptance command (verbatim):
+${step.note ? step.note + '\n' : ''}Acceptance command (verbatim):
 ${step.accept}
 `
 
@@ -187,7 +189,7 @@ const results = []
 let blocked = null
 // The milestone-wide simplify pass reviews everything since the milestone began: the commit HEAD pointed at before this run's first step.
 const baseInfo = dryRun ? null : await agent(`In ${REPO} run 'git rev-parse HEAD' and return it.`, { schema: { type: 'object', properties: { head: { type: 'string' } }, required: ['head'] }, label: 'milestone base', effort: 'low' })
-const milestoneBase = baseInfo ? baseInfo.head.trim() : 'HEAD'
+const milestoneBase = (args && args.base) || (baseInfo ? baseInfo.head.trim() : 'HEAD')
 for (const step of steps) {
   const ph = `${step.id} ${step.title}`
   phase(ph)
@@ -212,10 +214,11 @@ for (const step of steps) {
   }
   for (let i = 0; i < maxIter && !green; i++, iter++) {
     let test
+    let impl = null
     if (step.gate && iter === 0) {
       test = await agent(tester(step), { schema: TEST, label: `test ${step.id} #${iter + 1}`, phase: ph })
     } else {
-      const impl = await agent(implementer(step, plan, feedback, iter), { schema: IMPL, label: `implement ${step.id} #${iter + 1}`, phase: ph })
+      impl = await agent(implementer(step, plan, feedback, iter), { schema: IMPL, label: `implement ${step.id} #${iter + 1}`, phase: ph })
       if (!impl) log(`   implementer returned nothing`)
       else if (impl.status !== 'green') log(`   implementer: ${impl.status}: ${impl.summary}`)
       test = await agent(tester(step), { schema: TEST, label: `test ${step.id} #${iter + 1}`, phase: ph })
@@ -226,6 +229,7 @@ for (const step of steps) {
         (test.failures.length ? `Failures:\n${test.failures.map(f => '- ' + f).join('\n')}\n` : '') +
         (test.scopeViolations.length ? `Scope violations (revert or justify):\n${test.scopeViolations.map(v => '- ' + v).join('\n')}\n` : '')
       log(`   red: ${test.summaryLine}`)
+      if (impl && impl.status === 'stuck') { iter++; log(`   implementer is stuck; ending this plan's rounds early`); break }
       continue
     }
     const review = await agent(reviewer(step, plan), { schema: REVIEW, label: `review ${step.id} #${iter + 1}`, phase: ph })
