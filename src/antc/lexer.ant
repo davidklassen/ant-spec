@@ -1,17 +1,24 @@
 // The antc lexer: source text to tokens (ant-lang.md section 2).
 //
-// It mirrors the Lexer of tools/antparse.py function by function, so that
+// It follows the Lexer of tools/antparse.py closely enough that
 // tools/compare_frontend.py can diff the two: the same tokens, and every
 // error at the position the reference reports it. Token values are the raw
 // source text; nothing is decoded here. The lexer walks the code points of
 // the source (String.chars), so columns count code points, and a token's
 // text is the join of its code points, which costs the same under every
 // runtime.
+//
+// Scanning and emitting are separate: a scanner steps over its lexeme and
+// says what kind it is, and `scanToken` emits the token from the mark it
+// took before dispatching. The newline rule is split between `lastContinues`
+// (the token before a newline) and `emit` (the token after it).
 
 export type Token = { kind: string, value: string, line: int, col: int, parts: Array[Part] }
 // One `${...}` body of a template: its position (just after the `${`) and raw text.
 export type Part = { line: int, col: int, text: string }
-export type LexError = { line: int, col: int, message: string }
+// The one diagnostic record of the package: the lexer, the parser and later
+// the checker report through it, and main.ant prints it as `path:line:col: message`.
+export type Diagnostic = { line: int, col: int, message: string }
 
 // Token kinds: OP KW IDENT INT FLOAT STRING TEMPLATE NEWLINE EOF.
 
@@ -23,6 +30,8 @@ type Lexer = {
   col: int,
   toks: Array[Token],
 }
+// Where a token starts.
+type Mark = { pos: int, line: int, col: int }
 
 var KEYWORDS = Map{
   "break": true, "continue": true, "defer": true, "else": true, "export": true,
@@ -40,76 +49,110 @@ var ENDING_KW = Map{
   "return": true, "break": true, "continue": true, "true": true, "false": true,
   "null": true, "void": true,
 }
+// Tokens that continue the previous line when they start one.
+var CONTINUING = Map{ ".": true, "?.": true, "|": true, "||": true, "else": true }
 var OPS2 = Map{
   "?.": true, "??": true, "==": true, "!=": true, "<=": true, ">=": true,
   "&&": true, "||": true, "+=": true, "-=": true, "*=": true, "/=": true, "%=": true,
 }
 var OPS1 = "+-*/%<>=!|.,:;()[]{}"
 
-// Lexes src, counting positions from (startLine, startCol): (1, 1) for a
-// file; the parser passes a part's position to lex a template body.
-export func tokenize(src: string, startLine: int, startCol: int): Result[Array[Token], LexError] {
+// Lexes src, counting positions from (1, 1).
+export func tokenize(src: string): Result[Array[Token], Diagnostic] {
   var chars = String.chars(src)
-  var lx = Lexer{ chars, n: Array.length(chars), pos: 0, line: startLine, col: startCol, toks: [] }
+  var lx = Lexer{ chars, n: Array.length(chars), pos: 0, line: 1, col: 1, toks: [] }
   while lx.pos < lx.n {
     var c = lx.chars[lx.pos]
-    if c == "\n" {
-      if !lastContinues(lx) && !nextLineContinues(lx) { emit(lx, "NEWLINE", "\n", lx.line, lx.col, []) }
-      advance(lx, 1)
-    } else if c == " " || c == "\t" || c == "\r" {
-      advance(lx, 1)
+    if c == " " || c == "\t" || c == "\r" {
+      step(lx)
     } else if c == "/" && peekc(lx, 1) == "/" {
-      while lx.pos < lx.n && lx.chars[lx.pos] != "\n" { advance(lx, 1) }
+      scanWhile(lx, { x != "\n" })
     } else if c == "/" && peekc(lx, 1) == "*" {
       try blockComment(lx)
-    } else if isDigit(c) {
-      try number(lx)
-    } else if isAlpha(c) || c == "_" {
-      try identifier(lx)
-    } else if c == "\"" {
-      try stringLit(lx)
-    } else if c == "`" {
-      try templateLit(lx)
     } else {
-      try operator(lx)
+      try scanToken(lx)
     }
   }
-  if Array.length(lx.toks) > 0 && lx.toks[Array.length(lx.toks) - 1].kind != "NEWLINE" {
-    emit(lx, "NEWLINE", "\n", lx.line, lx.col, [])
-  }
-  emit(lx, "EOF", "", lx.line, lx.col, [])
+  if Array.length(lx.toks) > 0 && !lastIs(lx, "NEWLINE") { emit(lx, "NEWLINE", "\n", mark(lx), []) }
+  emit(lx, "EOF", "", mark(lx), [])
   Result.ok(lx.toks)
+}
+
+// One token at the current position: a newline, or a lexeme scanned by its
+// class and emitted from the mark taken before it.
+func scanToken(lx: Lexer): Result[void, Diagnostic] {
+  var m = mark(lx)
+  var c = lx.chars[lx.pos]
+  if c == "\n" {
+    if !lastContinues(lx) { emit(lx, "NEWLINE", "\n", m, []) }
+    step(lx)
+    return Result.ok(void)
+  }
+  var parts: Array[Part] = []
+  var kind = if isDigit(c) { try number(lx) }
+    else if isAlpha(c) || c == "_" { try identifier(lx) }
+    else if c == "\"" { try stringLit(lx, m); "STRING" }
+    else if c == "`" { parts = try templateLit(lx, m); "TEMPLATE" }
+    else { try operator(lx); "OP" }
+  emit(lx, kind, text(lx, m.pos), m, parts)
+  Result.ok(void)
 }
 
 // --- state helpers
 
-// The code point at index i, or "" past the end.
-func charAt(lx: Lexer, i: int): string {
+// The code point k past the current one, or "" past the end.
+func peekc(lx: Lexer, k: int): string {
+  var i = lx.pos + k
   if i < lx.n { lx.chars[i] } else { "" }
 }
 
-func peekc(lx: Lexer, k: int): string {
-  charAt(lx, lx.pos + k)
+// One code point forward, tracking the line and column.
+func step(lx: Lexer): void {
+  if lx.pos < lx.n {
+    if lx.chars[lx.pos] == "\n" {
+      lx.line += 1
+      lx.col = 1
+    } else {
+      lx.col += 1
+    }
+    lx.pos += 1
+  }
 }
 
 func advance(lx: Lexer, k: int): void {
   var i = 0
   while i < k {
-    if lx.pos < lx.n {
-      if lx.chars[lx.pos] == "\n" {
-        lx.line += 1
-        lx.col = 1
-      } else {
-        lx.col += 1
-      }
-      lx.pos += 1
-    }
+    step(lx)
     i += 1
   }
 }
 
-func emit(lx: Lexer, kind: string, value: string, line: int, col: int, parts: Array[Part]): void {
-  Array.push(lx.toks, Token{ kind, value, line, col, parts })
+// Steps over the run of characters satisfying pred, which must be false for
+// "\n" (the column is bumped once for the run), and returns its length.
+func scanWhile(lx: Lexer, pred: func(string): bool): int {
+  var start = lx.pos
+  while lx.pos < lx.n && pred(lx.chars[lx.pos]) { lx.pos += 1 }
+  lx.col += lx.pos - start
+  lx.pos - start
+}
+
+func mark(lx: Lexer): Mark {
+  Mark{ pos: lx.pos, line: lx.line, col: lx.col }
+}
+
+// Whether the last token has this kind.
+func lastIs(lx: Lexer, kind: string): bool {
+  var count = Array.length(lx.toks)
+  count > 0 && lx.toks[count - 1].kind == kind
+}
+
+// Appends a token. A line that starts with `.`, `?.`, `|`, `||` or `else`
+// continues the previous one (section 2, Line endings), so such a token
+// takes the place of the NEWLINE emitted before it; no other kind of token
+// has one of those values.
+func emit(lx: Lexer, kind: string, value: string, m: Mark, parts: Array[Part]): void {
+  if Map.has(CONTINUING, value) && lastIs(lx, "NEWLINE") { Array.pop(lx.toks) }
+  Array.push(lx.toks, Token{ kind, value, line: m.line, col: m.col, parts })
 }
 
 // The source text from start up to the current position.
@@ -117,13 +160,14 @@ func text(lx: Lexer, start: int): string {
   String.concat(Array.slice(lx.chars, start, lx.pos))
 }
 
-func errAt(line: int, col: int, message: string): LexError {
-  LexError{ line, col, message }
+// An error at a token's start.
+func errAt(m: Mark, message: string): Diagnostic {
+  Diagnostic{ line: m.line, col: m.col, message }
 }
 
 // An error at the current position.
-func err(lx: Lexer, message: string): LexError {
-  errAt(lx.line, lx.col, message)
+func err(lx: Lexer, message: string): Diagnostic {
+  Diagnostic{ line: lx.line, col: lx.col, message }
 }
 
 // --- character classes (ASCII; each is false for "")
@@ -136,8 +180,10 @@ func isAlpha(c: string): bool {
   (c >= "a" && c <= "z") || (c >= "A" && c <= "Z")
 }
 
-func isAlnum(c: string): bool {
-  isDigit(c) || isAlpha(c)
+// A character that continues an identifier (the hot path: the ranges are
+// written out rather than composed from the two classes above).
+func isIdentChar(c: string): bool {
+  (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == "_"
 }
 
 func isHex(c: string): bool {
@@ -160,53 +206,23 @@ func lastContinues(lx: Lexer): bool {
   false
 }
 
-// Whether the next non-blank, non-comment line starts with . ?. | or else.
-func nextLineContinues(lx: Lexer): bool {
-  var i = lx.pos
-  while i < lx.n {
-    var c = lx.chars[i]
-    if c == " " || c == "\t" || c == "\r" || c == "\n" {
-      i += 1
-    } else if c == "/" && charAt(lx, i + 1) == "/" {
-      while i < lx.n && lx.chars[i] != "\n" { i += 1 }
-    } else if c == "/" && charAt(lx, i + 1) == "*" {
-      i += 2
-      while i < lx.n && !(lx.chars[i] == "*" && charAt(lx, i + 1) == "/") { i += 1 }
-      i = if i < lx.n { i + 2 } else { lx.n }
-    } else {
-      break
-    }
-  }
-  var a = charAt(lx, i)
-  var b = charAt(lx, i + 1)
-  if a == "." && b == "." && charAt(lx, i + 2) == "." { return false }
-  if a == "." || a == "|" || (a == "?" && b == ".") { return true }
-  if a == "e" && b == "l" && charAt(lx, i + 2) == "s" && charAt(lx, i + 3) == "e" {
-    var after = charAt(lx, i + 4)
-    return after == "" || !(isAlnum(after) || after == "_")
-  }
-  false
-}
-
-// --- scanners; each starts at the first character of its token
+// --- scanners; each starts at the first character of its lexeme and steps
+// over it, returning what the main loop needs to emit the token
 
 // At `/*`: skips to just after the closing `*/`.
-func blockComment(lx: Lexer): Result[void, LexError] {
-  var line = lx.line
-  var col = lx.col
+func blockComment(lx: Lexer): Result[void, Diagnostic] {
+  var m = mark(lx)
   advance(lx, 2)
   while !(peekc(lx, 0) == "*" && peekc(lx, 1) == "/") {
-    if peekc(lx, 0) == "" { return Result.err(errAt(line, col, "unterminated block comment")) }
-    advance(lx, 1)
+    if peekc(lx, 0) == "" { return Result.err(errAt(m, "unterminated block comment")) }
+    step(lx)
   }
   advance(lx, 2)
   Result.ok(void)
 }
 
-func number(lx: Lexer): Result[void, LexError] {
-  var start = lx.pos
-  var line = lx.line
-  var col = lx.col
+// The kind, INT or FLOAT.
+func number(lx: Lexer): Result[string, Diagnostic] {
   var kind = "INT"
   var prefix = peekc(lx, 1)
   if lx.chars[lx.pos] == "0" && (prefix == "x" || prefix == "b") {
@@ -216,72 +232,53 @@ func number(lx: Lexer): Result[void, LexError] {
     if d == "_" || (d != "" && !String.contains(digits, d)) {
       return Result.err(err(lx, "malformed number"))
     }
-    while d != "" && String.contains(digits, d) {
-      advance(lx, 1)
-      d = peekc(lx, 0)
-    }
+    scanWhile(lx, { String.contains(digits, x) })
   } else {
     decDigits(lx)
     if peekc(lx, 0) == "." && isDigit(peekc(lx, 1)) {
       kind = "FLOAT"
-      advance(lx, 1)
+      step(lx)
       decDigits(lx)
     }
     var e = peekc(lx, 0)
     if e == "e" || e == "E" {
       kind = "FLOAT"
-      advance(lx, 1)
+      step(lx)
       var sign = peekc(lx, 0)
-      if sign == "+" || sign == "-" { advance(lx, 1) }
+      if sign == "+" || sign == "-" { step(lx) }
       if !isDigit(peekc(lx, 0)) { return Result.err(err(lx, "malformed number")) }
       decDigits(lx)
     }
   }
   // A letter, digit or `_` glued to the number: 0o17, 1x, 0b12, 1.5f.
-  var nxt = peekc(lx, 0)
-  if nxt != "" && (isAlnum(nxt) || nxt == "_") { return Result.err(err(lx, "malformed number")) }
-  emit(lx, kind, text(lx, start), line, col, [])
-  Result.ok(void)
+  if isIdentChar(peekc(lx, 0)) { return Result.err(err(lx, "malformed number")) }
+  Result.ok(kind)
 }
 
 func decDigits(lx: Lexer): void {
-  var c = peekc(lx, 0)
-  while c != "" && (isDigit(c) || c == "_") {
-    advance(lx, 1)
-    c = peekc(lx, 0)
-  }
+  scanWhile(lx, { isDigit(x) || x == "_" })
 }
 
-func identifier(lx: Lexer): Result[void, LexError] {
+// The kind, KW or IDENT.
+func identifier(lx: Lexer): Result[string, Diagnostic] {
   var start = lx.pos
-  var line = lx.line
-  var col = lx.col
-  var c = peekc(lx, 0)
-  while c != "" && (isAlnum(c) || c == "_") {
-    advance(lx, 1)
-    c = peekc(lx, 0)
-  }
+  scanWhile(lx, isIdentChar)
   var word = text(lx, start)
   // Both errors are reported after the word, as the reference does.
   if Map.has(RESERVED, word) { return Result.err(err(lx, `reserved word '${word}'`)) }
   if word == "_" { return Result.err(err(lx, "'_' is not an identifier")) }
-  var kind = if Map.has(KEYWORDS, word) { "KW" } else { "IDENT" }
-  emit(lx, kind, word, line, col, [])
-  Result.ok(void)
+  Result.ok(if Map.has(KEYWORDS, word) { "KW" } else { "IDENT" })
 }
 
-func operator(lx: Lexer): Result[void, LexError] {
+func operator(lx: Lexer): Result[void, Diagnostic] {
   var c = lx.chars[lx.pos]
   var two = c + peekc(lx, 1)
   if two + peekc(lx, 2) == "..." {
-    emit(lx, "OP", "...", lx.line, lx.col, [])
     advance(lx, 3)
   } else if Map.has(OPS2, two) {
-    emit(lx, "OP", two, lx.line, lx.col, [])
     advance(lx, 2)
   } else if String.contains(OPS1, c) {
-    emit(lx, "OP", c, lx.line, lx.col, [])
-    advance(lx, 1)
+    step(lx)
   } else {
     return Result.err(err(lx, `unexpected character '${c}'`))
   }
@@ -290,102 +287,86 @@ func operator(lx: Lexer): Result[void, LexError] {
 
 // At a backslash, in a string or a template: validates the escape and steps
 // over it. The value of a \u{...} escape is not checked here.
-func escape(lx: Lexer): Result[void, LexError] {
-  advance(lx, 1)
+func escape(lx: Lexer): Result[void, Diagnostic] {
+  step(lx)
   var c = peekc(lx, 0)
   if c == "n" || c == "t" || c == "r" || c == "\\" || c == "\"" || c == "`" || c == "$" {
-    advance(lx, 1)
+    step(lx)
   } else if c == "u" && peekc(lx, 1) == "{" {
     advance(lx, 2)
-    var count = 0
-    while isHex(peekc(lx, 0)) {
-      advance(lx, 1)
-      count += 1
-    }
+    var count = scanWhile(lx, isHex)
     if count == 0 || peekc(lx, 0) != "}" { return Result.err(err(lx, "bad \\u escape")) }
-    advance(lx, 1)
+    step(lx)
   } else {
     return Result.err(err(lx, `bad escape '\\${c}'`))
   }
   Result.ok(void)
 }
 
-// At `"`: a plain string stays on one line.
-func stringLit(lx: Lexer): Result[void, LexError] {
-  var start = lx.pos
-  var line = lx.line
-  var col = lx.col
-  advance(lx, 1)
+// At `"`, marked at m: a plain string stays on one line.
+func stringLit(lx: Lexer, m: Mark): Result[void, Diagnostic] {
+  step(lx)
   while lx.pos < lx.n {
     var c = lx.chars[lx.pos]
     if c == "\n" { break }
     if c == "\"" {
-      advance(lx, 1)
-      emit(lx, "STRING", text(lx, start), line, col, [])
+      step(lx)
       return Result.ok(void)
     }
-    if c == "\\" { try escape(lx) } else { advance(lx, 1) }
+    if c == "\\" { try escape(lx) } else { step(lx) }
   }
-  Result.err(errAt(line, col, "unterminated string"))
+  Result.err(errAt(m, "unterminated string"))
 }
 
-// At a backtick: a template may span lines and holds `${...}` parts.
-func templateLit(lx: Lexer): Result[void, LexError] {
-  var start = lx.pos
-  var line = lx.line
-  var col = lx.col
+// At a backtick, marked at m: a template may span lines and holds `${...}`
+// parts, which are returned.
+func templateLit(lx: Lexer, m: Mark): Result[Array[Part], Diagnostic] {
   var parts: Array[Part] = []
-  advance(lx, 1)
+  step(lx)
   while lx.pos < lx.n {
     var c = lx.chars[lx.pos]
     if c == "`" {
-      advance(lx, 1)
-      emit(lx, "TEMPLATE", text(lx, start), line, col, parts)
-      return Result.ok(void)
+      step(lx)
+      return Result.ok(parts)
     }
     if c == "\\" {
       try escape(lx)
     } else if c == "$" && peekc(lx, 1) == "{" {
       advance(lx, 2)
-      var part = try embedded(lx)
-      Array.push(parts, part)
+      Array.push(parts, try embedded(lx))
     } else {
-      advance(lx, 1)
+      step(lx)
     }
   }
-  Result.err(errAt(line, col, "unterminated template string"))
+  Result.err(errAt(m, "unterminated template string"))
 }
 
 // Just after `${`: scans the body to its matching `}`. Only braces, strings
 // and nested templates are structural here; a nested template's own parts
 // are dropped, since the parser lexes the body again.
-func embedded(lx: Lexer): Result[Part, LexError] {
-  var start = lx.pos
-  var line = lx.line
-  var col = lx.col
+func embedded(lx: Lexer): Result[Part, Diagnostic] {
+  var m = mark(lx)
   var depth = 0
   while lx.pos < lx.n {
     var c = lx.chars[lx.pos]
     if c == "{" {
       depth += 1
-      advance(lx, 1)
+      step(lx)
     } else if c == "}" {
       if depth == 0 {
-        var body = text(lx, start)
-        advance(lx, 1)
-        return Result.ok(Part{ line, col, text: body })
+        var body = text(lx, m.pos)
+        step(lx)
+        return Result.ok(Part{ line: m.line, col: m.col, text: body })
       }
       depth -= 1
-      advance(lx, 1)
+      step(lx)
     } else if c == "\"" {
-      try stringLit(lx)
-      Array.pop(lx.toks)
+      try stringLit(lx, mark(lx))
     } else if c == "`" {
-      try templateLit(lx)
-      Array.pop(lx.toks)
+      try templateLit(lx, mark(lx))
     } else {
-      advance(lx, 1)
+      step(lx)
     }
   }
-  Result.err(errAt(line, col, "unterminated ${ in template string"))
+  Result.err(errAt(m, "unterminated ${ in template string"))
 }

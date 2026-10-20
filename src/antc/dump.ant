@@ -1,16 +1,34 @@
-// The S-expression dump of an AST, shared with tools/compare_frontend.py,
-// which renders the reference parser's tuples in the same form:
+// The two dumps shared with tools/compare_frontend.py, which renders the
+// reference lexer's tokens and parser's tuples in the same forms.
 //
-//   nil for null; strings quoted with `\` `"` LF CR escaped (in that order,
-//   nothing else); lists as [a b ...]; nodes as (Kind child ...), where the
-//   reference's untagged tuples (import items, destructure fields, type
-//   parameters, parameters, record-type fields) print their name bare.
+// Token dump, one token per line:
 //
+//   <line>:<col> <KIND> <value>    the value is left out when empty (EOF)
+//     part <line>:<col> <text>     one per ${...} body, after its TEMPLATE
+//
+// with `\`, LF and CR escaped as `\\`, `\n`, `\r` and nothing else.
+//
+// AST dump, an S-expression: nil for null; strings quoted, with `"` escaped
+// on top of the token escapes; lists as [a b ...]; nodes as (Kind child ...),
+// where the reference's untagged tuples (import items, destructure fields,
+// type parameters, parameters, record-type fields) print their name bare.
 // The File node is the only multi-line one: `(File`, `  [`, one import per
 // line, `  ]`, `  [`, one declaration per line, `  ]`, `)`.
+import "./lexer.ant" Lex
 import "./ast.ant" Ast
 
-// The whole dump, without a trailing newline.
+// The token dump, without a trailing newline.
+export func tokens(toks: Array[Lex.Token]): string {
+  var lines: Array[string] = []
+  for t in toks {
+    var head = `${t.line}:${t.col} ${t.kind}`
+    Array.push(lines, if t.value == "" { head } else { `${head} ${esc(t.value)}` })
+    for p in t.parts { Array.push(lines, `  part ${p.line}:${p.col} ${esc(p.text)}`) }
+  }
+  String.join(lines, "\n")
+}
+
+// The whole AST dump, without a trailing newline.
 export func module(m: Ast.Module): string {
   var lines: Array[string] = ["(File", "  ["]
   for i in m.imports { Array.push(lines, "    " + importDecl(i)) }
@@ -22,13 +40,14 @@ export func module(m: Ast.Module): string {
   String.join(lines, "\n")
 }
 
+// Backslashes, newlines and carriage returns escaped so a value stays on one line.
+func esc(s: string): string {
+  s | String.replace("\\", "\\\\") | String.replace("\n", "\\n") | String.replace("\r", "\\r")
+}
+
+// A quoted string: the token escapes, then the quote itself.
 func quote(s: string): string {
-  var text = s
-    | String.replace("\\", "\\\\")
-    | String.replace("\"", "\\\"")
-    | String.replace("\n", "\\n")
-    | String.replace("\r", "\\r")
-  `"${text}"`
+  `"${String.replace(esc(s), "\"", "\\\"")}"`
 }
 
 func list(xs: Array[string]): string {
@@ -40,8 +59,9 @@ func strs(xs: Array[string]): string {
   list(Array.map(xs, quote))
 }
 
-func opt(s: string | null): string {
-  s ?? "nil"
+// x rendered, or nil when it is null.
+func orNil[T](x: T | null, render: func(T): string): string {
+  if x == null { "nil" } else { render(x) }
 }
 
 // --- imports and declarations
@@ -55,8 +75,7 @@ func importDecl(i: Ast.Import): string {
 }
 
 func alias(a: Ast.Alias): string {
-  var local = a.alias
-  `(${a.name} ${if local == null { "nil" } else { quote(local) }})`
+  `(${a.name} ${orNil(a.alias, quote)})`
 }
 
 func decl(d: Ast.Decl): string {
@@ -76,19 +95,19 @@ func exported(flag: bool, text: string): string {
 }
 
 func varDecl(v: Ast.VarDecl): string {
-  `(Var ${target(v.target)} ${optTyp(v.typ)} ${expr(v.value)})`
+  `(Var ${target(v.target)} ${orNil(v.typ, typ)} ${expr(v.value)})`
 }
 
 func tparam(p: Ast.TypeParam): string {
-  `(${p.name} ${optTyp(p.bound)})`
+  `(${p.name} ${orNil(p.bound, typ)})`
 }
 
 func param(p: Ast.Param): string {
-  `(${p.name} ${typ(p.typ)} ${optExpr(p.default)})`
+  `(${p.name} ${typ(p.typ)} ${orNil(p.default, expr)})`
 }
 
 func signature(params: Array[Ast.Param], ret: Ast.TypeExpr | null): string {
-  `(${list(Array.map(params, param))} ${optTyp(ret)})`
+  `(${list(Array.map(params, param))} ${orNil(ret, typ)})`
 }
 
 func target(t: Ast.Target): string {
@@ -112,7 +131,7 @@ func fieldType(f: Ast.FieldType): string {
 }
 
 func ftParam(p: Ast.FtParam): string {
-  `(${opt(p.name)} ${typ(p.typ)})`
+  `(${p.name ?? "nil"} ${typ(p.typ)})`
 }
 
 // --- statements and expressions
@@ -123,14 +142,6 @@ func block(b: Ast.Block): string {
 
 func stmt(s: Ast.Stmt): string {
   if s is Ast.VarDecl { varDecl(s) } else { expr(s) }
-}
-
-func optExpr(e: Ast.Expr | null): string {
-  if e == null { "nil" } else { expr(e) }
-}
-
-func optTyp(t: Ast.TypeExpr | null): string {
-  if t == null { "nil" } else { typ(t) }
 }
 
 func expr(e: Ast.Expr): string {
@@ -160,7 +171,7 @@ func expr(e: Ast.Expr): string {
   else if e is Ast.For { `(For ${target(e.target)} ${expr(e.iter)} ${block(e.body)})` }
   else if e is Ast.Go { `(Go ${block(e.body)})` }
   else if e is Ast.Defer { `(Defer ${block(e.body)})` }
-  else if e is Ast.Return { `(Return ${optExpr(e.value)})` }
+  else if e is Ast.Return { `(Return ${orNil(e.value, expr)})` }
   else if e is Ast.Break { "(Break)" }
   else if e is Ast.Continue { "(Continue)" }
   else if e is Ast.Lambda { `(Lambda ${list(Array.map(e.stmts, stmt))})` }
@@ -172,11 +183,12 @@ func expr(e: Ast.Expr): string {
 }
 
 func ifExpr(e: Ast.If): string {
-  var otherwise = e.otherwise
-  var tail = if otherwise == null { "nil" }
-    else if otherwise is Ast.If { ifExpr(otherwise) }
-    else { block(otherwise) }
-  `(If ${expr(e.cond)} ${block(e.then)} ${tail})`
+  `(If ${expr(e.cond)} ${block(e.then)} ${orNil(e.otherwise, elseBranch)})`
+}
+
+// An else branch: another if, or a block.
+func elseBranch(b: Ast.Block | Ast.If): string {
+  if b is Ast.If { ifExpr(b) } else { block(b) }
 }
 
 func arg(a: Ast.Arg): string {

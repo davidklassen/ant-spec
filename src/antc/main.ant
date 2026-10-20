@@ -1,6 +1,6 @@
 // antc: the Ant compiler (ROADMAP.md). Command line:
 //
-//   antc lex FILE              one token per line on stdout (see dump below)
+//   antc lex FILE              one token per line on stdout (see dump.ant)
 //   antc parse [--dump] FILE   exit 0 when FILE parses; --dump prints the AST
 //                              as the S-expression of dump.ant
 //
@@ -27,52 +27,29 @@ func main() {
 
 // The file's text, or a diagnostic at 1:1 and exit 1.
 func readSource(path: string): string {
-  var read = File.read(path)
-  if read is Ok { read.value } else {
-    report(path, 1, 1, read.error.message)
-    Os.exit(1)
-  }
+  orExit(path, Result.mapErr(File.read(path), { Lex.Diagnostic{ line: 1, col: 1, message: x.message } }))
 }
 
 func lexCommand(path: string): void {
-  var lexed = Lex.tokenize(readSource(path), 1, 1)
-  var toks = if lexed is Ok { lexed.value } else {
-    report(path, lexed.error.line, lexed.error.col, lexed.error.message)
-    Os.exit(1)
-  }
-  dump(toks)
+  print(Dump.tokens(orExit(path, Lex.tokenize(readSource(path)))))
 }
 
 func parseCommand(path: string, withDump: bool): void {
-  var parsed = Parser.parse(readSource(path))
-  var m = if parsed is Ok { parsed.value } else {
-    report(path, parsed.error.line, parsed.error.col, parsed.error.message)
-    Os.exit(1)
-  }
+  var m = orExit(path, Parser.parse(readSource(path)))
   if withDump { print(Dump.module(m)) }
 }
 
-// The token dump shared with tools/compare_frontend.py:
-//   <line>:<col> <KIND> <value>    the value is left out when empty (EOF)
-//     part <line>:<col> <text>     one per ${...} body, after its TEMPLATE
-func dump(toks: Array[Lex.Token]): void {
-  for t in toks {
-    var head = `${t.line}:${t.col} ${t.kind}`
-    print(if t.value == "" { head } else { `${head} ${esc(t.value)}` })
-    for p in t.parts {
-      print(`  part ${p.line}:${p.col} ${esc(p.text)}`)
-    }
+// The value of r, or its diagnostic reported for path and exit 1.
+func orExit[T](path: string, r: Result[T, Lex.Diagnostic]): T {
+  if r is Ok { r.value } else {
+    report(path, r.error)
+    Os.exit(1)
   }
 }
 
-// Backslashes, newlines and carriage returns escaped so a token stays on one line.
-func esc(s: string): string {
-  s | String.replace("\\", "\\\\") | String.replace("\n", "\\n") | String.replace("\r", "\\r")
-}
-
 // The one diagnostic form: path:line:col: message, on stderr.
-func report(path: string, line: int, col: int, message: string): void {
-  eprint(`${path}:${line}:${col}: ${message}`)
+func report(path: string, d: Lex.Diagnostic): void {
+  eprint(`${path}:${d.line}:${d.col}: ${d.message}`)
 }
 
 func eprint(text: string): void {

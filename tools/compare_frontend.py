@@ -30,7 +30,7 @@ newline, `\\r` for a carriage return, nothing else.
 AST dump, an S-expression of the reference's tuple tree:
 
     None            nil
-    string          quoted: `\\` `\"` `\\n` `\\r` escaped (in that order), nothing else
+    string          quoted, with `\"` escaped on top of the lex escapes above
     list            [a b ...]
     tuple           (head b ...) where the head is printed bare when it is a
                     string: the node kind of a tagged node, and the name that
@@ -108,7 +108,7 @@ def lex_dump(toks):
 
 
 def quote(s):
-    return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r") + '"'
+    return '"' + esc(s).replace('"', '\\"') + '"'
 
 
 def sexpr(node):
