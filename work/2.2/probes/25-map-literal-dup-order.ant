@@ -1,0 +1,7 @@
+func main() {
+  var m = Map{ a: 1, b: 2, a: 3 }
+  var ks = Map.keys(m)
+  print(ks)
+  print(Map.values(m))
+  for e in m { print(e) }
+}

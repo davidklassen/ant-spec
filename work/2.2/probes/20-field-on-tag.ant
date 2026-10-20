@@ -1,0 +1,5 @@
+type Point = { x: float64 }
+func main() {
+  print("before")
+  print(Point.x)
+}

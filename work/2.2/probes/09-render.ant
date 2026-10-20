@@ -1,0 +1,26 @@
+type Point = { x: float64, y: float64 }
+type Node = { v: int, next: Node | null }
+type Empty = {}
+func main() {
+  print([["a\"b\n\t\\c"]])
+  print(Map{ "k": [1, "s"] })
+  print(Point{ x: -0.0, y: 1e21 })
+  print([1.5e-7, 123456789.0, 0.1, 100.0, 1e-7, 1.0e300, float32(0.1), float32(16777216.0)])
+  print([int8(-5), Bits.not(uint64(0)), uint8(255)])
+  print([Point, print, Mutex.new(), null, void, true])
+  var xs: Array[Array[int] | int] = [1]
+  Array.push(xs, xs)
+  print(xs)
+  var n = Node{ v: 1, next: null }
+  n.next = n
+  print(n)
+  var m: Map[string, Map[string, int] | int] = Map{}
+  m["self"] = m
+  print(m)
+  print(Empty{})
+  print(Map{})
+  print([])
+  print(`${"str"} ${[1]} ${Point{ x: 1.0, y: 2.0 }} ${0.0 / 0.0} ${-1.0 / 0.0}`)
+  print(String.from("bare"))
+  print(String.from(["q"]))
+}

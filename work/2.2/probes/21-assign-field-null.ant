@@ -1,0 +1,6 @@
+func main() {
+  var p: Point | null = null
+  print("before")
+  p.x = 1.0
+}
+type Point = { x: float64 }

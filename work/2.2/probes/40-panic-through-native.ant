@@ -1,0 +1,2 @@
+func f() { defer { print("d") }; Array.map([1], { panic("in map") }) }
+func main() { defer { print("m") }; print("before"); f() }

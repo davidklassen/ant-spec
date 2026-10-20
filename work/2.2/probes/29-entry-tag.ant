@@ -1,0 +1,5 @@
+func main() {
+  var m = Map{ k: 1 }
+  for e in m { print(e == Entry{ key: "k", value: 1 }); print(e is Entry); print(e) }
+  for e in Array.entries(["a"]) { print(e == Indexed{ index: 0, value: "a" }); print(e) }
+}

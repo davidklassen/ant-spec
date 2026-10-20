@@ -1,0 +1,36 @@
+type Point = { x: float64, y: float64 }
+func main() {
+  var a: Array[Array[int] | int] = [1]
+  Array.push(a, a)
+  var b: Array[Array[int] | int] = [1]
+  Array.push(b, b)
+  print(a == b)
+  var c: Array[Array[int] | int] = [2]
+  Array.push(c, c)
+  print(a == c)
+  var nan = 0.0 / 0.0
+  print([nan] == [nan])
+  print(Map{ a: 1, b: 2 } == Map{ b: 2, a: 1 })
+  print(Map{ a: 1 } == Map{ a: 1, b: 2 })
+  print(Ok{ value: 1 } == Result.ok(1))
+  print(Point{ x: 1.0, y: 2.0 } == Point{ y: 2.0, x: 1.0 })
+  print(1 == 1.0)
+  print(int8(1) == 1)
+  print(float32(1.0) == 1.0)
+  print(null == void)
+  print(print == print)
+  var f = { x }
+  var g = { x }
+  print(f == g)
+  print(-0.0 == 0.0)
+  var m: Map[float64, int] = Map{}
+  m[-0.0] = 1
+  print(m[0.0])
+  var k: Map[Point, int] = Map{}
+  k[Point{ x: 1.0, y: 2.0 }] = 5
+  print(k[Point{ y: 2.0, x: 1.0 }])
+  var e: Map[Array[int], int] = Map{}
+  e[[1, 2]] = 3
+  print(e[[1, 2]])
+  print(Map.has(e, [2, 1]))
+}

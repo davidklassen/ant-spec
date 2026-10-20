@@ -1,0 +1,5 @@
+func f(): int { defer { panic("d") }; return 1 }
+func main() {
+  print("before")
+  print(f())
+}

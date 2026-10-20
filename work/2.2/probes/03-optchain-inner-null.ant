@@ -1,0 +1,7 @@
+type Addr = { city: string }
+type User = { name: string, address: Addr | null }
+func main() {
+  var u: User | null = User{ name: "ada", address: null }
+  print("before")
+  print(u?.address.city)
+}

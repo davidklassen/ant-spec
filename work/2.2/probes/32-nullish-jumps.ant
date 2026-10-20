@@ -1,0 +1,6 @@
+func main() {
+  for x in [1, null, 3] { var v = x ?? continue; print(v) }
+  for x in [1, null, 3] { var v = x ?? break; print(v) }
+  var i = 0
+  while i < 3 { i += 1; var v = (if i == 2 { null } else { i }) ?? continue; print(v) }
+}

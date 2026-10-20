@@ -1,0 +1,16 @@
+func main() {
+  print(uint8(-0.5))
+  print(int8(-128.9))
+  print(float32(3.4028235e38))
+  print(float64(float32(3.4028235e38)))
+  print(int(float32(1e10)))
+  print(uint64(1.8446744073709550e19))
+  print(int64(-9223372036854775808.0))
+  print(uint32(4294967295.9))
+  print(int8(127.9))
+  print(float32(1e-50))
+  print(int(-0.0))
+  print(float32(0.1))
+  print(float64(float32(0.1)))
+  print(int64(9223372036854775807.0))
+}

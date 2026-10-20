@@ -1,0 +1,5 @@
+func d(): Result[int, Error] { var v = try Err{}; Result.ok(v) }
+func main() {
+  print("before")
+  print(d())
+}

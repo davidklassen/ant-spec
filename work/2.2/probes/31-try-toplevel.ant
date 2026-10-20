@@ -1,0 +1,2 @@
+var x = try null
+func main() { print("main"); print(x) }

@@ -1,0 +1,5 @@
+func mark(s: string): int { print(s); 1 }
+func main() {
+  print("before")
+  var r = mark{ x: mark("x") }
+}

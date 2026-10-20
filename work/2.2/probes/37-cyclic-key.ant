@@ -1,0 +1,18 @@
+type Node = { v: int, next: Node | null }
+func main() {
+  var n = Node{ v: 1, next: null }
+  n.next = n
+  var m: Map[Node, int] = Map{}
+  m[n] = 1
+  var k = Node{ v: 1, next: null }
+  k.next = k
+  print(m[k])
+  print(Map.has(m, k))
+  var a: Array[Array[int] | int] = [1]
+  Array.push(a, a)
+  var am: Map[Array[Array[int] | int], int] = Map{}
+  am[a] = 2
+  var b: Array[Array[int] | int] = [1]
+  Array.push(b, b)
+  print(am[b])
+}

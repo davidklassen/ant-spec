@@ -175,6 +175,7 @@ bool ant_need_ordered(AntValue v);          /* a number or a string, or `wrong k
 AntValue ant_tag_new(const char *name);
 AntTag *ant_need_tag(AntValue v);
 AntValue ant_check_tag(AntValue v);         /* the value, or `not a tag` */
+AntValue ant_record_snapshot(AntValue v);   /* a shallow copy, or `not a record` */
 AntValue ant_record_new(AntValue tag, const AntShape *shape, AntValue *values);
 AntValue ant_record_build(AntValue tag, int n, const Sym *names, AntValue *values, const bool *isSpread);
 AntValue ant_record_make(AntTag *tag, const AntShape *shape, AntValue *values);

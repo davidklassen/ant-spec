@@ -1,0 +1,14 @@
+type Point = { x: float64, y: float64 }
+type Vec = { x: float64, y: float64 }
+type Named = { name: string }
+type Person = { name: string, age: int }
+func main() {
+  print(Point{ x: 1.0, x: 2.0, y: 0.0 })
+  var p = Point{ x: 1.0, y: 2.0 }
+  print(Vec{ y: 9.0, ...p })
+  print(Point{ ...p, x: 0.0 })
+  print(Named{ ...Person{ name: "ada", age: 36 } })
+  print(Point{ ...p, ...Vec{ x: 7.0, y: 8.0 } })
+  print(Vec{ y: 9.0, ...p } == Vec{ x: 1.0, y: 2.0 })
+  print(Point{ ...p } == p)
+}

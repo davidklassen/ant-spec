@@ -1,0 +1,16 @@
+func first(xs: Array[Result[int, Error]]): Result[int, Error] {
+  for r in xs {
+    var v = try r
+    print(v)
+  }
+  Result.ok(0)
+}
+func main() {
+  print(first([Result.ok(1), Result.err(Error{ message: "e" }), Result.ok(3)]))
+  var f = func(r: Result[int, Error]): Result[int, Error] { var v = try r; Result.ok(v + 1) }
+  print(f(Result.ok(1)))
+  print(f(Result.err(Error{ message: "z" })))
+  var lam: func(int | null): int | null = { var v = try x; v + 1 }
+  print(lam(null))
+  print(lam(4))
+}

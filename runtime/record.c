@@ -22,6 +22,15 @@ AntValue ant_check_tag(AntValue v) {
   return v;
 }
 
+/* The record behind v, or NULL after a `not a record` panic. */
+static AntRecord *need_record(AntValue v) {
+  if (v.kind != K_RECORD) {
+    ant_panic("not a record");
+    return NULL;
+  }
+  return v.as.p;
+}
+
 AntValue ant_record_make(AntTag *tag, const AntShape *shape, AntValue *values) {
   AntRecord *r = ant_alloc(sizeof(AntRecord) + sizeof(AntValue) * (size_t)shape->n);
   r->tag = tag;
@@ -45,16 +54,29 @@ static void put(Sym *syms, AntValue *vals, int *count, Sym s, AntValue v) {
   vals[j] = v;
 }
 
+/* A spread operand, copied in its place: a shallow copy of the record, so a
+ * later entry whose evaluation mutates the source cannot leak into the
+ * literal; anything but a record panics `not a record` (section 12). */
+AntValue ant_record_snapshot(AntValue v) {
+  AntRecord *r = need_record(v);
+  if (!r) return ANT_VOID;
+  return ant_record_make(r->tag, r->shape, r->fields);
+}
+
 /* A literal with a spread: fields are gathered in order, a later entry
- * replacing an earlier one in place, and the shape is interned. */
+ * replacing an earlier one in place, and the shape is interned. The emitter
+ * lands each spread operand through ant_record_snapshot, which is where a
+ * non-record panics in evaluation order; the `not a record` check in the
+ * pre-pass below is a second line of defence, not the primary one. */
 AntValue ant_record_build(AntValue tag, int n, const Sym *names, AntValue *values, const bool *isSpread) {
   AntTag *t = ant_need_tag(tag);
   if (!t) return ANT_VOID;
   int cap = n;
   for (int i = 0; i < n; i++) {
     if (isSpread[i]) {
-      if (values[i].kind != K_RECORD) { ant_panic("not a record"); return ANT_VOID; }
-      cap += ((AntRecord *)values[i].as.p)->shape->n;
+      AntRecord *src = need_record(values[i]);
+      if (!src) return ANT_VOID;
+      cap += src->shape->n;
     }
   }
   Sym *syms = ant_alloc_atomic(sizeof(Sym) * (size_t)(cap ? cap : 1));
@@ -78,11 +100,8 @@ int ant_shape_find(const AntShape *shape, Sym s) {
 
 /* The field index of s in r, through the site's cache; -1 after a panic. */
 static int field_index(AntValue v, Sym s, AntFieldCache *c) {
-  if (v.kind != K_RECORD) {
-    ant_panic("not a record");
-    return -1;
-  }
-  AntRecord *r = v.as.p;
+  AntRecord *r = need_record(v);
+  if (!r) return -1;
   if (c && c->shape == r->shape) return c->idx;
   int i = ant_shape_find(r->shape, s);
   if (i < 0) {

@@ -1039,7 +1039,9 @@ func emitRecordLit(g: Gen, fn: Fn, e: Ast.RecordLit): string {
     if en is Ast.Spread {
       Array.push(names, "")
       Array.push(syms, "0")
-      Array.push(values, emitExpr(g, fn, en.value))
+      // copied in its place: a non-record panics before later entries evaluate,
+      // and a later entry cannot mutate what the spread copied (section 12)
+      Array.push(values, checked(fn, `ant_record_snapshot(${emitExpr(g, fn, en.value)})`))
       Array.push(spreads, "1")
     } else if en is Ast.LitEntry {
       var key = en.key

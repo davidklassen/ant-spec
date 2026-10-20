@@ -1,0 +1,9 @@
+func main() {
+  var v = (if false { 1 }) ?? 5
+  print(v == void)
+  print(null ?? null)
+  var n: int | null = null
+  print(n ?? 2 + 3)
+  var s: string | null = "x"
+  print(s ?? panic("no"))
+}

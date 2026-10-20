@@ -1,0 +1,11 @@
+func a(): int { var v = try 7; v }
+func b(): void { var v = try void; print(v == void) }
+func c(): Result[int, Error] { var v = try Ok{ value: 3 }; Result.ok(v) }
+func d(): Result[int, Error] { var v = try Ok{}; Result.ok(v) }
+func main() {
+  print(a())
+  b()
+  print(c())
+  print("before")
+  print(d())
+}

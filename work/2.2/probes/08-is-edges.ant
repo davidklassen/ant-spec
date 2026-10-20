@@ -1,0 +1,19 @@
+type Point = { x: float64 }
+func main() {
+  print(1 is int)
+  print(int8(1) is int)
+  print(byte(1) is uint8)
+  print(print is func)
+  print(Point is Point)
+  print([] is Array)
+  print(Map{} is Map)
+  print(null is null)
+  print("s" is string)
+  print(true is bool)
+  print(Point{ x: 1.0 } is Point)
+  print(Ok{ value: 1 } is Ok)
+  print(Result.ok(1) is Ok)
+  var y = 1
+  print("before")
+  print(y is y)
+}

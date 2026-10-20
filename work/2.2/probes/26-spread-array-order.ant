@@ -1,0 +1,4 @@
+func mark(s: string): int { print(s); 1 }
+func main() {
+  var xs = [mark("a"), ...Map{}, mark("c")]
+}

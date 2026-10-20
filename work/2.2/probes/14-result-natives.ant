@@ -1,0 +1,11 @@
+func main() {
+  print(Result.isOk(Ok{}))
+  print(Result.unwrapOr(Err{ error: 1 }, 9))
+  print(Result.map(Result.ok(2), { x * 2 }))
+  print(Result.mapErr(Result.err("e"), { x + "!" }))
+  print(Result.map(Result.err("e"), { x * 2 }))
+  print(Result.mapErr(Result.ok(1), { x + "!" }))
+  print(Record.same(Result.ok(1), Result.ok(1)))
+  print("before")
+  print(Result.unwrap(Ok{}))
+}

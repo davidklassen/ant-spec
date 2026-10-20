@@ -1,0 +1,7 @@
+func g() { defer { return }; panic("p") }
+func main() {
+  defer { print("main defer") }
+  print("before")
+  g()
+  print("not reached")
+}

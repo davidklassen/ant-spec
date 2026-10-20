@@ -1,0 +1,7 @@
+type P = { x: int, y: int }
+var p = P{ x: 1, y: 2 }
+var bump = func(): int { p.y = 99; 5 }
+func main() {
+  print(P{ ...p, x: bump() })
+  print(p)
+}
