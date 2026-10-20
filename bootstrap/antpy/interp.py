@@ -400,9 +400,9 @@ class Interp:
             raise ReturnSignal(scope.frame, None)
         if type(v) is Record:
             if v.tag is prelude.ERR:
-                raise ReturnSignal(scope.frame, Record(prelude.ERR, {"error": v.fields.get("error")}))
+                raise ReturnSignal(scope.frame, Record(prelude.ERR, {"error": prelude.result_payload(v, "error")}))
             if v.tag is prelude.OK:
-                return v.fields.get("value")
+                return prelude.result_payload(v, "value")
         return v
 
     def ev_And(self, node, scope):

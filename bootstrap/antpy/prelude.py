@@ -6,10 +6,12 @@ A native is declared with its parameter names (named arguments resolve against
 them). One marked ctx=True receives (interp, frame, *args) and may call back
 into Ant with interp.call."""
 import functools
+import re
 import sys
 
 from antpy.values import (
-    VOID, Scope, Record, Tag, Native, YieldFn, Mutex, WaitGroup, UInt8, CONVERSION_KINDS, KIND, panic,
+    VOID, MISSING, Scope, Record, Tag, Native, YieldFn, Mutex, WaitGroup, UInt8,
+    CONVERSION_KINDS, KIND, NUMBER_KINDS, INT_RANGE, panic,
 )
 from antpy.equal import AntMap, eq
 from antpy import arith
@@ -48,6 +50,12 @@ def need_int(v):
 
 def need_record(v):
     return need(v, Record, "a record")
+
+
+def need_number(v):
+    if KIND[type(v)] not in NUMBER_KINDS:
+        panic("wrong kind: expected a number")
+    return v
 
 
 def need_func(v):
@@ -179,6 +187,18 @@ def array_entries(xs):
     return [Record(INDEXED, {"index": i, "value": v}) for i, v in enumerate(xs)]
 
 
+def array_sum(xs):
+    """`null` when empty: with types erased there is no zero of the right
+    kind. The fold is the `+` operator, so an overflow panics `integer
+    overflow` and elements of different kinds panic `kind mismatch`."""
+    need_array(xs)
+    if not xs:
+        return None
+    for x in xs:
+        need_number(x)
+    return functools.reduce(functools.partial(arith.binary, "+"), xs)
+
+
 def array_same(xs, ys):
     return need_array(xs) is need_array(ys)
 
@@ -202,8 +222,69 @@ def map_size(m):
     return need_map(m).size
 
 
+def map_is_empty(m):
+    return need_map(m).size == 0
+
+
+def map_remove(m, k):
+    v = need_map(m).remove(k)
+    return None if v is MISSING else v
+
+
+def map_same(m, n):
+    return need_map(m) is need_map(n)
+
+
 def string_length(s):
     return len(need_string(s))
+
+
+def string_is_empty(s):
+    return need_string(s) == ""
+
+
+def case_map(s, fn):
+    """Maps each code point with `fn` when the result is one code point and
+    leaves it alone otherwise (G36): `"ß"` stays `"ß"`, `"é"` becomes `"É"`."""
+    out = []
+    for c in need_string(s):
+        mapped = fn(c)
+        out.append(mapped if len(mapped) == 1 else c)
+    return "".join(out)
+
+
+def string_to_upper(s):
+    return case_map(s, str.upper)
+
+
+def string_to_lower(s):
+    return case_map(s, str.lower)
+
+
+def string_from_bytes(bs):
+    """Strict UTF-8: any invalid sequence gives null, never a replacement."""
+    need_array(bs)
+    for b in bs:
+        need(b, UInt8, "a byte")
+    try:
+        return bytes(bs).decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+INT_LITERAL = re.compile(r"[+-]?[0-9]+")     # ASCII digits only; Python's int() takes more
+
+
+def string_to_int(s):
+    """An optional sign and decimal digits, within the `int` range; null
+    otherwise (G36). Whitespace, `_`, a radix prefix, and Unicode digits are
+    all rejected by the pattern, so int() is only ever called on a match."""
+    need_string(s)
+    if INT_LITERAL.fullmatch(s) is None:
+        return None
+    n = int(s)
+    lo, hi = INT_RANGE["int64"]
+    return n if lo <= n <= hi else None
 
 
 def string_chars(s):
@@ -238,10 +319,43 @@ def result_is_ok(r):
     return need_result(r).tag is OK
 
 
+def result_payload(r, name):
+    """The `value` of an Ok or the `error` of an Err; an unchecked program
+    can build an `Ok{}` without one, which is `no field` like any read."""
+    v = r.fields.get(name, MISSING)
+    if v is MISSING:
+        panic("no field: " + name)
+    return v
+
+
 def result_unwrap(r):
     if need_result(r).tag is ERR:
         panic("unwrap on Err")
-    return r.fields["value"]
+    return result_payload(r, "value")
+
+
+def result_unwrap_or(r, fallback):
+    if need_result(r).tag is ERR:
+        return fallback
+    return result_payload(r, "value")
+
+
+def result_map(interp, frame, r, f):
+    """A fresh Result either way (section 11: a non-mutating function returns
+    a new value); `f` runs only on an Ok."""
+    need_result(r)
+    need_func(f)
+    if r.tag is ERR:
+        return result_err(result_payload(r, "error"))
+    return result_ok(interp.call(f, [result_payload(r, "value")], (), frame))
+
+
+def result_map_err(interp, frame, r, f):
+    need_result(r)
+    need_func(f)
+    if r.tag is OK:
+        return result_ok(result_payload(r, "value"))
+    return result_err(interp.call(f, [result_payload(r, "error")], (), frame))
 
 
 # ----------------------------------------------------------------------------- Iter
@@ -277,6 +391,18 @@ def iter_to_array(interp, frame, s):
 
 
 # ----------------------------------------------------------------------------- sync
+
+def mutex_with_lock(interp, frame, m, f):
+    """Acquires, calls `f` with no argument, and releases even when `f`
+    panics; the panic itself propagates (section 11, the `with` forms)."""
+    need(m, Mutex, "a Mutex")
+    need_func(f)
+    m.lock.acquire()
+    try:
+        return interp.call(f, [], (), frame)
+    finally:
+        m.lock.release()
+
 
 def wait_group_add(wg, n):
     need(wg, WaitGroup, "a WaitGroup")
@@ -344,6 +470,7 @@ NAMESPACES = {
         "sort": (["xs"], array_sort),
         "sortWith": (["xs", "cmp"], array_sort_with, True),
         "entries": (["xs"], array_entries),
+        "sum": (["xs"], array_sum),
         "same": (["xs", "ys"], array_same),
     },
     "Map": {
@@ -351,12 +478,20 @@ NAMESPACES = {
         "has": (["m", "k"], map_has),
         "set": (["m", "k", "v"], map_set),
         "size": (["m"], map_size),
+        "isEmpty": (["m"], map_is_empty),
+        "remove": (["m", "k"], map_remove),
+        "same": (["m", "n"], map_same),
     },
     "String": {
         "length": (["s"], string_length),
+        "isEmpty": (["s"], string_is_empty),
         "chars": (["s"], string_chars),
         "join": (["parts", "sep"], string_join),
+        "toUpper": (["s"], string_to_upper),
+        "toLower": (["s"], string_to_lower),
         "toBytes": (["s"], string_to_bytes),
+        "fromBytes": (["bytes"], string_from_bytes),
+        "toInt": (["s"], string_to_int),
         "from": (["value"], render),
     },
     "Iter": {
@@ -379,13 +514,17 @@ NAMESPACES = {
         "ok": (["value"], result_ok),
         "err": (["error"], result_err),
         "isOk": (["r"], result_is_ok),
+        "map": (["r", "f"], result_map, True),
+        "mapErr": (["r", "f"], result_map_err, True),
         "unwrap": (["r"], result_unwrap),
+        "unwrapOr": (["r", "fallback"], result_unwrap_or),
     },
     "Record": {
         "same": (["a", "b"], record_same),
     },
     "Mutex": {
         "new": ([], Mutex),
+        "withLock": (["m", "f"], mutex_with_lock, True),
     },
     "WaitGroup": {
         "new": ([], WaitGroup),
