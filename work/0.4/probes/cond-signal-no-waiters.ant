@@ -1,0 +1,7 @@
+func main() {
+  var m = Mutex.new()
+  var c = Cond.new(m)
+  Cond.signal(c)
+  Cond.broadcast(c)
+  print("no panic")
+}

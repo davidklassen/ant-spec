@@ -1,0 +1,6 @@
+func main() {
+  Time.sleep(0)
+  Time.sleep(-5)
+  print("returned at once")
+  Time.sleep(1.0)
+}

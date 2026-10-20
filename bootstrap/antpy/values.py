@@ -7,7 +7,6 @@ tests always use `type(v) is ...`, never `isinstance`.
 """
 import math
 import struct
-import threading
 
 
 class AntPanic(BaseException):
@@ -159,21 +158,6 @@ class YieldFn:
         self.done = False
 
 
-class Mutex:
-    __slots__ = ("lock",)
-
-    def __init__(self):
-        self.lock = threading.Lock()
-
-
-class WaitGroup:
-    __slots__ = ("count", "cond")
-
-    def __init__(self):
-        self.count = 0
-        self.cond = threading.Condition()
-
-
 # ----------------------------------------------------------------------------- scopes and frames
 
 class Scope:
@@ -212,10 +196,9 @@ KIND = {
     bool: "bool", str: "string", type(None): "null", Void: "void",
     list: "array", Record: "record", Tag: "tag",
     Closure: "func", Native: "func", YieldFn: "func",
-    Mutex: "sync", WaitGroup: "sync",
 }
-# equal.py adds its AntMap class under "map"; it is defined there because the
-# map's lookup needs structural equality and hashing.
+# equal.py adds its AntMap class under "map" (the map's lookup needs
+# structural equality and hashing), and sync.py its six classes under "sync".
 
 INT_CLASS = {
     "int8": Int8, "int16": Int16, "int32": Int32, "int64": int,

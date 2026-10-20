@@ -10,6 +10,7 @@ runs its deferred blocks on every exit.
 import os
 import sys
 import threading
+import time
 import traceback
 
 import antparse
@@ -66,6 +67,7 @@ class Interp:
     def __init__(self, args):
         self.args = args
         self.modules = {}            # absolute path -> module record
+        self.unwinding = set()       # idents of threads between a panic and its report
         self.prelude = prelude.make_prelude()
         self.table = {
             "Const": self.ev_Const, "Template": self.ev_Template, "Ident": self.ev_Ident,
@@ -143,8 +145,11 @@ class Interp:
         if t is list:
             if type(i) is not int:
                 panic("index not an int")
-            if 0 <= i < len(obj):
-                return obj[i]
+            if i >= 0:
+                try:
+                    return obj[i]
+                except IndexError:    # out of range, or shrunk by another goroutine
+                    pass
             panic("index out of range")
         if t is AntMap:
             return obj.get(i)
@@ -163,8 +168,9 @@ class Interp:
                 frame.line = line
                 value = table[node[0]](node, scope)
         except AntPanic as p:
-            if p.trace is None:
+            if p.trace is None:       # the innermost frame: no deferred block has run yet
                 p.trace = trace_of(frame)
+                self.unwinding.add(threading.get_ident())
             raise
         return value
 
@@ -492,9 +498,10 @@ class Interp:
         else:
             v = arith.binary(op, self.index(obj, i), self.ev(right, scope))
         if type(obj) is list:
-            if i >= len(obj):           # the right side shrank the array
+            try:
+                obj[i] = v
+            except IndexError:          # the right side, or another goroutine, shrank the array
                 panic("index out of range")
-            obj[i] = v
         else:
             obj.set(i, v)
         return VOID
@@ -554,7 +561,10 @@ class Interp:
         if t is list:
             i = 0
             while i < len(it):          # the length is re-read: appends are visited
-                v = it[i]
+                try:
+                    v = it[i]
+                except IndexError:      # popped by another goroutine: not visited
+                    break
                 i += 1
                 if not iteration(v):
                     break
@@ -716,14 +726,18 @@ class Interp:
     # ------------------------------------------------------------------ roots
 
     def report_panic(self, p):
-        sys.stdout.flush()
-        sys.stderr.write("panic: " + p.message + "\n")
+        """One write for the message and its trace, so the reports of two
+        goroutines panicking at once never interleave."""
+        report = "panic: " + p.message + "\n"
         for entry in p.trace or ():
-            sys.stderr.write("  at " + entry + "\n")
+            report += "  at " + entry + "\n"
+        sys.stdout.flush()
+        sys.stderr.write(report)
         sys.stderr.flush()
 
     def run_goroutine(self, block, scope):
-        """The root of a goroutine: a panic ends it and is reported (section 9)."""
+        """The root of a goroutine: a panic ends it and is reported (section 9).
+        The thread counts as unwinding until the report is written."""
         try:
             self.run_body(block, scope)
         except ReturnSignal:
@@ -736,6 +750,8 @@ class Interp:
             self.report_panic(AntPanic("stack overflow", trace_of(scope.frame)))
         except Exception:
             report_internal()
+        finally:
+            self.unwinding.discard(threading.get_ident())
 
     def run_main(self, path):
         """Runs the entry module; the exit status: 0 when main returns, 2 on a
@@ -760,20 +776,31 @@ class Interp:
         except Exception:
             report_internal()
             return 2
+        finally:
+            self.unwinding.discard(threading.get_ident())
         sys.stdout.flush()
         return 0
 
 
+# How long the exit waits for a goroutine that has panicked but not yet
+# written its report (its deferred blocks may have released main already).
+UNWIND_GRACE = 1.0
+
+
 def run_program(path, args):
-    """Runs the program on a thread with a large stack and returns the exit status."""
+    """Runs the program on a thread with a large stack and returns the exit
+    status. The program ends when main returns, whatever other goroutines
+    are doing (section 12), except that one already past its `panic(...)` is
+    given a bounded moment to write its report."""
     sys.setrecursionlimit(5_000_000)        # about ten Python frames per Ant call; frames live on the heap
     sys.setswitchinterval(0.005)
     threading.stack_size(512 * 1024 * 1024)
+    interp = Interp(args)
     status = [1]
 
     def worker():
         try:
-            status[0] = Interp(args).run_main(path)
+            status[0] = interp.run_main(path)
         except BaseException:               # no exit path may end in a bare traceback
             report_internal()
             status[0] = 2
@@ -781,6 +808,9 @@ def run_program(path, args):
     thread = threading.Thread(target=worker)
     thread.start()
     thread.join()
+    deadline = time.monotonic() + UNWIND_GRACE
+    while interp.unwinding and time.monotonic() < deadline:
+        time.sleep(0.001)
     sys.stdout.flush()
     sys.stderr.flush()
     return status[0]

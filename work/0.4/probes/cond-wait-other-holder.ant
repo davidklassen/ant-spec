@@ -1,0 +1,17 @@
+func main() {
+  var m = Mutex.new()
+  var c = Cond.new(m)
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  go {
+    Mutex.lock(m)
+    WaitGroup.done(wg)
+    Time.sleep(300)
+    Mutex.unlock(m)           // panics if main's wait released it
+  }
+  WaitGroup.wait(wg)
+  go { Time.sleep(100); Cond.signal(c) }
+  Cond.wait(c)                // main does not hold m; the goroutine does
+  print("woke and reacquired")
+  Time.sleep(400)
+}

@@ -1,0 +1,5 @@
+func main() {
+  var a = Atomic.new([1, 2, 3])
+  print(Atomic.compareAndSwap(a, [1, 2, 3], [9]))
+  print(Atomic.load(a))
+}

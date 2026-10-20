@@ -8,5 +8,6 @@ Modules:
   lower    the reference parser's AST to the evaluator's nodes
   interp   scopes, frames, evaluation, calls, loops, defers, modules, goroutines
   library  the data namespaces: Array, Map, String, Iter, Math, and the argument checks
-  prelude  the prelude scope: tags, conversions, print, panic, Result, Record, Bits, sync
+  sync     the sync objects: Mutex, RwMutex, WaitGroup, Once, Cond, Atomic, and Time.sleep
+  prelude  the prelude scope: tags, conversions, print, panic, Result, Record, Bits
 """

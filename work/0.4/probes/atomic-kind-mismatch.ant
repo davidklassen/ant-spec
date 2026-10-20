@@ -1,0 +1,4 @@
+func main() {
+  var a = Atomic.new(1)
+  Atomic.add(a, 1.0)
+}

@@ -1,0 +1,5 @@
+func main() {
+  var once = Once.new()
+  Once.do(once, { Once.do(once, { print("inner") }) })
+  print("unreachable")
+}

@@ -1,0 +1,10 @@
+func main() {
+  var m = Mutex.new()
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  Mutex.lock(m)
+  go { defer { WaitGroup.done(wg) }; Mutex.unlock(m) }
+  WaitGroup.wait(wg)
+  Mutex.lock(m)
+  print("relocked after another goroutine unlocked")
+}

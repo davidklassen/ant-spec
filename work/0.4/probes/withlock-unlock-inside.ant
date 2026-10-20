@@ -1,0 +1,13 @@
+func main() {
+  var m = Mutex.new()
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  go {
+    defer { WaitGroup.done(wg) }
+    Mutex.withLock(m, { Mutex.unlock(m) })
+    print("unreachable")
+  }
+  WaitGroup.wait(wg)
+  Time.sleep(50)
+  print("main done")
+}

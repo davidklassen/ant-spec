@@ -1,0 +1,12 @@
+func main() {
+  var rw = RwMutex.new()
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 2)
+  RwMutex.readLock(rw)
+  go { defer { WaitGroup.done(wg) }; RwMutex.writeLock(rw); print("writer in"); RwMutex.writeUnlock(rw) }
+  Time.sleep(100)             // the writer is waiting
+  go { defer { WaitGroup.done(wg) }; RwMutex.readLock(rw); print("second reader admitted"); RwMutex.readUnlock(rw) }
+  Time.sleep(100)
+  RwMutex.readUnlock(rw)
+  WaitGroup.wait(wg)
+}

@@ -5,21 +5,22 @@ constants like `Math.PI`), so `Array.map` is an ordinary field read (section 10)
 A native is declared with its parameter names (named arguments resolve against
 them). One marked ctx=True receives (interp, frame, *args) and may call back
 into Ant with interp.call. The data namespaces (Array, Map, String, Iter,
-Math) live in library.py; this module holds Result, Record, Bits, the sync
-objects, and the scope itself."""
+Math) live in library.py and the sync objects and Time in sync.py; this
+module holds Result, Record, Bits, and the scope itself."""
 import functools
 import sys
 
 from antpy.values import (
-    VOID, Scope, Record, Tag, Native, Mutex, WaitGroup,
+    VOID, Scope, Record, Tag, Native,
     OK, ERR, ERROR, ENTRY, INDEXED, CONVERSION_KINDS, panic,
 )
 from antpy import arith
 from antpy.render import render
 from antpy.library import (
-    need, need_int, need_func, need_record, record_field,
+    need_func, need_record, record_field,
     ARRAY, MAP, STRING, ITER, MATH,
 )
+from antpy.sync import MUTEX, RWMUTEX, WAITGROUP, ONCE, COND, ATOMIC, TIME
 
 
 # ----------------------------------------------------------------------------- Result and Record
@@ -74,61 +75,6 @@ def result_map_err(interp, frame, r, f):
 
 def record_same(a, b):
     return need_record(a) is need_record(b)
-
-
-# ----------------------------------------------------------------------------- sync
-
-def mutex_lock(m):
-    """Blocks until the lock is free; not reentrant (a goroutine that locks
-    twice waits forever, as in Go). The GIL is released while it waits."""
-    need(m, Mutex, "a Mutex")
-    m.lock.acquire()
-    return VOID
-
-
-def mutex_unlock(m):
-    need(m, Mutex, "a Mutex")
-    try:
-        m.lock.release()
-    except RuntimeError:
-        panic("not locked")
-    return VOID
-
-
-def mutex_with_lock(interp, frame, m, f):
-    """Acquires, calls `f` with no argument, and releases even when `f`
-    panics; the panic itself propagates (section 11, the `with` forms)."""
-    need(m, Mutex, "a Mutex")
-    need_func(f)
-    m.lock.acquire()
-    try:
-        return interp.call(f, [], (), frame)
-    finally:
-        m.lock.release()
-
-
-def wait_group_add(wg, n):
-    need(wg, WaitGroup, "a WaitGroup")
-    need_int(n)
-    with wg.cond:
-        if wg.count + n < 0:
-            panic("negative counter")
-        wg.count += n
-        if wg.count == 0:
-            wg.cond.notify_all()
-    return VOID
-
-
-def wait_group_done(wg):
-    return wait_group_add(wg, -1)
-
-
-def wait_group_wait(wg):
-    need(wg, WaitGroup, "a WaitGroup")
-    with wg.cond:
-        while wg.count > 0:
-            wg.cond.wait()
-    return VOID
 
 
 # ----------------------------------------------------------------------------- the prelude scope
@@ -187,18 +133,13 @@ NAMESPACES = {
     "Record": {
         "same": (["a", "b"], record_same),
     },
-    "Mutex": {
-        "new": ([], Mutex),
-        "lock": (["m"], mutex_lock),
-        "unlock": (["m"], mutex_unlock),
-        "withLock": (["m", "f"], mutex_with_lock, True),
-    },
-    "WaitGroup": {
-        "new": ([], WaitGroup),
-        "add": (["wg", "n"], wait_group_add),
-        "done": (["wg"], wait_group_done),
-        "wait": (["wg"], wait_group_wait),
-    },
+    "Mutex": MUTEX,
+    "RwMutex": RWMUTEX,
+    "WaitGroup": WAITGROUP,
+    "Once": ONCE,
+    "Cond": COND,
+    "Atomic": ATOMIC,
+    "Time": TIME,
 }
 
 # Type names bound to tags. `bool` and `string` are tags so that calling them

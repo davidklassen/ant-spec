@@ -109,7 +109,12 @@ def compare_values(a, b):
 def array_get(xs, i):
     need_array(xs)
     need_int(i)
-    return xs[i] if 0 <= i < len(xs) else None
+    if i < 0:
+        return None
+    try:
+        return xs[i]
+    except IndexError:                    # out of range, or shrunk by another goroutine
+        return None
 
 
 def array_push(xs, v):
@@ -119,7 +124,10 @@ def array_push(xs, v):
 
 def array_pop(xs):
     need_array(xs)
-    return xs.pop() if xs else None
+    try:
+        return xs.pop()
+    except IndexError:                    # empty, or emptied by another goroutine
+        return None
 
 
 def check_slice(length, start, end):
@@ -632,7 +640,10 @@ def iter_from_array(xs):
         need_func(y)
         i = 0
         while i < len(xs):                # the length is re-read, like `for`: a push before the run is seen
-            v = xs[i]
+            try:
+                v = xs[i]
+            except IndexError:            # popped by another goroutine: not visited
+                return VOID
             i += 1
             if not need_bool_result(interp.call(y, [v], (), frame)):
                 return VOID

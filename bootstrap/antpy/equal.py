@@ -49,16 +49,22 @@ class AntMap:
         if bucket is not None:
             for i, pair in enumerate(bucket):
                 if eq(pair[0], key):
-                    del bucket[i]
-                    if not bucket:
-                        del self.buckets[h]
+                    try:
+                        del bucket[i]
+                        if not bucket:
+                            del self.buckets[h]
+                    except (IndexError, KeyError):    # removed by another goroutine meanwhile
+                        return MISSING
                     self.size -= 1
                     return pair[1]
         return MISSING
 
     def items(self):
-        """A snapshot list of (key, value) tuples."""
-        return [(pair[0], pair[1]) for bucket in self.buckets.values() for pair in bucket]
+        """A snapshot list of (key, value) tuples. The bucket list is copied
+        first: an insert from another goroutine must not raise "dictionary
+        changed size during iteration" (section 12: a data race cannot crash
+        the interpreter)."""
+        return [(pair[0], pair[1]) for bucket in list(self.buckets.values()) for pair in bucket]
 
 
 KIND[AntMap] = "map"

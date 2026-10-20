@@ -1,0 +1,14 @@
+func main() {
+  var held = Mutex.new()
+  var started = WaitGroup.new()
+  WaitGroup.add(started, 1)
+  Mutex.lock(held)
+  go {
+    defer { Mutex.lock(held) }   // blocks forever: main never unlocks
+    WaitGroup.done(started)
+    panic("never reported")
+  }
+  WaitGroup.wait(started)
+  Time.sleep(100)
+  print("main returns")
+}
