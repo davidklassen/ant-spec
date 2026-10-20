@@ -113,7 +113,7 @@ Workflow({ scriptPath: SCRIPT, args: { milestone: "M0", dryRun: true } })    # l
 Workflow({ scriptPath: SCRIPT, resumeFromRunId: "wf_..." })                  # resume after a blocked step
 ```
 
-Per step: plan → implement → independent test → independent review → refactor → commit, up to `maxIter` (default 4) implement/test/review rounds. A step that stays red writes `work/<id>/BLOCKED.md` and stops the run; fix by hand or adjust the plan, then resume. Gates skip the plan phase.
+Per step: plan → implement → independent test → independent review → refactor (the `simplify` skill on the step's diff, then the reviewer's suggestions, then a retest) → commit, up to `maxIter` (default 4) implement/test/review rounds. A step that stays red writes `work/<id>/BLOCKED.md` and stops the run; fix by hand or adjust the plan, then resume. Gates skip the plan phase.
 
 ## Future work (outside this roadmap)
 

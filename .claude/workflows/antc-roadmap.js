@@ -130,13 +130,13 @@ The step's changes are the uncommitted working-tree changes: run 'git status --s
 - Code quality that would hurt later steps: duplicated logic, unclear structure, missing error handling at the boundaries the step owns.
 Return JSON: blocking (findings that must be fixed before the step is accepted, with file and issue; empty if none), refactors (safe improvements worth doing now, as instructions; keep to the few that matter), testChangesOk (true when every test change is justified, or there are none), notes.`
 
-const refactorer = (step, refactors) => `You are the refactorer for one roadmap step.
+const refactorer = (step, refactors) => `You are the refactorer for one roadmap step. The tree is green; your job is to leave it green and simpler.
 ${RULES}
 
 ${header(step)}
-Apply these reviewer suggestions, one at a time, without changing behavior:
-${refactors.map((r, i) => `${i + 1}. ${r}`).join('\n')}
-After each, run the acceptance command (or a representative --filter subset, then the full command at the end). If the full acceptance command is not green after your changes, revert your own edits (git checkout -- <files you touched>; delete files you added) so the tree is back to the green state, and say so. Append a short "Refactor" section to work/${step.id}/report.md.
+1. Run the 'simplify' skill (Skill tool, name "simplify") on the step's changes: the uncommitted working tree ('git status --short', 'git diff'). It reviews the changed code for reuse of existing helpers, simplification, efficiency, and altitude cleanups and applies the fixes. If the Skill tool is not available to you, apply that recipe yourself: look for duplicated logic that an existing helper covers, code that can be shorter without losing clarity, needless work in hot paths, and abstractions at the wrong level.
+${refactors.length ? `2. Then apply these reviewer suggestions, one at a time, without changing behavior:\n${refactors.map((r, i) => `   ${i + 1}. ${r}`).join('\n')}` : '2. The reviewer had no further suggestions.'}
+3. After each change run a representative --filter subset of the acceptance command, and the full command at the end. If the full acceptance command is not green after your changes, revert your own edits (git checkout -- <files you touched>; delete files you added) so the tree is back to the green state, and say so. Append a short "Refactor" section to work/${step.id}/report.md listing what changed.
 Return JSON: ok (true when the tree is green at the end), summary.`
 
 const committer = (step) => `Commit the completed roadmap step ${step.id} "${step.title}" in ${REPO}.
@@ -198,8 +198,8 @@ for (const step of steps) {
       log(`   review blocked: ${review.blocking.length} finding(s)`)
       continue
     }
-    if (review && review.refactors.length && !step.gate) {
-      const r = await agent(refactorer(step, review.refactors), { schema: DONE, label: `refactor ${step.id}`, phase: ph })
+    if (!step.gate) {
+      const r = await agent(refactorer(step, review ? review.refactors : []), { schema: DONE, label: `refactor ${step.id}`, phase: ph, agentType: 'general-purpose' })
       const retest = await agent(tester(step), { schema: TEST, label: `retest ${step.id}`, phase: ph })
       if (!retest || !retest.pass || retest.scopeViolations.length) {
         feedback = `After refactoring the acceptance command is red: ${retest ? retest.summaryLine : 'no tester result'}. Restore a green tree.`
