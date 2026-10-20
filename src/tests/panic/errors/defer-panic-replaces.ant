@@ -3,9 +3,9 @@
 // gap: G59
 // panic: replacement
 // output:
-//   body
-//   second
-//   first
+//  body
+//  second
+//  first
 func main() {
   defer { print("first") }
   defer { print("second"); panic("replacement") }

@@ -2,9 +2,9 @@
 // spec: 6 functions (recursion); 11 Map; 7 nullability (narrowing); 10 modules (top-level var)
 // source: go:test/ken/rob1.go
 // output:
-//   832040
-//   12586269025
-//   49
+//  832040
+//  12586269025
+//  49
 var memo: Map[int, int] = Map{}
 var computed = 0
 

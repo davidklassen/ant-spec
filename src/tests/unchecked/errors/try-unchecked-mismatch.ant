@@ -2,7 +2,7 @@
 // spec: 12 expressions (try on null returns null); 12 runtime panics (a.b on a non-record); 1 principles (types are advisory)
 // panic: not a record
 // output:
-//   returned
+//  returned
 func pick(m: int | null): int {
   var v = try m                       // ERROR "try"
   v

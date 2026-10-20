@@ -1,10 +1,10 @@
 // program
 // spec: 10 modules (imports resolve depth first in source order; each module initializes once, after its imports)
 // output:
-//   D
-//   B
-//   C
-//   A
+//  D
+//  B
+//  C
+//  A
 import "./b.ant" B
 import "./c.ant" C
 

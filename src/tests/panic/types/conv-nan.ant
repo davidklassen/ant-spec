@@ -2,7 +2,7 @@
 // spec: 12 conversion (NaN with an integer target); 12 arithmetic (float division follows IEEE 754); 12 runtime panics
 // panic: conversion out of range
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var nan = 0.0 / 0.0

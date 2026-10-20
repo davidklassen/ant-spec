@@ -3,7 +3,7 @@
 // gap: G7
 // panic: conversion out of range
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var bad = float32(1e300)

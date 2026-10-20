@@ -1,8 +1,8 @@
 // run
 // spec: 8 defer; 10 main; 12 deferred blocks and panics
 // output:
-//   body
-//   deferred
+//  body
+//  deferred
 func main() {
   defer { print("deferred") }
   print("body")

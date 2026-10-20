@@ -2,17 +2,17 @@
 // spec: 11 prelude print; 11 String.from; 12 arithmetic
 // gap: G33, G55
 // output:
-//   1.0
-//   0.30000000000000004
-//   1e21
-//   -0.0
-//   NaN
-//   Infinity
-//   -Infinity
-//   100.0
-//   1.5e-7
-//   0.5
-//   123456789.0
+//  1.0
+//  0.30000000000000004
+//  1e21
+//  -0.0
+//  NaN
+//  Infinity
+//  -Infinity
+//  100.0
+//  1.5e-7
+//  0.5
+//  123456789.0
 func main() {
   print(1.0)
   print(0.1 + 0.2)

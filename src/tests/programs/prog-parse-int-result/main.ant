@@ -1,9 +1,9 @@
 // program
 // spec: 8 Result; 8 try; 4 tagged unions; 5 destructuring (for)
 // output:
-//   sum 42
-//   empty input
-//   bad digit at 1
+//  sum 42
+//  empty input
+//  bad digit at 1
 type EmptyInput = {}
 type BadDigit = { at: int }
 type ParseError = EmptyInput | BadDigit

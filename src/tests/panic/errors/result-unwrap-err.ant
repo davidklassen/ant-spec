@@ -2,7 +2,7 @@
 // spec: 11 Result and Record (Result.unwrap); 8 panic; 12 runtime panics
 // panic: unwrap on Err
 // output:
-//   before
+//  before
 func main() {
   var r: Result[int, Error] = Result.err(Error{ message: "nope" })
   print("before")

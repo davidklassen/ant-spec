@@ -2,7 +2,7 @@
 // spec: 8 defer; 12 deferred blocks and panics (each in the scope it was registered in)
 // source: contrast go:test/defer.go
 // output:
-//   2
+//  2
 func main() {
   var x = 1
   defer { print(x) }

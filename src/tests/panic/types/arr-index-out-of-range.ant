@@ -2,7 +2,7 @@
 // spec: 11 Array (xs[i] panics out of range); 12 index read; 12 runtime panics
 // panic: index out of range
 // output:
-//   3
+//  3
 func main() {
   var xs = [1, 2, 3]
   print(Array.length(xs))

@@ -2,13 +2,13 @@
 // spec: 4 tagged unions; 7 nullability (narrowing by is); 5 loops (sequences)
 // source: go:test/typeparam/tree.go
 // output:
-//   1
-//   3
-//   4
-//   5
-//   7
-//   8
-//   9
+//  1
+//  3
+//  4
+//  5
+//  7
+//  8
+//  9
 type Leaf = {}
 type Node = { left: Tree, value: int, right: Tree }
 type Tree = Leaf | Node

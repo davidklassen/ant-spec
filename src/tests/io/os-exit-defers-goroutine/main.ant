@@ -3,7 +3,7 @@
 // gap: G39
 // timeout: 20
 // output:
-//   before
+//  before
 func main() {
   defer { print("deferred in main") }
   print("before")

@@ -2,7 +2,7 @@
 // spec: 11 synchronization WaitGroup (done: counter already zero); 12 runtime panics
 // panic: negative counter
 // output:
-//   at zero
+//  at zero
 func main() {
   var wg = WaitGroup.new()
   WaitGroup.add(wg, 1)

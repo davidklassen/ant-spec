@@ -2,7 +2,7 @@
 // spec: stdlib Json; 4 records; 11 String.from
 // gap: G33, G39, G45
 // output:
-//   {"x":1.0,"y":2.0}
+//  {"x":1.0,"y":2.0}
 import "../../lib/expect.ant" Expect
 
 type Point = { x: float64, y: float64 }

@@ -2,8 +2,8 @@
 // spec: stdlib File; 8 try; 8 defer
 // gap: G39, G44
 // output:
-//   first
-//   second
+//  first
+//  second
 import "../../lib/expect.ant" Expect
 
 func writeLines(path: string): Result[void, Error] {

@@ -2,11 +2,11 @@
 // spec: 5 loops (sequences)
 // source: spec
 // output:
-//   0
-//   2
-//   4
-//   6
-//   8
+//  0
+//  2
+//  4
+//  6
+//  8
 func evens(limit: int): Seq[int] {
   func(yield: func(int): bool) {
     var i = 0

@@ -2,9 +2,9 @@
 // spec: 8 defer (runs on panic); 12 deferred blocks and panics
 // panic: boom
 // output:
-//   body
-//   inner
-//   outer
+//  body
+//  inner
+//  outer
 func main() {
   defer { print("outer") }
   if true {

@@ -2,7 +2,7 @@
 // spec: 10 modules (initialization order); 12 names and scopes; 12 runtime panics
 // panic: not initialized
 // output:
-//   computing a
+//  computing a
 var a = compute()
 var b = 10
 

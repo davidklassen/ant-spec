@@ -3,7 +3,7 @@
 // source: zig:behavior/math.zig
 // panic: integer overflow
 // output:
-//   before
+//  before
 func inc(n: int): int { n + 1 }
 
 func main() {

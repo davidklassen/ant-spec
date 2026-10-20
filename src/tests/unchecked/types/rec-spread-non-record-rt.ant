@@ -2,7 +2,7 @@
 // spec: 12 record literal (a spread copies every field of a value that must be a record); 12 runtime panics
 // panic: not a record
 // output:
-//   before
+//  before
 type Point = { x: float64, y: float64 }
 
 func main() {

@@ -2,7 +2,7 @@
 // spec: 12 field read (a must be a record with a field b); 12 runtime panics
 // panic: no field
 // output:
-//   before
+//  before
 type Point = { x: float64, y: float64 }
 
 func main() {

@@ -2,10 +2,10 @@
 // spec: 12 deferred blocks and panics (every block being evaluated exits in turn)
 // panic: deep
 // output:
-//   d3
-//   d2
-//   d1
-//   d0
+//  d3
+//  d2
+//  d1
+//  d0
 func inner() {
   defer { print("d2") }
   if true {

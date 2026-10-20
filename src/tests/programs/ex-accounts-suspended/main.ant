@@ -3,8 +3,8 @@
 // source: spec
 // gap: G33
 // output:
-//   account 2 is suspended: audit
-//   ada: 100.0
+//  account 2 is suspended: audit
+//  ada: 100.0
 type Active = {}
 type Suspended = { reason: string }
 type Status = Active | Suspended

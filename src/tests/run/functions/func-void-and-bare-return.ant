@@ -1,8 +1,8 @@
 // run
 // spec: 6 functions; 4 primitives (void); 5 return, break, continue
 // output:
-//   x
-//   late
+//  x
+//  late
 import "../../lib/expect.ant" Expect
 
 func f() { print("x") }

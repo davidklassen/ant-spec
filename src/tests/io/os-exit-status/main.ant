@@ -3,7 +3,7 @@
 // gap: G39, G46
 // exit: 3
 // output:
-//   before
+//  before
 func main() {
   print("before")
   Os.exit(3)

@@ -34,10 +34,10 @@ The header is the leading block of `//` lines. The first line is the tier. Then 
 // stderr: panic: boom
 // exit: 3
 // output:
-//   first line
-//   second line
+//  first line
+//  second line
 //
-//   fourth line, after an empty one
+//  fourth line, after an empty one
 ```
 
 | Directive | Required | Meaning |

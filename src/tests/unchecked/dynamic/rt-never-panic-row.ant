@@ -2,11 +2,11 @@
 // spec: 12 runtime panics (never row); 12 expressions (??, try, equality)
 // gap: G20, G41
 // output:
-//   1
-//   1
-//   false
-//   false
-//   true
+//  1
+//  1
+//  false
+//  false
+//  true
 func main() {
   print(1 ?? 2)            // ERROR "always"
   print(try 1)             // ERROR "try"

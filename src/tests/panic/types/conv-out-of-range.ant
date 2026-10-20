@@ -3,7 +3,7 @@
 // source: spec
 // panic: conversion out of range
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var bad = int8(300)

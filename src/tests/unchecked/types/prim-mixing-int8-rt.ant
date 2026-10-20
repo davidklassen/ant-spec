@@ -2,7 +2,7 @@
 // spec: 12 arithmetic (a number carries its width); 12 runtime panics
 // panic: kind mismatch
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var n = int8(1) + 1      // ERROR "mismatched operand types"

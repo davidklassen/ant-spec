@@ -1,7 +1,7 @@
 // run
 // spec: 11 prelude; 10 main
 // output:
-//   hello
+//  hello
 func main() {
   print("hello")
 }

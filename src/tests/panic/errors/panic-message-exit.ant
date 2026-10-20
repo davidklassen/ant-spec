@@ -2,7 +2,7 @@
 // spec: 8 panic; 10 main (exit status); 12 deferred blocks and panics
 // panic: boom
 // output:
-//   a
+//  a
 func main() {
   print("a")
   panic("boom")

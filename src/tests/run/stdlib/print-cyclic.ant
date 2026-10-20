@@ -2,10 +2,10 @@
 // spec: 11 prelude print; 11 String.from; 4 records
 // gap: G33
 // output:
-//   Node{ name: "a", next: ... }
-//   Node{ name: "b", next: Node{ name: "c", next: ... } }
-//   Tree{ kids: [...] }
-//   [Node{ name: "leaf", next: null }, Node{ name: "leaf", next: null }]
+//  Node{ name: "a", next: ... }
+//  Node{ name: "b", next: Node{ name: "c", next: ... } }
+//  Tree{ kids: [...] }
+//  [Node{ name: "leaf", next: null }, Node{ name: "leaf", next: null }]
 type Node = { name: string, next: Node | null }
 type Tree = { kids: Array[Tree] }
 

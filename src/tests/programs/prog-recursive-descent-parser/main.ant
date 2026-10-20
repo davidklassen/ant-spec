@@ -2,7 +2,7 @@
 // spec: 4 tagged unions; 6 functions (mutual recursion); 11 String; 11 Array (get); 5 loops (while)
 // gap: G41
 // output:
-//   11
+//  11
 type Lit = { value: int }
 type Bin = { op: string, left: Expr, right: Expr }
 type Expr = Lit | Bin

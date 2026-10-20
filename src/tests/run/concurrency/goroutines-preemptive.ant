@@ -1,7 +1,7 @@
 // run
 // spec: 12 goroutines (preemptive); 9 goroutines (the program exits when main returns)
 // output:
-//   main exits
+//  main exits
 func main() {
   var wg = WaitGroup.new()
   for i in Array.range(0, 8) {

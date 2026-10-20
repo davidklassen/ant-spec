@@ -2,7 +2,7 @@
 // spec: 12 record literal (the head must evaluate to a tag); 12 runtime panics
 // panic: not a tag
 // output:
-//   before
+//  before
 var P = 1
 
 func main() {

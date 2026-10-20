@@ -2,7 +2,7 @@
 // spec: 4 primitives; 12 conversion (an integer target panics outside its range); 12 runtime panics
 // panic: conversion out of range
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var bad = uint8(-1)

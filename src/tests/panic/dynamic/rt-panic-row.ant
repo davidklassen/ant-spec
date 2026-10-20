@@ -2,7 +2,7 @@
 // spec: 8 panic; 12 runtime panics; 12 deferred blocks and panics
 // panic: always
 // output:
-//   before
+//  before
 func main() {
   print("before")
   panic("always")

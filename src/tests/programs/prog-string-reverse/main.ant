@@ -2,10 +2,10 @@
 // spec: 11 String (chars, concat, length); 2 literals (\u escapes); 11 Array (reverse)
 // source: go:test/utf.go
 // output:
-//   olleh
-//   c😀ba
-//   3
-//   3
+//  olleh
+//  c😀ba
+//  3
+//  3
 import "../../lib/expect.ant" Expect
 
 func reverse(s: string): string {

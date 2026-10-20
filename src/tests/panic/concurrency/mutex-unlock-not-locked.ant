@@ -2,7 +2,7 @@
 // spec: 11 synchronization Mutex (unlock: not locked); 12 runtime panics
 // panic: not locked
 // output:
-//   unlocked once
+//  unlocked once
 func main() {
   var lock = Mutex.new()
   Mutex.lock(lock)

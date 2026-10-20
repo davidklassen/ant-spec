@@ -2,7 +2,7 @@
 // spec: 4 primitives; 12 conversion (a float truncated toward zero must fit the target); 12 runtime panics
 // panic: conversion out of range
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var bad = int32(10000000000.0)

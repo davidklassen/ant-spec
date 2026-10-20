@@ -1,11 +1,11 @@
 // program
 // spec: 9 goroutines; 9 synchronization (Mutex, WaitGroup); 11 Array (slice, sum, filled)
 // output:
-//   325
-//   950
-//   1575
-//   2200
-//   5050
+//  325
+//  950
+//  1575
+//  2200
+//  5050
 func main() {
   var xs = Array.range(1, 101)
   var parts = 4

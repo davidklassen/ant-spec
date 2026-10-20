@@ -2,7 +2,7 @@
 // spec: 12 assignment (a field target must be a record that already has that field); 12 runtime panics
 // panic: no field
 // output:
-//   before
+//  before
 type Point = { x: float64, y: float64 }
 
 func main() {

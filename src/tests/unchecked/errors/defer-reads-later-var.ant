@@ -2,7 +2,7 @@
 // spec: 3 variables (visible from its declaration); 12 names and scopes; 12 deferred blocks and panics
 // gap: G29
 // output:
-//   2
+//  2
 func main() {
   defer { print(y) }                  // ERROR "unknown name"
   var y = 2

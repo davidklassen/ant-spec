@@ -2,7 +2,7 @@
 // spec: 11 Array (xs[i] = v panics out of range); 12 assignment; 12 runtime panics
 // panic: index out of range
 // output:
-//   before
+//  before
 func main() {
   var xs = [1, 2, 3]
   print("before")

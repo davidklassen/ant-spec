@@ -2,7 +2,7 @@
 // spec: 9 panics in goroutines; 8 panic; 12 deferred blocks and panics
 // stderr: panic: worker failed
 // output:
-//   continued
+//  continued
 func main() {
   var wg = WaitGroup.new()
   WaitGroup.add(wg, 1)

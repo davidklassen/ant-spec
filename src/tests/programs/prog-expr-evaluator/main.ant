@@ -1,10 +1,10 @@
 // program
 // spec: 4 tagged unions; 6 functions (recursion); 5 if (exhaustive is chain); 5 operators (unary -)
 // output:
-//   7
-//   14
-//   -3
-//   -10
+//  7
+//  14
+//  -3
+//  -10
 type Num = { value: int }
 type Add = { left: Expr, right: Expr }
 type Mul = { left: Expr, right: Expr }

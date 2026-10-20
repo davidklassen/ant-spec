@@ -2,7 +2,7 @@
 // spec: 10 modules (assigning to a namespace field is a compile error); 12 assignment (a field target of a record)
 // gap: G31
 // output:
-//   5
+//  5
 import "./geometry.ant" Geometry
 
 func main() {

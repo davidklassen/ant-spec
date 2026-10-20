@@ -2,8 +2,8 @@
 // spec: 4 generics (bounds); 11 Array (filter, slice, concat); 6 lambdas
 // gap: G15
 // output:
-//   1 2 5 5 6 9
-//   apple fig pear
+//  1 2 5 5 6 9
+//  apple fig pear
 func quicksort[T: Ordered](xs: Array[T]): Array[T] {
   if Array.length(xs) <= 1 { return xs }
   var pivot = xs[0]

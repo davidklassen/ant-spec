@@ -2,8 +2,8 @@
 // spec: 11 Array (nested arrays); 5 loops; 5 operators (float arithmetic)
 // gap: G33
 // output:
-//   58.0 64.0
-//   139.0 154.0
+//  58.0 64.0
+//  139.0 154.0
 func multiply(a: Array[Array[float64]], b: Array[Array[float64]]): Array[Array[float64]] {
   var rows = Array.length(a)
   var cols = Array.length(b[0])

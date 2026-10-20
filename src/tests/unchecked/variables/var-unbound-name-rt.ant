@@ -3,7 +3,7 @@
 // gap: G3
 // panic: unbound name
 // output:
-//   start
+//  start
 func main() {
   print("start")
   print(missing)                 // ERROR "unknown name"

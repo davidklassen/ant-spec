@@ -3,7 +3,7 @@
 // gap: G15
 // panic: kind mismatch
 // output:
-//   checked
+//  checked
 func main() {
   var xs: Array[int | string] = [1, "a"]
   print("checked")

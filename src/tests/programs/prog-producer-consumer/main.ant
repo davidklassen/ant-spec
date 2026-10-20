@@ -2,11 +2,11 @@
 // spec: 9 synchronization (Cond, Mutex, WaitGroup); 9 goroutines
 // gap: G64
 // output:
-//   1
-//   2
-//   3
-//   4
-//   5
+//  1
+//  2
+//  3
+//  4
+//  5
 type Buffer = { items: Array[int], capacity: int, lock: Mutex, notEmpty: Cond, notFull: Cond }
 
 func put(b: Buffer, v: int): void {

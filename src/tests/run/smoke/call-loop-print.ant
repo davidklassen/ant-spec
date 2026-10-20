@@ -1,8 +1,8 @@
 // run
 // spec: 6 functions; 5 loops; 11 prelude
 // output:
-//   6
-//   done
+//  6
+//  done
 func sum(xs: Array[int]): int {
   var total = 0
   for x in xs { total += x }

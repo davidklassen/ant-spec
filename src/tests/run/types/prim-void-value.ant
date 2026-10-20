@@ -2,7 +2,7 @@
 // spec: 4 primitives (void is a type and its only value); 11 prelude; 8 Result
 // gap: G9, G12, G17, G41
 // output:
-//   x
+//  x
 import "../../lib/expect.ant" Expect
 
 func main() {

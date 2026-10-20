@@ -1,12 +1,12 @@
 // program
 // spec: 4 tagged unions; 11 String (chars, toInt); 6 closures; 5 if (exhaustive is chain)
 // output:
-//   word let
-//   word x
-//   symbol =
-//   number 42
-//   symbol +
-//   word y1
+//  word let
+//  word x
+//  symbol =
+//  number 42
+//  symbol +
+//  word y1
 type Word = { text: string }
 type Digits = { value: int }
 type Symbol = { text: string }

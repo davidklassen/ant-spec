@@ -2,7 +2,7 @@
 // spec: 4 assignability (never is assignable to every type); 8 panic
 // panic: x
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var n: int = panic("x")

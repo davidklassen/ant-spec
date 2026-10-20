@@ -2,7 +2,7 @@
 // spec: 11 synchronization RwMutex (readUnlock: not read-locked); 12 runtime panics
 // panic: not locked
 // output:
-//   write-locked
+//  write-locked
 func main() {
   var rw = RwMutex.new()
   RwMutex.writeLock(rw)

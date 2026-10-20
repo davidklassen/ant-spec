@@ -2,7 +2,7 @@
 // spec: 5 loops (panics in the body propagate through the sequence); 12 deferred blocks and panics
 // panic: boom
 // output:
-//   seq defer
+//  seq defer
 func seq(yield: func(int): bool) {
   defer { print("seq defer") }
   if !yield(1) { return }

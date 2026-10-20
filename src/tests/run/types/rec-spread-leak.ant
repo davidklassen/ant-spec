@@ -2,7 +2,7 @@
 // spec: 4 records (spread, width subtyping); 12 record literal; 11 String.from
 // gap: G10, G33, G52
 // output:
-//   Named{ name: "ada", age: 36 }
+//  Named{ name: "ada", age: 36 }
 import "../../lib/expect.ant" Expect
 
 type Named = { name: string }

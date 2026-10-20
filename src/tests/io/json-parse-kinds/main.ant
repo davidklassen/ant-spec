@@ -2,12 +2,12 @@
 // spec: stdlib Json; 5 is; 4 unions
 // gap: G57
 // output:
-//   null
-//   bool
-//   float64
-//   string
-//   Array
-//   Map
+//  null
+//  bool
+//  float64
+//  string
+//  Array
+//  Map
 func main() {
   for text in ["null", "true", "3.5", "\"s\"", "[1, 2]", "{\"k\": 1}"] {
     var j = Result.unwrap(Json.parse(text))

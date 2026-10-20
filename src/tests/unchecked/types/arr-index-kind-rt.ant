@@ -2,7 +2,7 @@
 // spec: 12 index read (for an array, i must be an int); 12 runtime panics
 // panic: index not an int
 // output:
-//   before
+//  before
 func main() {
   var xs = [1, 2, 3]
   print("before")

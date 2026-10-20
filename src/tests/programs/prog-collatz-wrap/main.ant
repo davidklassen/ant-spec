@@ -2,7 +2,7 @@
 // spec: 11 Bits (wrapMul, wrapAdd); 5 operators (overflow panics, sized integers); 12 values
 // gap: G33
 // output:
-//   43 -126 -63 68 34 17 52 26 13 40 20 10 5 16 8 4 2 1
+//  43 -126 -63 68 34 17 52 26 13 40 20 10 5 16 8 4 2 1
 func step(n: int8): int8 {
   if n % int8(2) == int8(0) { n / int8(2) }
   else { Bits.wrapAdd(Bits.wrapMul(int8(3), n), int8(1)) }    // int8(3) * n + int8(1) would panic at 43 and -63

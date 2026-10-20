@@ -2,11 +2,11 @@
 // spec: 4 generics; 8 Result; 11 Array (push, pop); 7 nullability
 // gap: G34
 // output:
-//   popped 3
-//   popped 2
-//   popped 1
-//   empty
-//   popped b
+//  popped 3
+//  popped 2
+//  popped 1
+//  empty
+//  popped b
 type Stack[T] = { items: Array[T] }
 type Empty = {}
 

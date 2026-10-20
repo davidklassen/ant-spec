@@ -2,7 +2,7 @@
 // spec: 12 index read (a must be an array or a map); 12 runtime panics
 // panic: not indexable
 // output:
-//   before
+//  before
 func main() {
   print("before")
   var v = null[0]          // ERROR "cannot index"

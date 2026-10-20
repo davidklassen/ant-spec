@@ -2,8 +2,8 @@
 // spec: 11 Array.map; 4 primitives void
 // gap: G35
 // output:
-//   1
-//   2
+//  1
+//  2
 import "../../lib/expect.ant" Expect
 
 func main() {

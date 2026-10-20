@@ -2,7 +2,7 @@
 // spec: 11 Array (filled, push, map); 5 loops (continue, while); 11 Iter
 // source: go:test/sieve.go
 // output:
-//   2 3 5 7 11 13 17 19 23 29 31 37 41 43 47
+//  2 3 5 7 11 13 17 19 23 29 31 37 41 43 47
 func sieve(limit: int): Array[int] {
   var composite = Array.filled(limit, false)
   var primes: Array[int] = []

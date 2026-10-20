@@ -1,11 +1,11 @@
 // program
 // spec: 11 Map (index read and write); 11 String (split); 11 Array (sort); 7 nullability (??)
 // output:
-//   and: 2
-//   bird: 1
-//   cat: 1
-//   dog: 1
-//   the: 3
+//  and: 2
+//  bird: 1
+//  cat: 1
+//  dog: 1
+//  the: 3
 func main() {
   var text = "the cat and the dog and the bird"
   var counts: Map[string, int] = Map{}
