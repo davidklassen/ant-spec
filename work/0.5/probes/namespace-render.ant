@@ -1,0 +1,3 @@
+import "./assign-import/c.ant" C
+
+func main() { print(C) }

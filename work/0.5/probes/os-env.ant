@@ -1,0 +1,5 @@
+func main() {
+  print(Os.env("ANT_PROBE"))
+  print(Os.env("ANT_PROBE_UNSET_NAME_XYZ"))
+  Os.env(1)
+}

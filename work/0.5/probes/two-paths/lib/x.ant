@@ -1,0 +1,6 @@
+export var v = side()
+
+func side(): int {
+  print("init x")
+  1
+}

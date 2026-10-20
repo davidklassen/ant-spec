@@ -67,6 +67,7 @@ class Interp:
     def __init__(self, args):
         self.args = args
         self.modules = {}            # absolute path -> module record
+        self.loading = []            # (importer path, import line) of each import being loaded, outermost first
         self.unwinding = set()       # idents of threads between a panic and its report
         self.prelude = prelude.make_prelude()
         self.table = {
@@ -664,7 +665,15 @@ class Interp:
     # ------------------------------------------------------------------ modules
 
     def load_module(self, path, importer, line=0):
-        """Loads, lowers, and initializes the module at `path` once (section 10)."""
+        """Loads, lowers, and initializes the module at `path` once (section 10).
+        A module still on the loading stack is an import cycle, a compile
+        error; the bootstrap reports it as a load error on the import line of
+        the first module of the cycle (where the check tier marks it)."""
+        for i, (start, start_line) in enumerate(self.loading):   # before the lookup: a loading module is registered
+            if start == path:
+                chain = [p for p, _ in self.loading[i:]] + [path]
+                raise LoadError(start, start_line, 1,
+                                "cycle: " + " -> ".join(os.path.basename(p) for p in chain))
         module = self.modules.get(path)
         if module is not None:
             return module
@@ -678,6 +687,8 @@ class Interp:
         except antparse.ParseError as e:
             raise LoadError(path, e.line, e.col, e.msg)
         _, imports, decls = lower_file(ast, path)
+        if importer is None:
+            self.check_main(path, decls)
 
         vars = {}
         frame = Frame("module", path, 0, None)
@@ -688,7 +699,11 @@ class Interp:
 
         base = os.path.dirname(path)
         for _, line, target, pattern in imports:
-            dep = self.load_module(os.path.normpath(os.path.join(base, target)), path, line)
+            self.loading.append((path, line))
+            try:
+                dep = self.load_module(os.path.normpath(os.path.join(base, target)), path, line)
+            finally:
+                self.loading.pop()
             if pattern[0] == "Namespace":
                 vars[pattern[1]] = dep
             else:
@@ -753,15 +768,24 @@ class Interp:
         finally:
             self.unwinding.discard(threading.get_ident())
 
+    def check_main(self, path, decls):
+        """Section 10: the entry module declares `func main()` with no
+        parameters, diagnosed on its lowered declarations before anything
+        runs (G32). A missing one is reported at the entry module's last
+        declaration (G53); the return type is erased, so `main(): int` is left
+        to the checker."""
+        decl = next((d for d in decls if d[0] == "Func" and d[2] == "main"), None)
+        if decl is None:
+            raise LoadError(path, decls[-1][1] if decls else 1, 1, "main: missing or not a function")
+        if decl[3]:                              # the params
+            raise LoadError(path, decl[1], 1, "main: takes no parameters")
+
     def run_main(self, path):
         """Runs the entry module; the exit status: 0 when main returns, 2 on a
         panic, 1 on a load error."""
         try:
             module = self.load_module(os.path.abspath(path), None)
-            main = module.fields.get("main")
-            if type(main) is not Closure or main.is_lambda:
-                raise LoadError(path, 1, 1, "main: missing or not a function")
-            self.call(main, [], (), None)
+            self.call(module.fields["main"], [], (), None)
         except LoadError as e:
             sys.stdout.flush()
             sys.stderr.write(str(e) + "\n")

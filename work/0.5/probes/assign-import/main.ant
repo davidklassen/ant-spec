@@ -1,0 +1,9 @@
+import "./c.ant" { count }
+import "./c.ant" C
+
+func main() {
+  count = 5
+  count += 1
+  print(C.count)
+  print(count)
+}

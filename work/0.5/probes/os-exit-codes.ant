@@ -1,0 +1,11 @@
+func main() {
+  var which = Os.args()[0]
+  print("before")
+  if which == "3" { Os.exit(3) }
+  if which == "0" { Os.exit(0) }
+  if which == "300" { Os.exit(300) }
+  if which == "neg" { Os.exit(-1) }
+  if which == "float" { Os.exit(1.0) }
+  if which == "bool" { Os.exit(true) }
+  print("after")
+}

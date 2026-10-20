@@ -1,0 +1,3 @@
+var x = side()
+
+func side(): int { print("initializer ran"); 1 }

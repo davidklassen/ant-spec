@@ -6,7 +6,7 @@
 Runs the module at FILE as the entry module. `--unchecked` is accepted and
 identical, since the bootstrap has no checker. Exit status: 0 when `main`
 returns, 2 on a panic (`panic: <message>` and a trace on stderr), 1 on a load
-error (`path:line:col: message` on stderr).
+error (`path:line:col: message` on stderr), n for `Os.exit(n)`.
 """
 import os
 import sys

@@ -1,0 +1,7 @@
+import "./lib/x.ant" A
+import "./lib/../lib/x.ant" B
+
+func main() {
+  print(A == B)
+  print(A.v)
+}

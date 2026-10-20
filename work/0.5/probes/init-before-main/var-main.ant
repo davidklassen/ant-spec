@@ -1,0 +1,2 @@
+func main() { print("ran") }
+var main = 5

@@ -5,8 +5,8 @@ constants like `Math.PI`), so `Array.map` is an ordinary field read (section 10)
 A native is declared with its parameter names (named arguments resolve against
 them). One marked ctx=True receives (interp, frame, *args) and may call back
 into Ant with interp.call. The data namespaces (Array, Map, String, Iter,
-Math) live in library.py and the sync objects and Time in sync.py; this
-module holds Result, Record, Bits, and the scope itself."""
+Math) live in library.py, the sync objects and Time in sync.py, and Os in
+system.py; this module holds Result, Record, Bits, and the scope itself."""
 import functools
 import sys
 
@@ -21,6 +21,7 @@ from antpy.library import (
     ARRAY, MAP, STRING, ITER, MATH,
 )
 from antpy.sync import MUTEX, RWMUTEX, WAITGROUP, ONCE, COND, ATOMIC, TIME
+from antpy.system import OS
 
 
 # ----------------------------------------------------------------------------- Result and Record
@@ -140,6 +141,7 @@ NAMESPACES = {
     "Cond": COND,
     "Atomic": ATOMIC,
     "Time": TIME,
+    "Os": OS,
 }
 
 # Type names bound to tags. `bool` and `string` are tags so that calling them
