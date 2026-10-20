@@ -77,6 +77,18 @@ const REVIEW = { type: 'object', properties: {
   refactors: { type: 'array', items: { type: 'string' } }, testChangesOk: { type: 'boolean' }, notes: { type: 'string' },
 }, required: ['blocking', 'refactors', 'testChangesOk', 'notes'] }
 const DONE = { type: 'object', properties: { ok: { type: 'boolean' }, summary: { type: 'string' } }, required: ['ok', 'summary'] }
+const FINDINGS = { type: 'object', properties: {
+  findings: { type: 'array', items: { type: 'object', properties: {
+    file: { type: 'string' }, line: { type: 'integer' }, summary: { type: 'string' }, cost: { type: 'string' }, fix: { type: 'string' },
+  }, required: ['file', 'line', 'summary', 'cost', 'fix'] } },
+}, required: ['findings'] }
+
+const ANGLES = {
+  reuse: 'REUSE: flag code that re-implements something the codebase already has (duplicated helpers across modules, the same rule written at several sites, re-implementation of a dependency); name the existing helper or the shared form to use.',
+  simplification: 'SIMPLIFICATION: flag unnecessary complexity (redundant or derivable state, copy-paste with slight variation, deep nesting, dead code, abstractions with one caller); name the simpler form that does the same job.',
+  efficiency: 'EFFICIENCY: flag wasted work on hot paths (redundant computation, repeated lookups a local would cache, per-call allocations that could be hoisted, string matching at evaluation time, quadratic patterns, long-lived closures keeping large environments alive); name the cheaper alternative and measure when cheap.',
+  altitude: 'ALTITUDE: flag mechanisms implemented as special cases layered on shared infrastructure instead of at the right depth (a check duplicated at call sites instead of once in the operation, a sentinel handled in many places, phrases composed ad hoc, control flow caught and re-raised in several layers); name the deeper, more general change.',
+}
 
 // ---------------------------------------------------------------- prompts
 const RULES = `Repository: ${REPO}. Run every command from there. Read ROADMAP.md first: it defines the steps, directories, command-line contracts, and rules; for M2+ steps also read docs/runtime-design.md and follow it. The language spec is ant-lang.md and stdlib.md; the test contract (tiers, exit codes, 'panic: <message>' on stderr, checker report format, canonical phrases) is src/tests/README.md; src/tests/GAPS.md lists the readings the tests assume.
@@ -143,6 +155,21 @@ const committer = (step) => `Commit the completed roadmap step ${step.id} "${ste
 Run from the repository root: ensure the current branch is 'antc' (if not, 'git checkout antc', creating it from the current HEAD with 'git checkout -b antc' if it does not exist); then 'git add -A' and 'git commit -m "${step.id} ${step.title}" -m "Acceptance: ${step.accept.replace(/"/g, '\\"')}" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"'. If there is nothing to commit, say so. Do not push.
 Return JSON: ok, summary (the commit hash and the one-line stat).`
 
+const simplifyReviewer = (step, angle, base) => `You are one of four code-quality reviewers of a whole milestone's code. Angle: ${ANGLES[angle]} You review; you change nothing.
+${RULES}
+
+Milestone ${milestone}, gate ${step.id}. The code under review is everything the milestone added or changed in ${step.dirs}: run 'git diff ${base}..HEAD --stat -- ${step.dirs.split(',').map(d => d.trim()).join(' ')}' and read those files in full (the per-step reports in work/*/report.md explain why things are the way they are). Look across steps: the valuable findings are rules written once per step that should exist once per package. Do not report correctness bugs and do not propose behavior changes.
+Return JSON findings ordered by value, each with file, line, a one-line summary, the concrete cost, and the fix; an empty list means clean.`
+
+const simplifyApplier = (step, findings) => `You are the applier of a milestone-wide cleanup pass.
+${RULES}
+
+${header(step)}
+Four reviewers (reuse, simplification, efficiency, altitude) reviewed the whole milestone's code. Their findings, deduplicated by you first (several point at the same mechanism), are:
+${findings.map((f, i) => `${i + 1}. [${f.angle}] ${f.file}:${f.line} ${f.summary}\n   cost: ${f.cost}\n   fix: ${f.fix}`).join('\n')}
+Apply the ones that keep behavior identical (every panic phrase, output, and exit status unchanged) and that stay inside the allowed directories; skip a finding whose fix would change intended behavior, reach well outside the milestone's code, or that you judge a false positive, and say which and why. Work in groups: shared-rule consolidations first, then efficiency; run the acceptance command (the gate) after each group and revert any change that cannot be made green. Append a "Milestone simplify" section to work/${step.id}/report.md listing what was applied and skipped.
+Return JSON: ok (true when the tree is green at the end), summary.`
+
 const blocker = (step, feedback) => `In ${REPO}, write work/${step.id}/BLOCKED.md for roadmap step ${step.id} "${step.title}": the acceptance command, the last feedback below, and a short list of what a human should look at first. Do not change anything else.
 Last feedback:
 ${feedback}
@@ -158,6 +185,9 @@ if (!steps.length) throw new Error(`no steps for milestone ${milestone}`)
 
 const results = []
 let blocked = null
+// The milestone-wide simplify pass reviews everything since the milestone began: the commit HEAD pointed at before this run's first step.
+const baseInfo = dryRun ? null : await agent(`In ${REPO} run 'git rev-parse HEAD' and return it.`, { schema: { type: 'object', properties: { head: { type: 'string' } }, required: ['head'] }, label: 'milestone base', effort: 'low' })
+const milestoneBase = baseInfo ? baseInfo.head.trim() : 'HEAD'
 for (const step of steps) {
   const ph = `${step.id} ${step.title}`
   phase(ph)
@@ -198,7 +228,23 @@ for (const step of steps) {
       log(`   review blocked: ${review.blocking.length} finding(s)`)
       continue
     }
-    if (!step.gate) {
+    if (step.gate) {
+      const base = milestoneBase
+      const reviews = await parallel(Object.keys(ANGLES).map(angle => () =>
+        agent(simplifyReviewer(step, angle, base), { schema: FINDINGS, label: `simplify:${angle} ${step.id}`, phase: ph })
+          .then(r => (r ? r.findings.map(f => Object.assign({ angle }, f)) : []))))
+      const findings = reviews.filter(Boolean).flat()
+      log(`   milestone simplify: ${findings.length} finding(s) across four angles`)
+      if (findings.length) {
+        const r = await agent(simplifyApplier(step, findings), { schema: DONE, label: `simplify:apply ${step.id}`, phase: ph, agentType: 'general-purpose' })
+        const retest = await agent(tester(step), { schema: TEST, label: `retest ${step.id}`, phase: ph })
+        if (!retest || !retest.pass || retest.scopeViolations.length) {
+          feedback = `After the milestone simplify pass the gate is red: ${retest ? retest.summaryLine : 'no tester result'}. Restore a green tree.`
+          log(`   simplify pass left the tree red${r ? ': ' + r.summary : ''}`)
+          continue
+        }
+      }
+    } else {
       const r = await agent(refactorer(step, review ? review.refactors : []), { schema: DONE, label: `refactor ${step.id}`, phase: ph, agentType: 'general-purpose' })
       const retest = await agent(tester(step), { schema: TEST, label: `retest ${step.id}`, phase: ph })
       if (!retest || !retest.pass || retest.scopeViolations.length) {
