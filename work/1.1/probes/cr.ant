@@ -1,0 +1,4 @@
+var x = 1
+var y = "ab"
+
+var z = 3 // c

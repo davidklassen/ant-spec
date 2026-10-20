@@ -1,0 +1,34 @@
+var a = b
+  .c
+
+  ?.d
+  // comment
+  | f()
+  || g
+  /* block */ .e
+var x = if a { 1 }
+else { 2 }
+var y = z
+elsewhere
+var w = q
+  ...
+var v = [
+  1,
+]
+var u = (
+  1
+)
+func f() {
+  return
+  true
+  false
+  null
+  void
+  break
+  continue
+}
+var t = a +
+  b -
+  c
+var s = x ?
+.y

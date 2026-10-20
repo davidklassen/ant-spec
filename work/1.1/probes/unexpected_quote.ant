@@ -1,0 +1,2 @@
+// a lone single quote: the reference reports it as "'" (Python repr)
+var x = '

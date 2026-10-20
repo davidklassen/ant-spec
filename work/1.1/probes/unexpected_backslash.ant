@@ -1,0 +1,2 @@
+// a backslash outside a string: the reference reports it as '\\' (Python repr)
+var x = \

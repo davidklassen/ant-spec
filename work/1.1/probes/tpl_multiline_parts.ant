@@ -1,0 +1,6 @@
+var s = `line1 ${
+  a +
+  b
+} line3 ${c
+}`
+var t = 2
