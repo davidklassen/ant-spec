@@ -1,13 +1,13 @@
 """antpy: the bootstrap interpreter for Ant (roadmap M0).
 
 Modules:
-  values   value classes, kinds, panics
+  values   value classes, kinds, panics, the library's argument checks, shared record shapes
   equal    structural equality, structural hashing, and the map keyed by them
   arith    arithmetic, comparison, unary operators, conversions, Bits
   render   String.from
   lower    the reference parser's AST to the evaluator's nodes
   interp   scopes, frames, evaluation, calls, loops, defers, modules, goroutines
-  library  the data namespaces: Array, Map, String, Iter, Math, and the argument checks
+  library  the data namespaces: Array, Map, String, Iter, Math
   sync     the sync objects: Mutex, RwMutex, WaitGroup, Once, Cond, Atomic
   system   the Os and Time namespaces of stdlib.md
   fileio   the File namespace of stdlib.md

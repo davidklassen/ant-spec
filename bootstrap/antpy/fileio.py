@@ -16,8 +16,7 @@ import functools
 import io
 import os
 
-from antpy.values import VOID, KIND
-from antpy.library import need, need_string, need_bytes, byte_array, ok, err, error
+from antpy.values import VOID, KIND, need, need_string, need_bytes, byte_array, ok, err, error
 
 
 class File:

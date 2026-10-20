@@ -19,10 +19,9 @@ import json
 import math
 import re
 
-from antpy.values import KIND, INT_KINDS, FLOAT_KINDS, MODULE_TAG, Record
+from antpy.values import KIND, INT_KINDS, FLOAT_KINDS, MODULE_TAG, Record, need_string, ok, err, error
 from antpy.equal import AntMap
 from antpy.render import render, render_float
-from antpy.library import need_string, ok, err, error
 
 
 # ----------------------------------------------------------------------------- parse
@@ -36,8 +35,7 @@ def reject_constant(name):
 
 def to_map(pairs):
     m = AntMap()
-    for k, v in pairs:
-        m.set(k, v)
+    m.update(pairs)
     return m
 
 
@@ -95,12 +93,10 @@ def emit(v, out, active):
     k = KIND[t]
     if k == "string":
         out.append(quote(v))
-    elif k in INT_KINDS:
-        out.append(str(int(v)))
+    elif k in INT_KINDS or k == "bool":
+        out.append(render(v))
     elif k in FLOAT_KINDS:
         out.append(render_float(v, k == "float32") if math.isfinite(v) else "null")
-    elif k == "bool":
-        out.append("true" if v else "false")
     elif t is list or t is AntMap or (t is Record and v.tag is not MODULE_TAG):
         emit_container(v, out, active)
     else:

@@ -123,12 +123,12 @@ INDEXED = Tag("Indexed")
 
 class Closure:
     """A declared function, an anonymous function, or a lambda."""
-    __slots__ = ("name", "params", "param_names", "body", "scope", "is_lambda", "module")
+    __slots__ = ("name", "params", "names", "body", "scope", "is_lambda", "module")
 
-    def __init__(self, name, params, body, scope, is_lambda, module):
+    def __init__(self, name, params, names, body, scope, is_lambda, module):
         self.name = name              # for traces: the declared name, "func", or "lambda"
         self.params = params          # [(name, default_node_or_None)]
-        self.param_names = frozenset(p[0] for p in params)
+        self.names = names            # the parameter names, in order, computed once by the lowering pass
         self.body = body              # a lowered Block node
         self.scope = scope            # the captured scope
         self.is_lambda = is_lambda
@@ -201,24 +201,20 @@ KIND = {
 # structural equality and hashing), sync.py its six classes under "sync", and
 # fileio.py its File under "file".
 
-INT_CLASS = {
-    "int8": Int8, "int16": Int16, "int32": Int32, "int64": int,
-    "uint8": UInt8, "uint16": UInt16, "uint32": UInt32, "uint64": UInt64,
-}
 INT_WIDTH = {
     "int8": 8, "int16": 16, "int32": 32, "int64": 64,
     "uint8": 8, "uint16": 16, "uint32": 32, "uint64": 64,
 }
+SIGNED_KINDS = frozenset(("int8", "int16", "int32", "int64"))
 INT_RANGE = {
-    "int8": (-2 ** 7, 2 ** 7 - 1), "int16": (-2 ** 15, 2 ** 15 - 1),
-    "int32": (-2 ** 31, 2 ** 31 - 1), "int64": (-2 ** 63, 2 ** 63 - 1),
-    "uint8": (0, 2 ** 8 - 1), "uint16": (0, 2 ** 16 - 1),
-    "uint32": (0, 2 ** 32 - 1), "uint64": (0, 2 ** 64 - 1),
+    kind: (-(1 << (width - 1)), (1 << (width - 1)) - 1) if kind in SIGNED_KINDS else (0, (1 << width) - 1)
+    for kind, width in INT_WIDTH.items()
 }
-INT_KINDS = frozenset(INT_CLASS)
+INT_CLASS = {kind: cls for cls, kind in KIND.items() if kind in INT_WIDTH}
+INT_KINDS = frozenset(INT_WIDTH)
 FLOAT_KINDS = frozenset(("float32", "float64"))
 NUMBER_KINDS = INT_KINDS | FLOAT_KINDS
-SIGNED_KINDS = frozenset(("int8", "int16", "int32", "int64"))
+ORDERED_KINDS = NUMBER_KINDS | frozenset(("string",))
 
 # The conversion functions, by name. `int` and `byte` are aliases (section 4).
 CONVERSION_KINDS = {
@@ -228,3 +224,127 @@ CONVERSION_KINDS = {
 }
 
 FUNC_TYPES = (Closure, Native, YieldFn)
+
+
+# ----------------------------------------------------------------------------- argument checks
+
+# The kind checks of the library functions (section 12: an argument of a kind
+# the function does not take panics `wrong kind`). Only `type(v) is ...`:
+# bool subclasses int and Float32 subclasses float. The map check lives in
+# equal.py, where the map class is.
+
+def need(v, t, what):
+    if type(v) is not t:
+        panic("wrong kind: expected " + what)
+    return v
+
+
+def need_array(v):
+    return need(v, list, "an array")
+
+
+def need_string(v):
+    return need(v, str, "a string")
+
+
+def need_int(v):
+    return need(v, int, "an int")
+
+
+def need_record(v):
+    return need(v, Record, "a record")
+
+
+def need_float64(v):
+    return need(v, float, "a float64")     # Float32 is its own type, so a float32 is `wrong kind`
+
+
+def need_number(v):
+    if KIND[type(v)] not in NUMBER_KINDS:
+        panic("wrong kind: expected a number")
+    return v
+
+
+def need_ordered(v):
+    if KIND[type(v)] not in ORDERED_KINDS:
+        panic("wrong kind: expected a number or a string")
+    return v
+
+
+def need_func(v):
+    if type(v) not in FUNC_TYPES:
+        panic("wrong kind: expected a function")
+    return v
+
+
+def need_bytes(v):
+    """An array of bytes (`uint8`) as Python bytes. The array is copied
+    before the check so that another goroutine cannot change it between the
+    check and the conversion (section 12: a data race cannot crash the
+    interpreter)."""
+    items = list(need_array(v))
+    for b in items:
+        need(b, UInt8, "a byte")
+    return bytes(items)
+
+
+def byte_array(data):
+    """Python bytes as an Ant array of `uint8`."""
+    return [UInt8(b) for b in data]
+
+
+# ----------------------------------------------------------------------------- value-level primitives
+
+# The prelude's record shapes (sections 8 and 11), shared by the evaluator
+# and the library: `Ok{ value }`, `Err{ error }`, the `Error{ message }` the
+# I/O namespaces fail with, and the `Entry{ key, value }` of a map.
+
+def ok(v):
+    return Record(OK, {"value": v})
+
+
+def err(e):
+    return Record(ERR, {"error": e})
+
+
+def error(message):
+    return Record(ERROR, {"message": message})
+
+
+def entry(k, v):
+    return Record(ENTRY, {"key": k, "value": v})
+
+
+def record_field(r, name):
+    """A field read that panics `no field` when the field is absent (section
+    12, `a.b`): an unchecked program can build an `Ok{}` without its `value`."""
+    v = r.fields.get(name, MISSING)
+    if v is MISSING:
+        panic("no field: " + name)
+    return v
+
+
+def live_elements(xs):
+    """The elements of an array iterated by index (section 12, `for`): the
+    length is re-read at each step, so an element appended during the loop is
+    visited, and one popped by another goroutine ends the loop."""
+    i = 0
+    while i < len(xs):
+        try:
+            v = xs[i]
+        except IndexError:
+            return
+        i += 1
+        yield v
+
+
+def drive(interp, frame, source, body):
+    """Runs the sequence `source` with a fresh yield whose `body(v)` returns
+    True to continue. The yield is done once the source returns (section 12,
+    `for`), so a late call panics `yield after done`."""
+    y = YieldFn(body)
+    try:
+        interp.call(source, [y], (), frame)
+    finally:
+        y.done = True
+    return VOID

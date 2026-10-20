@@ -12,10 +12,9 @@ The `with` forms are `with_held` below."""
 import collections
 import threading
 
-from antpy.values import VOID, KIND, panic
+from antpy.values import VOID, KIND, panic, need, need_int, need_func, need_number
 from antpy.equal import eq
 from antpy import arith
-from antpy.library import need, need_int, need_func, need_number
 
 
 class Mutex:

@@ -37,13 +37,13 @@ interpreter, one concern per module:
 
 | Module | Holds |
 |---|---|
-| `values.py` | the value classes and kinds, `KIND[type(v)]`, the panic exception, scopes and frames |
-| `equal.py` | structural equality with cycle handling, the structural hash that agrees with it, and `AntMap`, the map keyed by them |
+| `values.py` | the value classes and kinds, `KIND[type(v)]`, the panic exception, scopes and frames, the `need_*` argument checks of the library, and the value-level helpers the evaluator and the library share: the `Ok`/`Err`/`Error`/`Entry` shapes, `record_field`, `live_elements`, `drive` |
+| `equal.py` | structural equality with cycle handling, the structural hash that agrees with it, and `AntMap`, the map keyed by them, with its `need_map` |
 | `arith.py` | arithmetic, comparison, unary operators, the ten numeric conversions, and the `Bits` namespace |
 | `render.py` | `String.from`, the rendering of every kind |
-| `lower.py` | one pass from the reference parser's tuple AST to the evaluator's nodes: literals decoded, blocks that register deferred blocks marked |
+| `lower.py` | one pass from the reference parser's tuple AST to the evaluator's nodes, each headed by its handler: literals decoded, operators resolved to their functions, blocks that register deferred blocks or bind nothing marked, `?.` forms lowered to a `NullGuard` under the plain node, parameter names computed once |
 | `interp.py` | scopes, frames, evaluation, calls, loops, deferred blocks, panics and traces, modules, goroutines, and the program root |
-| `library.py` | the data namespaces `Array`, `Map`, `String`, `Iter`, `Math`, and the argument checks they share |
+| `library.py` | the data namespaces `Array`, `Map`, `String`, `Iter`, `Math` |
 | `sync.py` | the sync objects `Mutex`, `RwMutex`, `WaitGroup`, `Once`, `Cond`, `Atomic` |
 | `system.py` | the `Os` and `Time` namespaces |
 | `fileio.py` | the `File` namespace |
@@ -60,6 +60,15 @@ These are the decisions the roadmap's M0 paragraph names, as built.
   kinds subclass `int` or `float`, so every kind test is `type(v) is ...`,
   never `isinstance`. Integer arithmetic checks the kind's range and panics
   `integer overflow`; `float32` is its own class rounded through `struct`.
+- **Nodes carry their handler.** The lowering pass puts the evaluator's
+  handler for each node kind (`HANDLERS` in `interp.py`) at the head of the
+  node, so evaluating one is `node[0](interp, node, scope)` with no table
+  lookup, and the hot handlers write that call out instead of going through
+  `ev`. Operators lower to the functions of `arith.OPS`, which take the
+  `int` and `string` cases inline and hand the rest to the generic `binary`;
+  `==` takes two values of one primitive type inline. A block that binds
+  nothing (no `var` or `defer` of its own) runs in its enclosing scope; a
+  `for` body still gets a scope per iteration.
 - **Control flow is exceptions.** `return`, `break`, `continue`, and panics
   are `BaseException` subclasses, so they pass through the Python frames of
   the library (a `return` inside a `for` over a sequence leaves the Ant

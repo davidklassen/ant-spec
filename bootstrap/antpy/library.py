@@ -1,12 +1,11 @@
 """The core library's data namespaces (section 11): Array, Map, String, Iter,
-and Math as Python functions over the values of values.py, with the argument
-checks they share. prelude.py binds them in the prelude scope.
+and Math as Python functions over the values of values.py. prelude.py binds
+them in the prelude scope.
 
-Every function checks the kinds of its arguments first (`wrong kind`), then
-the value-dependent panics the spec marks with a diamond, then does the work.
-Kind checks use `type(v) is ...`, never isinstance: bool subclasses int and
-Float32 subclasses float. A function that is not marked `mutates` in section
-11 returns a new array, map, or string.
+Every function checks the kinds of its arguments first (`wrong kind`, through
+the need_* checks of values.py), then the value-dependent panics the spec
+marks with a diamond, then does the work. A function that is not marked
+`mutates` in section 11 returns a new array, map, or string.
 
 A registry (ARRAY, MAP, ...) maps a field name to (parameter names, function)
 or (parameter names, function, True) for one that needs the interpreter: it
@@ -18,90 +17,13 @@ import math
 import re
 
 from antpy.values import (
-    VOID, MISSING, Record, Native, YieldFn, UInt8, OK, ERR, ERROR, ENTRY, INDEXED,
-    KIND, INT_KINDS, NUMBER_KINDS, INT_RANGE, panic,
+    VOID, MISSING, Record, Native, INDEXED, KIND, INT_KINDS, INT_RANGE, panic,
+    need_array, need_string, need_int, need_record, need_number, need_func, need_float64,
+    need_ordered, need_bytes, byte_array, record_field, entry, drive, live_elements,
 )
-from antpy.equal import AntMap, eq
+from antpy.equal import AntMap, eq, need_map
 from antpy import arith
 from antpy.render import render
-
-
-# ----------------------------------------------------------------------------- argument checks
-
-def need(v, t, what):
-    if type(v) is not t:
-        panic("wrong kind: expected " + what)
-    return v
-
-
-def need_array(v):
-    return need(v, list, "an array")
-
-
-def need_map(v):
-    return need(v, AntMap, "a map")
-
-
-def need_string(v):
-    return need(v, str, "a string")
-
-
-def need_int(v):
-    return need(v, int, "an int")
-
-
-def need_record(v):
-    return need(v, Record, "a record")
-
-
-def need_number(v):
-    if KIND[type(v)] not in NUMBER_KINDS:
-        panic("wrong kind: expected a number")
-    return v
-
-
-def need_func(v):
-    if KIND[type(v)] != "func":
-        panic("wrong kind: expected a function")
-    return v
-
-
-def need_float64(v):
-    return need(v, float, "a float64")     # Float32 is its own type, so a float32 is `wrong kind`
-
-
-def need_bytes(v):
-    """An array of bytes (`uint8`) as Python bytes. The array is copied
-    before the check so that another goroutine cannot change it between the
-    check and the conversion (section 12: a data race cannot crash the
-    interpreter)."""
-    items = list(need_array(v))
-    for b in items:
-        need(b, UInt8, "a byte")
-    return bytes(items)
-
-
-def byte_array(data):
-    """Python bytes as an Ant array of `uint8`."""
-    return [UInt8(b) for b in data]
-
-
-ORDERED_KINDS = NUMBER_KINDS | frozenset(("string",))
-
-
-def need_ordered(v):
-    if KIND[type(v)] not in ORDERED_KINDS:
-        panic("wrong kind: expected a number or a string")
-    return v
-
-
-def record_field(r, name):
-    """A field read that panics `no field` when the field is absent (section
-    12, `a.b`): an unchecked program can build an `Ok{}` without its `value`."""
-    v = r.fields.get(name, MISSING)
-    if v is MISSING:
-        panic("no field: " + name)
-    return v
 
 
 def compare_values(a, b):
@@ -112,24 +34,6 @@ def compare_values(a, b):
     if arith.binary("<", b, a):
         return 1
     return 0
-
-
-# ----------------------------------------------------------------------------- Result constructors
-
-# The prelude's Result shape (section 8): `Ok{ value }`, `Err{ error }`, and
-# the `Error{ message }` the I/O namespaces fail with. One definition, shared
-# by Result.ok/err and every native that returns a Result.
-
-def ok(v):
-    return Record(OK, {"value": v})
-
-
-def err(e):
-    return Record(ERR, {"error": e})
-
-
-def error(message):
-    return Record(ERROR, {"message": message})
 
 
 # ----------------------------------------------------------------------------- Array
@@ -368,10 +272,6 @@ def map_remove(m, k):
     return None if v is MISSING else v
 
 
-def entry(k, v):
-    return Record(ENTRY, {"key": k, "value": v})
-
-
 def map_keys(m):
     return [k for k, _ in need_map(m).items()]
 
@@ -417,10 +317,8 @@ def map_merge(m, n):
     need_map(m)
     need_map(n)
     out = AntMap()
-    for k, v in m.items():
-        out.set(k, v)
-    for k, v in n.items():
-        out.set(k, v)                     # entries of n win
+    out.update(m.items())
+    out.update(n.items())                 # entries of n win
     return out
 
 
@@ -633,18 +531,6 @@ def stage(name, run):
     return Native("Iter." + name, ["yield"], run, ctx=True)
 
 
-def drive(interp, frame, source, body):
-    """Runs `source` with a fresh yield whose `body(v)` returns True to
-    continue. The yield is done once the source returns (section 12, `for`),
-    so a late call panics `yield after done`."""
-    y = YieldFn(body)
-    try:
-        interp.call(source, [y], (), frame)
-    finally:
-        y.done = True
-    return VOID
-
-
 def iter_range(start, end):
     need_int(start)
     need_int(end)
@@ -664,13 +550,7 @@ def iter_from_array(xs):
 
     def run(interp, frame, y):
         need_func(y)
-        i = 0
-        while i < len(xs):                # the length is re-read, like `for`: a push before the run is seen
-            try:
-                v = xs[i]
-            except IndexError:            # popped by another goroutine: not visited
-                return VOID
-            i += 1
+        for v in live_elements(xs):       # like `for`: a push before the run is seen
             if not arith.need_bool(interp.call(y, [v], (), frame)):
                 return VOID
         return VOID

@@ -1,8 +1,6 @@
 """Structural equality (section 12, "Equality"), the structural hash that
 agrees with it, and the map keyed by them (section 4, "Arrays and maps")."""
-from antpy.values import (
-    KIND, NUMBER_KINDS, FLOAT_KINDS, MISSING, Record, panic,
-)
+from antpy.values import KIND, NUMBER_KINDS, MISSING, Record, panic, need
 
 
 class AntMap:
@@ -22,9 +20,10 @@ class AntMap:
                     return pair
         return None
 
-    def get(self, key, default=None):
+    def get(self, key):
+        """The value for the key, or null."""
         pair = self.find(key)
-        return default if pair is None else pair[1]
+        return None if pair is None else pair[1]
 
     def has(self, key):
         return self.find(key) is not None
@@ -41,6 +40,11 @@ class AntMap:
                     return
             bucket.append([key, value])
         self.size += 1
+
+    def update(self, pairs):
+        """Sets each (key, value) in order: a later pair with an equal key wins."""
+        for key, value in pairs:
+            self.set(key, value)
 
     def remove(self, key):
         """Removes the entry and returns its value, or MISSING."""
@@ -69,9 +73,16 @@ class AntMap:
 
 KIND[AntMap] = "map"
 
+
+def need_map(v):
+    return need(v, AntMap, "a map")
+
+
 # Kinds whose values Python's == compares the way section 12 asks: numbers by
-# value with IEEE rules, strings by code point, bool/null/void by value.
+# value with IEEE rules, strings by code point, bool/null/void by value. Each
+# has exactly one Python type, so two values of one type are of one kind.
 PRIMITIVE_KINDS = NUMBER_KINDS | frozenset(("bool", "string", "null", "void"))
+PRIMITIVE_TYPES = frozenset(t for t, k in KIND.items() if k in PRIMITIVE_KINDS)
 REFERENCE_KINDS = frozenset(("func", "tag", "sync", "file"))
 
 
@@ -79,11 +90,11 @@ def eq(a, b, pairs=None):
     """Structural equality. Never panics. `pairs` holds the ids of the
     container pairs under comparison; a repeat counts as equal (section 4)."""
     ta, tb = type(a), type(b)
-    ka, kb = KIND[ta], KIND[tb]
-    if ka != kb:
-        return False
-    if ka in PRIMITIVE_KINDS:
+    if ta is tb and ta in PRIMITIVE_TYPES:
         return a == b
+    ka, kb = KIND[ta], KIND[tb]
+    if ka != kb:                        # two primitives of one kind share a type, so they were compared above
+        return False
     if ka in REFERENCE_KINDS:
         return a is b
     key = (id(a), id(b))
@@ -127,12 +138,12 @@ def hash_value(v, depth=0):
     if depth > MAX_HASH_DEPTH:
         panic("map key too deep (cyclic?)")
     t = type(v)
+    if t is str:
+        return hash(v)
     k = KIND[t]
-    if k in NUMBER_KINDS:
-        if k in FLOAT_KINDS and v != v:
-            return hash((k, "nan"))     # a NaN key is never found (G13), but hashes deterministically
-        return hash((k, v))
     if k in PRIMITIVE_KINDS:
+        if v != v:                      # a NaN key is never found (G13), but hashes deterministically
+            return hash((k, "nan"))
         return hash((k, v))
     if k in REFERENCE_KINDS:
         return hash((k, id(v)))

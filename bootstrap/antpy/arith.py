@@ -1,18 +1,15 @@
 """Arithmetic, comparison, unary operators, numeric conversions, and the Bits
 namespace (section 12, "Expressions" and "Runtime panics"; section 11)."""
+import functools
 import math
+import operator
 
 from antpy.values import (
     KIND, INT_KINDS, FLOAT_KINDS, NUMBER_KINDS, SIGNED_KINDS,
-    INT_CLASS, INT_RANGE, INT_WIDTH, Float32, round_f32, panic,
+    INT_CLASS, INT_RANGE, INT_WIDTH, Float32, round_f32, panic, need_number, need_int,
 )
 
-COMPARE = {
-    "<": lambda a, b: a < b,
-    "<=": lambda a, b: a <= b,
-    ">": lambda a, b: a > b,
-    ">=": lambda a, b: a >= b,
-}
+COMPARE = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge}
 
 
 def binary(op, a, b):
@@ -37,6 +34,15 @@ def binary(op, a, b):
     return float_arith(op, a, b, ka)
 
 
+def fit(kind, r, message="integer overflow"):
+    """The Python integer `r` as a value of the integer `kind`, or the panic
+    `message` when it lies outside the kind's range."""
+    lo, hi = INT_RANGE[kind]
+    if r < lo or r > hi:
+        panic(message)
+    return INT_CLASS[kind](r)
+
+
 def int_arith(op, a, b, kind):
     if op == "+":
         r = a + b
@@ -56,10 +62,58 @@ def int_arith(op, a, b, kind):
         r = abs(a) % abs(b)               # the sign of the dividend
         if a < 0:
             r = -r
-    lo, hi = INT_RANGE[kind]
-    if r < lo or r > hi:
-        panic("integer overflow")
-    return INT_CLASS[kind](r)
+    return fit(kind, r)
+
+
+# The operator functions the lowering pass puts in Arith and compound
+# assignment nodes: the (int, int) and (string, string) cases inline, since
+# an `int` is exactly a Python int and a string a Python str, and everything
+# else through `binary`, with its checks and panics.
+
+INT64_LO, INT64_HI = INT_RANGE["int64"]
+
+
+def op_add(a, b):
+    ta = type(a)
+    if ta is type(b):
+        if ta is int:
+            r = a + b
+            if INT64_LO <= r <= INT64_HI:
+                return r
+            panic("integer overflow")
+        if ta is str:
+            return a + b
+    return binary("+", a, b)
+
+
+def int_op(op, fn):
+    """`-` and `*`: the int case inline."""
+    def f(a, b):
+        if type(a) is int and type(b) is int:
+            r = fn(a, b)
+            if INT64_LO <= r <= INT64_HI:
+                return r
+            panic("integer overflow")
+        return binary(op, a, b)
+    return f
+
+
+def ordered_op(op, fn):
+    """`< <= > >=`: the int and string cases inline."""
+    def f(a, b):
+        ta = type(a)
+        if ta is type(b) and (ta is int or ta is str):
+            return fn(a, b)
+        return binary(op, a, b)
+    return f
+
+
+OPS = {
+    "+": op_add, "-": int_op("-", operator.sub), "*": int_op("*", operator.mul),
+    "/": functools.partial(binary, "/"), "%": functools.partial(binary, "%"),
+    "<": ordered_op("<", operator.lt), "<=": ordered_op("<=", operator.le),
+    ">": ordered_op(">", operator.gt), ">=": ordered_op(">=", operator.ge),
+}
 
 
 def float_arith(op, a, b, kind):
@@ -90,11 +144,7 @@ def float_arith(op, a, b, kind):
 def neg(v):
     k = KIND[type(v)]
     if k in INT_KINDS:
-        r = -v
-        lo, hi = INT_RANGE[k]
-        if r < lo or r > hi:
-            panic("integer overflow")
-        return INT_CLASS[k](r)
+        return fit(k, -v)
     if k in FLOAT_KINDS:
         return Float32(-v) if k == "float32" else -v
     panic("not a number")
@@ -114,9 +164,7 @@ def not_(v):
 
 def convert(kind, v):
     """The ten conversion functions."""
-    kv = KIND[type(v)]
-    if kv not in NUMBER_KINDS:
-        panic("wrong kind")
+    kv = KIND[type(need_number(v))]
     if kind in INT_KINDS:
         if kv in FLOAT_KINDS:
             if v != v or v in (math.inf, -math.inf):
@@ -124,10 +172,7 @@ def convert(kind, v):
             r = math.trunc(v)
         else:
             r = int(v)
-        lo, hi = INT_RANGE[kind]
-        if r < lo or r > hi:
-            panic("conversion out of range")
-        return INT_CLASS[kind](r)
+        return fit(kind, r, "conversion out of range")
     if kind == "float64":
         return float(v)
     try:
@@ -161,51 +206,47 @@ def wrap(x, kind):
     return INT_CLASS[kind](x)
 
 
-def bits_and(a, b):
-    return wrap(a & b, same_int_kind(a, b))
+def wrapping(op):
+    """A Bits function of two integers of one kind: the kinds are checked
+    before the operator runs (a string operand is `wrong kind`, never a
+    Python error), and the result wraps into the kind."""
+    def f(a, b):
+        k = same_int_kind(a, b)
+        return wrap(op(a, b), k)
+    return f
 
 
-def bits_or(a, b):
-    return wrap(a | b, same_int_kind(a, b))
-
-
-def bits_xor(a, b):
-    return wrap(a ^ b, same_int_kind(a, b))
+bits_and = wrapping(operator.and_)
+bits_or = wrapping(operator.or_)
+bits_xor = wrapping(operator.xor)
+bits_wrap_add = wrapping(operator.add)
+bits_wrap_sub = wrapping(operator.sub)
+bits_wrap_mul = wrapping(operator.mul)
 
 
 def bits_not(a):
-    return wrap(~a, int_kind(a))
+    k = int_kind(a)
+    return wrap(~a, k)
 
 
 def shift_count(a, n):
     k = int_kind(a)
-    if type(n) is not int:
-        panic("wrong kind")
+    need_int(n)
     if n < 0 or n >= INT_WIDTH[k]:
         panic("shift count")
     return k
 
 
 def bits_shift_left(a, n):
-    return wrap(a << n, shift_count(a, n))
+    k = shift_count(a, n)
+    return wrap(a << n, k)
 
 
 def bits_shift_right(a, n):
-    return wrap(a >> n, shift_count(a, n))   # arithmetic for negatives; unsigned values are never negative
+    k = shift_count(a, n)
+    return wrap(a >> n, k)      # arithmetic for negatives; unsigned values are never negative
 
 
 def bits_pop_count(a):
     k = int_kind(a)
     return bin(a & ((1 << INT_WIDTH[k]) - 1)).count("1")
-
-
-def bits_wrap_add(a, b):
-    return wrap(a + b, same_int_kind(a, b))
-
-
-def bits_wrap_sub(a, b):
-    return wrap(a - b, same_int_kind(a, b))
-
-
-def bits_wrap_mul(a, b):
-    return wrap(a * b, same_int_kind(a, b))

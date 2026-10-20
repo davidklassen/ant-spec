@@ -3,8 +3,7 @@ import os
 import sys
 import time
 
-from antpy.values import VOID
-from antpy.library import need_int, need_string
+from antpy.values import VOID, need_int, need_string
 
 
 # ----------------------------------------------------------------------------- Os

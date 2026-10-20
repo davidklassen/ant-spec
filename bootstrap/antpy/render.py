@@ -8,26 +8,32 @@ from antpy.equal import AntMap
 
 
 def render(v):
-    return render_in(v, True, set())
+    """String.from: a string renders bare at the top level, and every other
+    value as it does inside a container."""
+    if type(v) is str:
+        return v
+    if type(v) is int:
+        return str(v)
+    return render_in(v, set())
 
 
-ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\t": "\\t", "\r": "\\r"}
+QUOTE_TABLE = str.maketrans({"\\": "\\\\", '"': '\\"', "\n": "\\n", "\t": "\\t", "\r": "\\r"})
 
 
 def quote(s):
-    return '"' + "".join(ESCAPES.get(c, c) for c in s) + '"'
+    return '"' + s.translate(QUOTE_TABLE) + '"'
 
 
-def render_in(v, top, active):
-    """`top` is true at the top level, where a string renders bare; `active`
+def render_in(v, active):
+    """Renders `v` as an element of a container: a string quoted. `active`
     holds the ids of the containers being rendered (they stay alive while
     they are in it), so a cycle renders as `...`."""
     t = type(v)
     k = KIND[t]
     if k == "string":
-        return v if top else quote(v)
+        return quote(v)
     if k in INT_KINDS:
-        return str(int(v))
+        return str(v)
     if k in FLOAT_KINDS:
         return render_float(v, k == "float32")
     if k == "bool":
@@ -49,16 +55,16 @@ def render_in(v, top, active):
     active.add(id(v))
     try:
         if t is list:
-            return "[" + ", ".join(render_in(x, False, active) for x in v) + "]"
+            return "[" + ", ".join(render_in(x, active) for x in v) + "]"
         if t is AntMap:
             if v.size == 0:
                 return "Map{}"
             return "Map{ " + ", ".join(
-                render_in(a, False, active) + ": " + render_in(b, False, active) for a, b in v.items()) + " }"
+                render_in(a, active) + ": " + render_in(b, active) for a, b in v.items()) + " }"
         if not v.fields:
             return v.tag.name + "{}"
         return v.tag.name + "{ " + ", ".join(
-            n + ": " + render_in(x, False, active) for n, x in v.fields.items()) + " }"
+            n + ": " + render_in(x, active) for n, x in v.fields.items()) + " }"
     finally:
         active.discard(id(v))
 

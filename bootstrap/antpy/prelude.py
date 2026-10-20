@@ -14,13 +14,11 @@ import sys
 from antpy.values import (
     VOID, Scope, Record, Tag, Native,
     OK, ERR, ERROR, ENTRY, INDEXED, CONVERSION_KINDS, panic,
+    need_func, need_record, record_field, ok, err,
 )
 from antpy import arith
 from antpy.render import render
-from antpy.library import (
-    need_func, need_record, record_field, ok, err,
-    ARRAY, MAP, STRING, ITER, MATH,
-)
+from antpy.library import ARRAY, MAP, STRING, ITER, MATH
 from antpy.sync import MUTEX, RWMUTEX, WAITGROUP, ONCE, COND, ATOMIC
 from antpy.system import OS, TIME
 from antpy.fileio import FILE

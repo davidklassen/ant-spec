@@ -6,6 +6,10 @@ function it leaves, so a `return` in a `for` body passes through the sequence
 function driving the loop, and a `try` always leaves the function it is
 written in. A panic unwinds as `AntPanic`; a block marked by the lowering pass
 runs its deferred blocks on every exit.
+
+Every node's head is its handler, one of the ev_* methods below, resolved by
+the lowering pass through HANDLERS; `node[0](self, node, scope)` evaluates
+it, and the hot handlers write that out instead of calling `ev`.
 """
 import os
 import sys
@@ -15,14 +19,14 @@ import traceback
 
 import antparse
 from antpy.values import (
-    VOID, UNINIT, MISSING, MODULE_TAG, OK, ERR, FUNC_TYPES,
+    KIND, VOID, UNINIT, MISSING, MODULE_TAG, OK, ERR, FUNC_TYPES,
     Scope, Frame, Record, Tag, Closure, Native, YieldFn, AntPanic, panic,
+    record_field, entry, drive, err, live_elements,
 )
-from antpy.equal import AntMap, eq
+from antpy.equal import AntMap, PRIMITIVE_TYPES, eq
 from antpy import arith
 from antpy.render import render
 from antpy.lower import LoadError, parse_module, lower_file
-from antpy.library import record_field, entry, drive, err
 from antpy import prelude
 
 
@@ -45,7 +49,9 @@ class OptNull(BaseException):
 
 
 LOOP_SIGNALS = (BreakSignal, ContinueSignal)
-UNWINDING = (AntPanic, ReturnSignal, BreakSignal, ContinueSignal)
+EXIT_SIGNALS = (ReturnSignal,) + LOOP_SIGNALS
+UNWINDING = (AntPanic,) + EXIT_SIGNALS
+YIELD_NAMES = ("x",)
 
 
 def trace_of(frame):
@@ -65,11 +71,77 @@ def need_callable(fn):
     return fn
 
 
+def as_record(v):
+    if type(v) is not Record:
+        panic("not a record")
+    return v
+
+
+def bind_args(names, pos, named):
+    """Fills one slot per parameter name from the positional values and the
+    (name, value) pairs (section 12, calls); MISSING marks a slot no argument
+    filled."""
+    if len(pos) > len(names):
+        panic("too many arguments")
+    slots = list(pos) + [MISSING] * (len(names) - len(pos))
+    for name, v in named:
+        if name not in names:
+            panic("unknown parameter: " + name)
+        i = names.index(name)
+        if slots[i] is not MISSING:
+            panic("parameter already filled: " + name)
+        slots[i] = v
+    return slots
+
+
+def bind_target(vars, target, v):
+    """Binds a `var` or `for` target in `vars`: a name, or the named fields
+    of a value that must be a record (destructuring)."""
+    if target[0] == "Name":
+        vars[target[1]] = v
+    else:
+        as_record(v)
+        for name, local in target[1]:
+            vars[local] = record_field(v, name)
+
+
+def target_names(target):
+    """The names a target binds."""
+    if target[0] == "Name":
+        yield target[1]
+    else:
+        for _, local in target[1]:
+            yield local
+
+
+def read_module(path, importer, line):
+    """The lowered (imports, declarations) of the module at `path`, or a
+    LoadError: a missing file is reported on the import line of `importer`."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+    except OSError:
+        raise LoadError(importer or path, line, 1, "not found: " + path)
+    try:
+        ast = parse_module(src)
+    except antparse.ParseError as e:
+        raise LoadError(path, e.line, e.col, e.msg)
+    _, imports, decls = lower_file(ast, path, HANDLERS)
+    return imports, decls
+
+
+def write_report(text):
+    """Writes a report to stderr: stdout is flushed first so that the two
+    streams keep their order on a shared terminal, and stderr after, since
+    the process may end through os._exit."""
+    sys.stdout.flush()
+    sys.stderr.write(text)
+    sys.stderr.flush()
+
+
 def report_internal():
     """Reports a Python exception that escaped the evaluator: a bug in the interpreter."""
-    sys.stdout.flush()
-    sys.stderr.write("panic: internal interpreter error\n" + traceback.format_exc())
-    sys.stderr.flush()
+    write_report("panic: internal interpreter error\n" + traceback.format_exc())
 
 
 class Interp:
@@ -79,48 +151,32 @@ class Interp:
         self.loading = []            # (importer path, import line) of each import being loaded, outermost first
         self.unwinding = set()       # idents of threads between a panic and its report
         self.prelude = prelude.make_prelude()
-        self.table = {
-            "Const": self.ev_Const, "Template": self.ev_Template, "Ident": self.ev_Ident,
-            "Field": self.ev_Field, "OptField": self.ev_OptField,
-            "Index": self.ev_Index, "OptIndex": self.ev_OptIndex,
-            "Call": self.ev_Call, "OptCall": self.ev_OptCall, "Chain": self.ev_Chain, "Pipe": self.ev_Pipe,
-            "Arith": self.ev_Arith, "Eq": self.ev_Eq, "Ne": self.ev_Ne,
-            "Neg": self.ev_Neg, "Not": self.ev_Not, "Try": self.ev_Try,
-            "And": self.ev_And, "Or": self.ev_Or, "Nullish": self.ev_Nullish,
-            "IsKind": self.ev_IsKind, "IsTag": self.ev_IsTag,
-            "AssignVar": self.ev_AssignVar, "AssignField": self.ev_AssignField,
-            "AssignIndex": self.ev_AssignIndex, "AssignBad": self.ev_AssignBad,
-            "If": self.ev_If, "While": self.ev_While, "For": self.ev_For,
-            "Return": self.ev_Return, "Break": self.ev_Break, "Continue": self.ev_Continue,
-            "Defer": self.ev_Defer, "Go": self.ev_Go, "Func": self.ev_Func,
-            "RecordLit": self.ev_RecordLit, "MapLit": self.ev_MapLit, "ArrayLit": self.ev_ArrayLit,
-            "Block": self.run_block, "Var": self.ev_Var,
-        }
 
     def ev(self, node, scope):
-        return self.table[node[0]](node, scope)
+        return node[0](self, node, scope)
 
     # ------------------------------------------------------------------ names
 
     def lookup(self, scope, name):
+        """Resolves a name outward through the scopes: a scope's own bindings,
+        then the live imports of a module scope."""
+        v = MISSING
         s = scope
         while s is not None:
             v = s.vars.get(name, MISSING)
             if v is not MISSING:
-                if v is UNINIT:
-                    panic("not initialized: " + name)
-                return v
+                break
             if s.imports is not None:
                 imp = s.imports.get(name)
                 if imp is not None:
                     v = imp[0].get(imp[1], MISSING)
-                    if v is MISSING:
-                        panic("unbound name: " + name)
-                    if v is UNINIT:
-                        panic("not initialized: " + name)
-                    return v
+                    break
             s = s.parent
-        panic("unbound name: " + name)
+        if v is MISSING:
+            panic("unbound name: " + name)
+        if v is UNINIT:
+            panic("not initialized: " + name)
+        return v
 
     def assign_var(self, scope, name, value):
         s = scope
@@ -142,15 +198,23 @@ class Interp:
             v = self.field(v, name)
         return v
 
+    def tag_at(self, path, scope):
+        """The head of a record literal or the right side of `is`: a path that must evaluate to a tag."""
+        tag = self.ev_path(path, scope)
+        if type(tag) is not Tag:
+            panic("not a tag")
+        return tag
+
     def field(self, obj, name):
-        if type(obj) is not Record:
-            panic("not a record")
-        v = record_field(obj, name)
+        """A field read `a.b`: `a` must be a record with the field, and the
+        field initialized. ev_Field writes the same three checks out."""
+        v = record_field(as_record(obj), name)
         if v is UNINIT:
             panic("not initialized: " + name)
         return v
 
     def index(self, obj, i):
+        """An index read `a[i]`, and the one definition of a valid array index."""
         t = type(obj)
         if t is list:
             if type(i) is not int:
@@ -171,12 +235,11 @@ class Interp:
         """Evaluates statements in order in `scope`; the value of the last one,
         or void. Fills the trace of a panic raised here, at the innermost frame."""
         frame = scope.frame
-        table = self.table
         value = VOID
         try:
             for line, node in stmts:
                 frame.line = line
-                value = table[node[0]](node, scope)
+                value = node[0](self, node, scope)
         except AntPanic as p:
             if p.trace is None:       # the innermost frame: no deferred block has run yet
                 p.trace = trace_of(frame)
@@ -211,8 +274,12 @@ class Interp:
         return self.run_stmts(block[1], scope)
 
     def run_block(self, block, scope):
-        """Evaluates a Block node in a fresh child scope."""
-        return self.run_body(block, Scope({}, scope, scope.frame))
+        """Evaluates a Block node: in a fresh child scope when it binds
+        anything (a `var` or a `defer` of its own), and otherwise in `scope`
+        itself, which such a block cannot change."""
+        if block[3]:
+            return self.run_body(block, Scope({}, scope, scope.frame))
+        return self.run_stmts(block[1], scope)
 
     def run_deferred(self, block, reg_scope):
         frame = Frame("defer", reg_scope.frame.path, 0, reg_scope.frame)
@@ -239,36 +306,28 @@ class Interp:
         need_callable(fn)                # a library callback that is not a function
 
     def call_closure(self, fn, pos, named, caller):
+        """A lambda is a function of the one parameter `x` with the default
+        void; only its refusal of named arguments is special."""
         frame = Frame(fn.name, fn.module, 0, caller)
-        vars = {}
-        if fn.is_lambda:
-            if named:
-                panic("named argument to lambda")
-            if len(pos) > 1:
-                panic("too many arguments")
-            vars["x"] = pos[0] if pos else VOID
-            scope = Scope(vars, fn.scope, frame)
+        names = fn.names
+        if not named and len(pos) == len(names):        # every parameter filled by position
+            scope = Scope(dict(zip(names, pos)), fn.scope, frame)
         else:
-            params = fn.params
-            if len(pos) > len(params):
-                panic("too many arguments")
-            for (name, _), v in zip(params, pos):
-                vars[name] = v
-            for name, v in named:
-                if name not in fn.param_names:
-                    panic("unknown parameter: " + name)
-                if name in vars:
-                    panic("parameter already filled: " + name)
-                vars[name] = v
+            if named and fn.is_lambda:
+                panic("named argument to lambda")
+            slots = bind_args(names, pos, named)
+            vars = {name: v for name, v in zip(names, slots) if v is not MISSING}
             scope = Scope(vars, fn.scope, frame)
-            if len(vars) < len(params):
-                for name, default in params:       # defaults in parameter order, in the callee's scope
-                    if name not in vars:
-                        if default is None:
-                            panic("missing argument: " + name)
-                        vars[name] = self.ev(default, scope)
+            for (name, default), v in zip(fn.params, slots):     # defaults in parameter order, in the callee's scope
+                if v is MISSING:
+                    if default is None:
+                        panic("missing argument: " + name)
+                    vars[name] = default[0](self, default, scope)
+        body = fn.body
         try:
-            return self.run_body(fn.body, scope)
+            if body[2]:
+                return self.run_stmts_with_defers(body[1], scope)
+            return self.run_stmts(body[1], scope)
         except ReturnSignal as r:
             if r.frame is frame:
                 return r.value
@@ -278,51 +337,27 @@ class Interp:
 
     def call_native(self, fn, pos, named, frame):
         params = fn.params
-        if len(pos) > len(params):
-            panic("too many arguments")
-        if named:
-            args = list(pos) + [MISSING] * (len(params) - len(pos))
-            for name, v in named:
-                if name not in params:
-                    panic("unknown parameter: " + name)
-                i = params.index(name)
-                if args[i] is not MISSING:
-                    panic("parameter already filled: " + name)
-                args[i] = v
-            for i, a in enumerate(args):
-                if a is MISSING:
-                    panic("missing argument: " + params[i])
-        else:
-            if len(pos) < len(params):
-                panic("missing argument: " + params[len(pos)])
-            args = pos
+        if named or len(pos) != len(params):
+            pos = bind_args(params, pos, named)
+            for name, v in zip(params, pos):
+                if v is MISSING:
+                    panic("missing argument: " + name)
         if fn.ctx:
-            return fn.fn(self, frame, *args)
-        return fn.fn(*args)
+            return fn.fn(self, frame, *pos)
+        return fn.fn(*pos)
 
     def call_yield(self, y, pos, named):
         if y.done:
             panic("yield after done")
         if named:
             panic("unknown parameter: " + named[0][0])
-        if not pos:
+        x = bind_args(YIELD_NAMES, pos, ())[0]
+        if x is MISSING:
             panic("missing argument")
-        if len(pos) > 1:
-            panic("too many arguments")
-        result = y.body(pos[0])
+        result = y.body(x)
         if not result:
             y.done = True
         return result
-
-    def eval_args(self, args, scope):
-        pos, named = [], []
-        for name, node in args:
-            v = self.ev(node, scope)
-            if name is None:
-                pos.append(v)
-            else:
-                named.append((name, v))
-        return pos, named
 
     # ------------------------------------------------------------------ expressions
 
@@ -339,38 +374,44 @@ class Interp:
         return self.lookup(scope, node[1])
 
     def ev_Field(self, node, scope):
-        return self.field(self.ev(node[1], scope), node[2])
-
-    def ev_OptField(self, node, scope):
-        obj = self.ev(node[1], scope)
-        if obj is None:
-            raise OptNull
-        return self.field(obj, node[2])
+        o = node[1]
+        obj = o[0](self, o, scope)
+        if type(obj) is not Record:                 # self.field, written out: the hottest read
+            panic("not a record")
+        v = obj.fields.get(node[2], MISSING)
+        if v is MISSING:
+            panic("no field: " + node[2])
+        if v is UNINIT:
+            panic("not initialized: " + node[2])
+        return v
 
     def ev_Index(self, node, scope):
-        obj = self.ev(node[1], scope)
-        return self.index(obj, self.ev(node[2], scope))
+        o, i = node[1], node[2]
+        obj = o[0](self, o, scope)
+        return self.index(obj, i[0](self, i, scope))
 
-    def ev_OptIndex(self, node, scope):
-        obj = self.ev(node[1], scope)
-        if obj is None:
+    def ev_NullGuard(self, node, scope):
+        """The operand of a `?.`: null leaves the enclosing chain with null."""
+        v = self.ev(node[1], scope)
+        if v is None:
             raise OptNull
-        return self.index(obj, self.ev(node[2], scope))
+        return v
 
     # --- calls: the callee evaluates first and must be a function, then the arguments (section 12)
 
     def ev_Call(self, node, scope):
-        fn = need_callable(self.ev(node[1], scope))
-        pos, named = self.eval_args(node[2], scope)
-        return self.call(fn, pos, named, scope.frame)
-
-    def ev_OptCall(self, node, scope):
-        fn = self.ev(node[1], scope)
-        if fn is None:
-            raise OptNull
-        need_callable(fn)
-        pos, named = self.eval_args(node[2], scope)
-        return self.call(fn, pos, named, scope.frame)
+        _, f, pos_nodes, named_nodes = node
+        fn = f[0](self, f, scope)
+        t = type(fn)
+        if t not in FUNC_TYPES:
+            panic("not a function")
+        pos = [a[0](self, a, scope) for a in pos_nodes]
+        named = [(name, a[0](self, a, scope)) for name, a in named_nodes]
+        if t is Closure:
+            return self.call_closure(fn, pos, named, scope.frame)
+        if t is Native:
+            return self.call_native(fn, pos, named, scope.frame)
+        return self.call_yield(fn, pos, named)
 
     def ev_Chain(self, node, scope):
         try:
@@ -379,24 +420,35 @@ class Interp:
             return None
 
     def ev_Pipe(self, node, scope):
-        left = self.ev(node[1], scope)
-        fn = need_callable(self.ev(node[2], scope))
-        pos, named = self.eval_args(node[3], scope)
-        pos.insert(0, left)
+        _, l, f, pos_nodes, named_nodes = node
+        left = l[0](self, l, scope)
+        fn = need_callable(f[0](self, f, scope))
+        pos = [left] + [a[0](self, a, scope) for a in pos_nodes]
+        named = [(name, a[0](self, a, scope)) for name, a in named_nodes]
         return self.call(fn, pos, named, scope.frame)
 
     def ev_Arith(self, node, scope):
-        a = self.ev(node[2], scope)
-        b = self.ev(node[3], scope)
-        return arith.binary(node[1], a, b)
+        _, op, l, r = node
+        a = l[0](self, l, scope)
+        return op(a, r[0](self, r, scope))
 
     def ev_Eq(self, node, scope):
-        a = self.ev(node[1], scope)
-        return eq(a, self.ev(node[2], scope))
+        l, r = node[1], node[2]
+        a = l[0](self, l, scope)
+        b = r[0](self, r, scope)
+        ta = type(a)
+        if ta is type(b) and ta in PRIMITIVE_TYPES:   # eq's own first step, written out
+            return a == b
+        return eq(a, b)
 
     def ev_Ne(self, node, scope):
-        a = self.ev(node[1], scope)
-        return not eq(a, self.ev(node[2], scope))
+        l, r = node[1], node[2]
+        a = l[0](self, l, scope)
+        b = r[0](self, r, scope)
+        ta = type(a)
+        if ta is type(b) and ta in PRIMITIVE_TYPES:
+            return a != b
+        return not eq(a, b)
 
     def ev_Neg(self, node, scope):
         return arith.neg(self.ev(node[1], scope))
@@ -415,15 +467,31 @@ class Interp:
                 return record_field(v, "value")
         return v
 
+    # --- `&& || if while`: the bool check (arith.need_bool) written out
+
     def ev_And(self, node, scope):
-        if not arith.need_bool(self.ev(node[1], scope)):
+        l, r = node[1], node[2]
+        a = l[0](self, l, scope)
+        if type(a) is not bool:
+            panic("not a bool")
+        if not a:
             return False
-        return arith.need_bool(self.ev(node[2], scope))
+        b = r[0](self, r, scope)
+        if type(b) is not bool:
+            panic("not a bool")
+        return b
 
     def ev_Or(self, node, scope):
-        if arith.need_bool(self.ev(node[1], scope)):
+        l, r = node[1], node[2]
+        a = l[0](self, l, scope)
+        if type(a) is not bool:
+            panic("not a bool")
+        if a:
             return True
-        return arith.need_bool(self.ev(node[2], scope))
+        b = r[0](self, r, scope)
+        if type(b) is not bool:
+            panic("not a bool")
+        return b
 
     def ev_Nullish(self, node, scope):
         a = self.ev(node[1], scope)
@@ -432,13 +500,11 @@ class Interp:
         return a
 
     def ev_IsKind(self, node, scope):
-        return type(self.ev(node[1], scope)) in node[2]
+        return KIND[type(self.ev(node[1], scope))] == node[2]
 
     def ev_IsTag(self, node, scope):
         v = self.ev(node[1], scope)
-        tag = self.ev_path(node[2], scope)
-        if type(tag) is not Tag:
-            panic("not a tag")
+        tag = self.tag_at(node[2], scope)
         return type(v) is Record and v.tag is tag
 
     # --- assignment: the target's sub-expressions evaluate and are checked, then the right side (section 12)
@@ -446,57 +512,50 @@ class Interp:
     def ev_AssignVar(self, node, scope):
         _, op, name, right = node
         if op is None:
-            v = self.ev(right, scope)
+            v = right[0](self, right, scope)
         else:
-            v = arith.binary(op, self.lookup(scope, name), self.ev(right, scope))
+            v = op(self.lookup(scope, name), right[0](self, right, scope))
         self.assign_var(scope, name, v)
         return VOID
 
-    def check_field_target(self, obj, name):
-        """A field target must be a record that already has that field."""
+    def ev_AssignField(self, node, scope):
+        _, op, o, name, right = node
+        obj = o[0](self, o, scope)
         if type(obj) is not Record:
             panic("not a record")
-        if name not in obj.fields:
+        fields = obj.fields
+        current = fields.get(name, MISSING)
+        if current is MISSING:
             panic("no field: " + name)
-
-    def check_index_target(self, obj, i):
-        """An index target must be an array with an `int` index in range, or a map."""
-        t = type(obj)
-        if t is list:
-            if type(i) is not int:
-                panic("index not an int")
-            if not 0 <= i < len(obj):
-                panic("index out of range")
-        elif t is not AntMap:
-            panic("not indexable")
-
-    def ev_AssignField(self, node, scope):
-        _, op, obj_node, name, right = node
-        obj = self.ev(obj_node, scope)
-        self.check_field_target(obj, name)
         if op is None:
-            v = self.ev(right, scope)
+            v = right[0](self, right, scope)
         else:
-            v = arith.binary(op, self.field(obj, name), self.ev(right, scope))
-        obj.fields[name] = v
+            if current is UNINIT:
+                panic("not initialized: " + name)
+            v = op(current, right[0](self, right, scope))
+        fields[name] = v
         return VOID
 
     def ev_AssignIndex(self, node, scope):
-        _, op, obj_node, idx_node, right = node
-        obj = self.ev(obj_node, scope)
-        i = self.ev(idx_node, scope)
-        self.check_index_target(obj, i)
-        if op is None:
-            v = self.ev(right, scope)
-        else:
-            v = arith.binary(op, self.index(obj, i), self.ev(right, scope))
-        if type(obj) is list:
-            try:
-                obj[i] = v
-            except IndexError:          # the right side, or another goroutine, shrank the array
-                panic("index out of range")
-        else:
+        _, op, o, i_node, right = node
+        obj = o[0](self, o, scope)
+        i = i_node[0](self, i_node, scope)
+        if type(obj) is AntMap:
+            if op is None:
+                v = right[0](self, right, scope)
+            else:
+                v = op(obj.get(i), right[0](self, right, scope))
             obj.set(i, v)
+            return VOID
+        current = self.index(obj, i)             # an array with a valid index, or the read's panic
+        if op is None:
+            v = right[0](self, right, scope)
+        else:
+            v = op(current, right[0](self, right, scope))
+        try:
+            obj[i] = v
+        except IndexError:          # the right side, or another goroutine, shrank the array
+            panic("index out of range")
         return VOID
 
     def ev_AssignBad(self, node, scope):
@@ -505,16 +564,23 @@ class Interp:
     # --- control flow
 
     def ev_If(self, node, scope):
-        if arith.need_bool(self.ev(node[1], scope)):
-            return self.run_block(node[2], scope)
-        if node[3] is None:
+        _, cond, then, otherwise = node
+        c = cond[0](self, cond, scope)
+        if type(c) is not bool:
+            panic("not a bool")
+        if c:
+            return self.run_block(then, scope)
+        if otherwise is None:
             return VOID
-        return self.ev(node[3], scope)
+        return otherwise[0](self, otherwise, scope)
 
     def ev_While(self, node, scope):
         cond, body = node[1], node[2]
         while True:
-            if not arith.need_bool(self.ev(cond, scope)):
+            c = cond[0](self, cond, scope)
+            if type(c) is not bool:
+                panic("not a bool")
+            if not c:
                 return VOID
             try:
                 self.run_block(body, scope)
@@ -527,15 +593,11 @@ class Interp:
         _, target, iterable, body = node
         it = self.ev(iterable, scope)
         frame = scope.frame
-        is_name = target[0] == "Name"
 
         def iteration(v):
             """One iteration in a fresh scope; True to continue, False after a break."""
             s = Scope({}, scope, frame)
-            if is_name:
-                s.vars[target[1]] = v
-            else:
-                self.destructure(s.vars, target[1], v)
+            bind_target(s.vars, target, v)
             try:
                 self.run_body(body, s)
             except ContinueSignal:
@@ -546,13 +608,7 @@ class Interp:
 
         t = type(it)
         if t is list:
-            i = 0
-            while i < len(it):          # the length is re-read: appends are visited
-                try:
-                    v = it[i]
-                except IndexError:      # popped by another goroutine: not visited
-                    break
-                i += 1
+            for v in live_elements(it):
                 if not iteration(v):
                     break
         elif t is AntMap:
@@ -569,15 +625,9 @@ class Interp:
             panic("not iterable")
         return VOID
 
-    def destructure(self, vars, fields, v):
-        if type(v) is not Record:
-            panic("not a record")
-        for name, local in fields:
-            vars[local] = record_field(v, name)
-
     def ev_Return(self, node, scope):
-        value = VOID if node[1] is None else self.ev(node[1], scope)
-        raise ReturnSignal(scope.frame, value)
+        e = node[1]
+        raise ReturnSignal(scope.frame, VOID if e is None else e[0](self, e, scope))
 
     def ev_Break(self, node, scope):
         raise BreakSignal
@@ -600,31 +650,24 @@ class Interp:
         return VOID
 
     def ev_Func(self, node, scope):
-        _, name, params, body, is_lambda = node
-        return Closure(name, params, body, scope, is_lambda, scope.frame.path)
+        _, name, params, names, body, is_lambda = node
+        return Closure(name, params, names, body, scope, is_lambda, scope.frame.path)
 
     # --- literals
 
     def ev_RecordLit(self, node, scope):
-        tag = self.ev_path(node[1], scope)
-        if type(tag) is not Tag:
-            panic("not a tag")
+        tag = self.tag_at(node[1], scope)
         fields = {}
         for item in node[2]:
             if item[0] == "F":
                 fields[item[1]] = self.ev(item[2], scope)
             else:
-                src = self.ev(item[1], scope)
-                if type(src) is not Record:
-                    panic("not a record")
-                fields.update(src.fields)
+                fields.update(as_record(self.ev(item[1], scope)).fields)
         return Record(tag, fields)
 
     def ev_MapLit(self, node, scope):
         m = AntMap()
-        for key, value in node[1]:
-            k = self.ev(key, scope)
-            m.set(k, self.ev(value, scope))
+        m.update((self.ev(key, scope), self.ev(value, scope)) for key, value in node[1])
         return m
 
     def ev_ArrayLit(self, node, scope):
@@ -640,39 +683,21 @@ class Interp:
         return out
 
     def ev_Var(self, node, scope):
-        v = self.ev(node[2], scope)
-        target = node[1]
-        if target[0] == "Name":
-            scope.vars[target[1]] = v
-        else:
-            self.destructure(scope.vars, target[1], v)
+        e = node[2]
+        bind_target(scope.vars, node[1], e[0](self, e, scope))
         return VOID
 
     # ------------------------------------------------------------------ modules
 
     def load_module(self, path, importer, line=0):
-        """Loads, lowers, and initializes the module at `path` once (section 10).
-        A module still on the loading stack is an import cycle, a compile
-        error; the bootstrap reports it as a load error on the import line of
-        the first module of the cycle (where the check tier marks it)."""
-        for i, (start, start_line) in enumerate(self.loading):   # before the lookup: a loading module is registered
-            if start == path:
-                chain = [p for p, _ in self.loading[i:]] + [path]
-                raise LoadError(start, start_line, 1,
-                                "cycle: " + " -> ".join(os.path.basename(p) for p in chain))
+        """Loads, lowers, and initializes the module at `path` once (section
+        10): the cycle check, the cache, the read, the imports, the hoisting
+        of its declarations, and its top-level initializers in order."""
+        self.check_cycle(path)
         module = self.modules.get(path)
         if module is not None:
             return module
-        try:
-            with open(path, encoding="utf-8") as f:
-                src = f.read()
-        except OSError:
-            raise LoadError(importer or path, line, 1, "not found: " + path)
-        try:
-            ast = parse_module(src)
-        except antparse.ParseError as e:
-            raise LoadError(path, e.line, e.col, e.msg)
-        _, imports, decls = lower_file(ast, path)
+        imports, decls = read_module(path, importer, line)
         if importer is None:
             self.check_main(path, decls)
 
@@ -682,7 +707,25 @@ class Interp:
         scope.imports = {}
         module = Record(MODULE_TAG, vars)
         self.modules[path] = module
+        self.bind_imports(path, imports, scope)
+        self.hoist(decls, scope)
+        self.init_vars(decls, scope)
+        return module
 
+    def check_cycle(self, path):
+        """A module still on the loading stack is an import cycle, a compile
+        error; the bootstrap reports it as a load error on the import line of
+        the first module of the cycle (where the check tier marks it). Checked
+        before the cache lookup: a loading module is already registered."""
+        for i, (start, start_line) in enumerate(self.loading):
+            if start == path:
+                chain = [p for p, _ in self.loading[i:]] + [path]
+                raise LoadError(start, start_line, 1,
+                                "cycle: " + " -> ".join(os.path.basename(p) for p in chain))
+
+    def bind_imports(self, path, imports, scope):
+        """Loads each imported module and binds it: a namespace import as the
+        module record, a name import as a live link to the exporter (G31)."""
         base = os.path.dirname(path)
         for _, line, target, pattern in imports:
             self.loading.append((path, line))
@@ -691,38 +734,47 @@ class Interp:
             finally:
                 self.loading.pop()
             if pattern[0] == "Namespace":
-                vars[pattern[1]] = dep
+                scope.vars[pattern[1]] = dep
             else:
                 for name, alias in pattern[1]:
                     scope.imports[alias or name] = (dep.fields, name)
 
-        for decl in decls:                       # hoisting: types, funcs, then UNINIT vars
-            kind = decl[0]
+    def hoist(self, decls, scope):
+        """Binds every declaration before any initializer runs: types to
+        tags, functions to closures, and the names of `var`s to UNINIT."""
+        vars = scope.vars
+        for kind, _, node in decls:
             if kind == "Type":
-                vars[decl[2]] = Tag(decl[2])
+                vars[node] = Tag(node)
             elif kind == "Func":
-                _, _, name, params, body = decl
-                vars[name] = Closure(name, params, body, scope, False, path)
-            elif decl[2][0] == "Name":
-                vars[decl[2][1]] = UNINIT
+                vars[node[1]] = self.ev_Func(node, scope)
             else:
-                for _, local in decl[2][1]:
-                    vars[local] = UNINIT
-        for decl in decls:
-            if decl[0] == "Var":
-                _, line, target, expr = decl
-                frame.line = line
-                try:
-                    self.ev_Var(("Var", target, expr), scope)
-                except AntPanic as p:
-                    if p.trace is None:
-                        p.trace = trace_of(frame)
-                    raise
-                except ReturnSignal:          # a compile error (G24), reachable unchecked
-                    raise AntPanic("return outside a function", trace_of(frame))
-                except LOOP_SIGNALS:
-                    raise AntPanic("break or continue outside a loop", trace_of(frame))
-        return module
+                for name in target_names(node[1]):
+                    vars[name] = UNINIT
+
+    def init_vars(self, decls, scope):
+        """Runs the top-level `var` initializers in order, as the module's
+        statements. A `return`, `break`, or `continue` there is a compile
+        error (G24), reachable unchecked."""
+        frame = scope.frame
+        try:
+            self.run_stmts([(line, node) for kind, line, node in decls if kind == "Var"], scope)
+        except ReturnSignal:
+            raise AntPanic("return outside a function", trace_of(frame))
+        except LOOP_SIGNALS:
+            raise AntPanic("break or continue outside a loop", trace_of(frame))
+
+    def check_main(self, path, decls):
+        """Section 10: the entry module declares `func main()` with no
+        parameters, diagnosed on its lowered declarations before anything
+        runs (G32). A missing one is reported at the entry module's last
+        declaration (G53); the return type is erased, so `main(): int` is left
+        to the checker."""
+        decl = next((d for d in decls if d[0] == "Func" and d[2][1] == "main"), None)
+        if decl is None:
+            raise LoadError(path, decls[-1][1] if decls else 1, 1, "main: missing or not a function")
+        if decl[2][2]:                           # the params
+            raise LoadError(path, decl[1], 1, "main: takes no parameters")
 
     # ------------------------------------------------------------------ roots
 
@@ -732,65 +784,73 @@ class Interp:
         report = "panic: " + p.message + "\n"
         for line in p.trace or ():
             report += "  at " + line + "\n"
-        sys.stdout.flush()
-        sys.stderr.write(report)
-        sys.stderr.flush()
+        write_report(report)
 
-    def run_goroutine(self, block, scope):
-        """The root of a goroutine: a panic ends it and is reported (section 9).
+    def run_root(self, run, frame):
+        """The root of a goroutine: runs `run` and reports what escapes it,
+        a panic with its trace (section 12), a RecursionError as the panic
+        `stack overflow` at `frame`, any other Python exception as a bug.
+        Returns main's exit status for the outcome: 0, or 2 after a report.
         The thread counts as unwinding until the report is written."""
         try:
-            self.run_body(block, scope)
-        except ReturnSignal:
-            pass
-        except LOOP_SIGNALS:
-            pass
+            run()
+            return 0
+        except LoadError:
+            raise                        # the entry's load error, reported by run_main
         except AntPanic as p:
             self.report_panic(p)
         except RecursionError:
-            self.report_panic(AntPanic("stack overflow", trace_of(scope.frame)))
+            self.report_panic(AntPanic("stack overflow", trace_of(frame)))
         except Exception:
             report_internal()
         finally:
             self.unwinding.discard(threading.get_ident())
+        return 2
 
-    def check_main(self, path, decls):
-        """Section 10: the entry module declares `func main()` with no
-        parameters, diagnosed on its lowered declarations before anything
-        runs (G32). A missing one is reported at the entry module's last
-        declaration (G53); the return type is erased, so `main(): int` is left
-        to the checker."""
-        decl = next((d for d in decls if d[0] == "Func" and d[2] == "main"), None)
-        if decl is None:
-            raise LoadError(path, decls[-1][1] if decls else 1, 1, "main: missing or not a function")
-        if decl[3]:                              # the params
-            raise LoadError(path, decl[1], 1, "main: takes no parameters")
+    def run_goroutine(self, block, scope):
+        """A goroutine: a panic ends it and is reported; so does a `return`,
+        `break`, or `continue` at its root, silently (section 9)."""
+        def run():
+            try:
+                self.run_body(block, scope)
+            except EXIT_SIGNALS:
+                pass
+
+        self.run_root(run, scope.frame)
 
     def run_main(self, path):
         """Runs the entry module; the exit status: 0 when main returns, 2 on a
         panic, 1 on a load error."""
-        try:
+        def run():
             module = self.load_module(os.path.abspath(path), None)
             self.call(module.fields["main"], [], (), None)
-        except LoadError as e:
-            sys.stdout.flush()
-            sys.stderr.write(str(e) + "\n")
-            sys.stderr.flush()
-            return 1
-        except AntPanic as p:
-            self.report_panic(p)
-            return 2
-        except RecursionError:
-            self.report_panic(AntPanic("stack overflow"))
-            return 2
-        except Exception:
-            report_internal()
-            return 2
-        finally:
-            self.unwinding.discard(threading.get_ident())
-        sys.stdout.flush()
-        return 0
 
+        try:
+            status = self.run_root(run, None)
+        except LoadError as e:
+            write_report(str(e) + "\n")
+            return 1
+        sys.stdout.flush()
+        return status
+
+
+# The handler of each node kind, for the lowering pass: the head of every node.
+HANDLERS = {
+    "Const": Interp.ev_Const, "Template": Interp.ev_Template, "Ident": Interp.ev_Ident,
+    "Field": Interp.ev_Field, "Index": Interp.ev_Index, "Call": Interp.ev_Call,
+    "NullGuard": Interp.ev_NullGuard, "Chain": Interp.ev_Chain, "Pipe": Interp.ev_Pipe,
+    "Arith": Interp.ev_Arith, "Eq": Interp.ev_Eq, "Ne": Interp.ev_Ne,
+    "Neg": Interp.ev_Neg, "Not": Interp.ev_Not, "Try": Interp.ev_Try,
+    "And": Interp.ev_And, "Or": Interp.ev_Or, "Nullish": Interp.ev_Nullish,
+    "IsKind": Interp.ev_IsKind, "IsTag": Interp.ev_IsTag,
+    "AssignVar": Interp.ev_AssignVar, "AssignField": Interp.ev_AssignField,
+    "AssignIndex": Interp.ev_AssignIndex, "AssignBad": Interp.ev_AssignBad,
+    "If": Interp.ev_If, "While": Interp.ev_While, "For": Interp.ev_For,
+    "Return": Interp.ev_Return, "Break": Interp.ev_Break, "Continue": Interp.ev_Continue,
+    "Defer": Interp.ev_Defer, "Go": Interp.ev_Go, "Func": Interp.ev_Func,
+    "RecordLit": Interp.ev_RecordLit, "MapLit": Interp.ev_MapLit, "ArrayLit": Interp.ev_ArrayLit,
+    "Block": Interp.run_block, "Var": Interp.ev_Var,
+}
 
 # How long the exit waits for a goroutine that has panicked but not yet
 # written its report (its deferred blocks may have released main already).
