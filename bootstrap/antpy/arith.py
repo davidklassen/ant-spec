@@ -100,10 +100,16 @@ def neg(v):
     panic("not a number")
 
 
-def not_(v):
+def need_bool(v):
+    """The operand of `!`, `&&`, `||`, `if`, `while`, and the value a
+    predicate callback returns: a bool, or `not a bool`."""
     if type(v) is not bool:
         panic("not a bool")
-    return not v
+    return v
+
+
+def not_(v):
+    return not need_bool(v)
 
 
 def convert(kind, v):

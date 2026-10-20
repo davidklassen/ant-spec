@@ -142,8 +142,8 @@ NAMESPACES = {
 }
 
 # Type names bound to tags. `bool` and `string` are tags so that calling them
-# panics `not a function` (G8).
-TAG_NAMES = ("Seq", "Integer", "Number", "Ordered", "Result", "bool", "string", "never")
+# panics `not a function` (G8). `Result` is not one: it is the namespace record.
+TAG_NAMES = ("Seq", "Integer", "Number", "Ordered", "bool", "string", "never")
 
 
 def make_prelude():

@@ -8,10 +8,7 @@ class names below are exactly the namespace names of section 11.
 
 "not locked" means the lock is free, not "not held by the caller": there is
 no owner tracking, and one goroutine may unlock what another locked, as in Go.
-The `with` forms check `f`, then lock through the namespace's own lock
-call (which checks the object's kind before anything is acquired), call `f`
-with no argument, and unlock in a `finally` through the namespace's own
-unlock call, so a panic in `f` propagates after the release."""
+The `with` forms are `with_held` below."""
 import collections
 import threading
 
@@ -86,6 +83,20 @@ def need_sync(v, cls):
     return need(v, cls, article + " " + cls.__name__)
 
 
+def with_held(interp, frame, lock, unlock, m, f):
+    """The shape of `withLock`, `withRead`, and `withWrite`: checks `f`, locks
+    `m` through the namespace's own `lock` call (which checks `m`'s kind
+    before anything is acquired), calls `f` with no argument, and unlocks in a
+    `finally` through the namespace's own `unlock` call, so a panic in `f`
+    propagates after the release."""
+    need_func(f)
+    lock(m)
+    try:
+        return interp.call(f, [], (), frame)
+    finally:
+        unlock(m)
+
+
 # ----------------------------------------------------------------------------- Mutex
 
 def mutex_lock(m):
@@ -106,12 +117,7 @@ def mutex_unlock(m):
 
 
 def mutex_with_lock(interp, frame, m, f):
-    need_func(f)
-    mutex_lock(m)
-    try:
-        return interp.call(f, [], (), frame)
-    finally:
-        mutex_unlock(m)
+    return with_held(interp, frame, mutex_lock, mutex_unlock, m, f)
 
 
 MUTEX = {
@@ -167,21 +173,11 @@ def rwmutex_write_unlock(m):
 
 
 def rwmutex_with_read(interp, frame, m, f):
-    need_func(f)
-    rwmutex_read_lock(m)
-    try:
-        return interp.call(f, [], (), frame)
-    finally:
-        rwmutex_read_unlock(m)
+    return with_held(interp, frame, rwmutex_read_lock, rwmutex_read_unlock, m, f)
 
 
 def rwmutex_with_write(interp, frame, m, f):
-    need_func(f)
-    rwmutex_write_lock(m)
-    try:
-        return interp.call(f, [], (), frame)
-    finally:
-        rwmutex_write_unlock(m)
+    return with_held(interp, frame, rwmutex_write_lock, rwmutex_write_unlock, m, f)
 
 
 RWMUTEX = {

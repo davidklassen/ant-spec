@@ -56,6 +56,15 @@ def trace_of(frame):
     return lines
 
 
+def need_callable(fn):
+    """The callee of a call: a closure, native, or yield function, or
+    `not a function`. A call node checks it before its arguments evaluate
+    (section 12)."""
+    if type(fn) not in FUNC_TYPES:
+        panic("not a function")
+    return fn
+
+
 def report_internal():
     """Reports a Python exception that escaped the evaluator: a bug in the interpreter."""
     sys.stdout.flush()
@@ -227,7 +236,7 @@ class Interp:
             return self.call_native(fn, pos, named, frame)
         if t is YieldFn:
             return self.call_yield(fn, pos, named)
-        panic("not a function")
+        need_callable(fn)                # a library callback that is not a function
 
     def call_closure(self, fn, pos, named, caller):
         frame = Frame(fn.name, fn.module, 0, caller)
@@ -351,9 +360,7 @@ class Interp:
     # --- calls: the callee evaluates first and must be a function, then the arguments (section 12)
 
     def ev_Call(self, node, scope):
-        fn = self.ev(node[1], scope)
-        if type(fn) not in FUNC_TYPES:
-            panic("not a function")
+        fn = need_callable(self.ev(node[1], scope))
         pos, named = self.eval_args(node[2], scope)
         return self.call(fn, pos, named, scope.frame)
 
@@ -361,8 +368,7 @@ class Interp:
         fn = self.ev(node[1], scope)
         if fn is None:
             raise OptNull
-        if type(fn) not in FUNC_TYPES:
-            panic("not a function")
+        need_callable(fn)
         pos, named = self.eval_args(node[2], scope)
         return self.call(fn, pos, named, scope.frame)
 
@@ -374,9 +380,7 @@ class Interp:
 
     def ev_Pipe(self, node, scope):
         left = self.ev(node[1], scope)
-        fn = self.ev(node[2], scope)
-        if type(fn) not in FUNC_TYPES:
-            panic("not a function")
+        fn = need_callable(self.ev(node[2], scope))
         pos, named = self.eval_args(node[3], scope)
         pos.insert(0, left)
         return self.call(fn, pos, named, scope.frame)
@@ -412,26 +416,14 @@ class Interp:
         return v
 
     def ev_And(self, node, scope):
-        a = self.ev(node[1], scope)
-        if type(a) is not bool:
-            panic("not a bool")
-        if not a:
+        if not arith.need_bool(self.ev(node[1], scope)):
             return False
-        b = self.ev(node[2], scope)
-        if type(b) is not bool:
-            panic("not a bool")
-        return b
+        return arith.need_bool(self.ev(node[2], scope))
 
     def ev_Or(self, node, scope):
-        a = self.ev(node[1], scope)
-        if type(a) is not bool:
-            panic("not a bool")
-        if a:
+        if arith.need_bool(self.ev(node[1], scope)):
             return True
-        b = self.ev(node[2], scope)
-        if type(b) is not bool:
-            panic("not a bool")
-        return b
+        return arith.need_bool(self.ev(node[2], scope))
 
     def ev_Nullish(self, node, scope):
         a = self.ev(node[1], scope)
@@ -513,10 +505,7 @@ class Interp:
     # --- control flow
 
     def ev_If(self, node, scope):
-        c = self.ev(node[1], scope)
-        if type(c) is not bool:
-            panic("not a bool")
-        if c:
+        if arith.need_bool(self.ev(node[1], scope)):
             return self.run_block(node[2], scope)
         if node[3] is None:
             return VOID
@@ -525,10 +514,7 @@ class Interp:
     def ev_While(self, node, scope):
         cond, body = node[1], node[2]
         while True:
-            c = self.ev(cond, scope)
-            if type(c) is not bool:
-                panic("not a bool")
-            if not c:
+            if not arith.need_bool(self.ev(cond, scope)):
                 return VOID
             try:
                 self.run_block(body, scope)
@@ -624,11 +610,11 @@ class Interp:
         if type(tag) is not Tag:
             panic("not a tag")
         fields = {}
-        for entry in node[2]:
-            if entry[0] == "F":
-                fields[entry[1]] = self.ev(entry[2], scope)
+        for item in node[2]:
+            if item[0] == "F":
+                fields[item[1]] = self.ev(item[2], scope)
             else:
-                src = self.ev(entry[1], scope)
+                src = self.ev(item[1], scope)
                 if type(src) is not Record:
                     panic("not a record")
                 fields.update(src.fields)
@@ -744,8 +730,8 @@ class Interp:
         """One write for the message and its trace, so the reports of two
         goroutines panicking at once never interleave."""
         report = "panic: " + p.message + "\n"
-        for entry in p.trace or ():
-            report += "  at " + entry + "\n"
+        for line in p.trace or ():
+            report += "  at " + line + "\n"
         sys.stdout.flush()
         sys.stderr.write(report)
         sys.stderr.flush()

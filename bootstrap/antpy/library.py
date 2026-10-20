@@ -66,12 +66,6 @@ def need_func(v):
     return v
 
 
-def need_bool_result(v):
-    if type(v) is not bool:
-        panic("not a bool")
-    return v
-
-
 def need_float64(v):
     return need(v, float, "a float64")     # Float32 is its own type, so a float32 is `wrong kind`
 
@@ -191,7 +185,7 @@ def array_map(interp, frame, xs, f):
 def array_filter(interp, frame, xs, f):
     need_array(xs)
     need_func(f)
-    return [x for x in xs if need_bool_result(interp.call(f, [x], (), frame))]
+    return [x for x in xs if arith.need_bool(interp.call(f, [x], (), frame))]
 
 
 def array_reduce(interp, frame, xs, init, f):
@@ -207,7 +201,7 @@ def array_find(interp, frame, xs, f):
     need_array(xs)
     need_func(f)
     for x in xs:
-        if need_bool_result(interp.call(f, [x], (), frame)):
+        if arith.need_bool(interp.call(f, [x], (), frame)):
             return x
     return None
 
@@ -216,7 +210,7 @@ def array_some(interp, frame, xs, f):
     need_array(xs)
     need_func(f)
     for x in xs:
-        if need_bool_result(interp.call(f, [x], (), frame)):
+        if arith.need_bool(interp.call(f, [x], (), frame)):
             return True
     return False
 
@@ -225,7 +219,7 @@ def array_every(interp, frame, xs, f):
     need_array(xs)
     need_func(f)
     for x in xs:
-        if not need_bool_result(interp.call(f, [x], (), frame)):
+        if not arith.need_bool(interp.call(f, [x], (), frame)):
             return False
     return True
 
@@ -414,7 +408,7 @@ def map_filter(interp, frame, m, f):
     need_func(f)
     out = AntMap()
     for k, v in m.items():
-        if need_bool_result(interp.call(f, [entry(k, v)], (), frame)):
+        if arith.need_bool(interp.call(f, [entry(k, v)], (), frame)):
             out.set(k, v)
     return out
 
@@ -658,7 +652,7 @@ def iter_range(start, end):
     def run(interp, frame, y):
         need_func(y)
         for i in range(start, end):
-            if not need_bool_result(interp.call(y, [i], (), frame)):
+            if not arith.need_bool(interp.call(y, [i], (), frame)):
                 return VOID
         return VOID
 
@@ -677,7 +671,7 @@ def iter_from_array(xs):
             except IndexError:            # popped by another goroutine: not visited
                 return VOID
             i += 1
-            if not need_bool_result(interp.call(y, [v], (), frame)):
+            if not arith.need_bool(interp.call(y, [v], (), frame)):
                 return VOID
         return VOID
 
@@ -692,7 +686,7 @@ def iter_map(s, f):
         need_func(y)
 
         def body(v):
-            return need_bool_result(interp.call(y, [interp.call(f, [v], (), frame)], (), frame))
+            return arith.need_bool(interp.call(y, [interp.call(f, [v], (), frame)], (), frame))
 
         return drive(interp, frame, s, body)
 
@@ -707,8 +701,8 @@ def iter_filter(s, f):
         need_func(y)
 
         def body(v):
-            if need_bool_result(interp.call(f, [v], (), frame)):
-                return need_bool_result(interp.call(y, [v], (), frame))
+            if arith.need_bool(interp.call(f, [v], (), frame)):
+                return arith.need_bool(interp.call(y, [v], (), frame))
             return True
 
         return drive(interp, frame, s, body)
@@ -733,7 +727,7 @@ def iter_take(s, n):
         def body(v):
             nonlocal left
             left -= 1
-            more = need_bool_result(interp.call(y, [v], (), frame))
+            more = arith.need_bool(interp.call(y, [v], (), frame))
             return more and left > 0
 
         return drive(interp, frame, s, body)
