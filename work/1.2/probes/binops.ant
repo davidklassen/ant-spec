@@ -1,0 +1,7 @@
+func f() {
+  var a = x == y != z < w <= v > u >= t
+  var b = a * b / c % d + e - f
+  var c = a += 1
+  a.b[0] = 1
+  a[0].b %= 2
+}

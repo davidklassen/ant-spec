@@ -1,0 +1,17 @@
+type A = func(a: int, string, c: Array[int]): bool
+type B = func(T): A | B
+type C = (func(T): A) | B
+type D = func(): func(int): int
+type E = func(f: func(int): int): (A | B)
+type F = Array[
+  int,
+]
+type G = Map[
+  string,
+  Array[
+    int
+  ]
+]
+type H = (int)
+type I = ((int | string))
+type J = A.B.C[A.D]

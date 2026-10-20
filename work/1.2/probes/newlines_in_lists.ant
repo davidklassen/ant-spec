@@ -1,0 +1,14 @@
+var a = Point{ x: 1
+, y: 2 }
+var b = f(1
+,2
+)
+var c = [
+1
+,
+2
+]
+var d = Map{
+  a:
+  1
+}

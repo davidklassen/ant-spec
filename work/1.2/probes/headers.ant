@@ -1,0 +1,12 @@
+func f(u: User, xs: Array[int], count: int) {
+  if u == (User{ name: "a" }) { 1 }
+  if Array.some(xs, { x > 0 }) { 2 }
+  if u is Circle || u is Rect && u is Shape.Kind { 3 }
+  if count = 5 { 4 }
+  while f(Point{ x: 1.0 }) { 5 }
+  for i in g(Map{ a: 1 }) { 6 }
+  if x.y.z { 7 }
+  if xs[0] { 8 }
+  if -x { 9 }
+  if try x { 10 }
+}

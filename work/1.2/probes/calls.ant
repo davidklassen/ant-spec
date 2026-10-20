@@ -1,0 +1,8 @@
+var a = f(x: 1,)
+var b = f(1, 2, c: 3, d: f(e: 4))
+var c = f()
+var d = f(
+  1,
+  2,
+)
+var e = f?.(1)?.x?.[0]

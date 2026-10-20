@@ -1,0 +1,8 @@
+func f() {
+  var a = { x
+  }
+  var b = [{ x }, { y }]
+  var c = Point{ f: { x } }
+  var d = f({ x }, { y })
+  var e = { { x } }
+}

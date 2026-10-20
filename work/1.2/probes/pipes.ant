@@ -1,0 +1,6 @@
+var a = xs | { x }()
+var b = xs | f() | g(1) | h.i(2)
+var c = xs
+  | Array.map({ x })
+  | Array.sum()
+var d = xs | f()(1)

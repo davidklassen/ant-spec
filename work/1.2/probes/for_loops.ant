@@ -1,0 +1,6 @@
+func f(m: Map[string, int]) {
+  for { a: b, c } in m { 1 }
+  for { } in m { 2 }
+  for x in [1, 2] { 3 }
+  for x in xs { 4 }
+}

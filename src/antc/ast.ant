@@ -1,0 +1,93 @@
+// The antc AST: tagged unions of records mirroring the node kinds of the
+// reference parser, tools/antparse.py (dump.ant renders them in its tuple
+// form, so the two can be compared).
+//
+// Every record carries `line` and `col`, the position of the node's first
+// token, except for the operator-built nodes Assign, Pipe, Nullish, And, Or,
+// Bin, Is, Field, OptField, Index, OptIndex, Call and OptCall, which take the
+// operator token (`=`, `|`, `??`, `&&`, `||`, the binary operator, `is`, `.`,
+// `?.`, `[`, `(`), and RecordLit built from a path, which takes the first
+// identifier of the path. The dump ignores positions; the checker (M3)
+// reports through them.
+//
+// Literal texts are raw source text, quotes and backticks included; nothing
+// is decoded. The field `typ` stands where the reference says `type`. Names
+// avoid every prelude name: the reference's String, File, Entry and Type are
+// StringLit, Module, LitEntry and TypeDecl here, and its Export wrapper is the
+// `exported` flag of a declaration.
+
+export type Module = { imports: Array[Import], decls: Array[Decl] }
+export type Import = { line: int, col: int, path: string, pattern: ImportPattern }
+export type ImportPattern = Namespace | Names
+export type Namespace = { line: int, col: int, name: string }
+export type Names = { line: int, col: int, items: Array[Alias] }
+// An import item or a destructure field: `name` or `name: alias`.
+export type Alias = { line: int, col: int, name: string, alias: string | null }
+
+export type Decl = VarDecl | FuncDecl | TypeDecl
+export type VarDecl = { line: int, col: int, exported: bool, target: Target, typ: TypeExpr | null, value: Expr }
+export type FuncDecl = { line: int, col: int, exported: bool, name: string, tparams: Array[TypeParam], params: Array[Param], ret: TypeExpr | null, body: Block }
+export type TypeDecl = { line: int, col: int, exported: bool, name: string, tparams: Array[TypeParam], body: TypeExpr }
+export type TypeParam = { line: int, col: int, name: string, bound: TypeExpr | null }
+export type Param = { line: int, col: int, name: string, typ: TypeExpr, default: Expr | null }
+export type Target = Name | Destructure
+export type Name = { line: int, col: int, name: string }
+export type Destructure = { line: int, col: int, fields: Array[Alias] }
+
+export type TypeExpr = TPath | Union | TRecord | TFunc
+// A named type with optional arguments; `null` and `void` are the paths ["null"] and ["void"].
+export type TPath = { line: int, col: int, path: Array[string], args: Array[TypeExpr] }
+export type Union = { line: int, col: int, terms: Array[TypeExpr] }
+export type TRecord = { line: int, col: int, fields: Array[FieldType] }
+export type FieldType = { line: int, col: int, name: string, typ: TypeExpr }
+export type TFunc = { line: int, col: int, params: Array[FtParam], ret: TypeExpr }
+export type FtParam = { line: int, col: int, name: string | null, typ: TypeExpr }
+
+export type Block = { line: int, col: int, stmts: Array[Stmt] }
+export type Stmt = VarDecl | Expr
+export type Expr = Assign | Pipe | Nullish | And | Or | Bin | Is | Unary
+  | Field | OptField | Index | OptIndex | Call | OptCall
+  | Int | Float | StringLit | Template | Ident | Lit
+  | AnonFunc | If | While | For | Go | Defer | Return | Break | Continue
+  | Lambda | ArrayLit | Paren | MapLit | RecordLit
+
+export type Assign = { line: int, col: int, op: string, target: Expr, value: Expr }   // op: = += -= *= /= %=
+export type Pipe = { line: int, col: int, left: Expr, right: Expr }                   // right is always a Call
+export type Nullish = { line: int, col: int, left: Expr, right: Expr }
+export type And = { line: int, col: int, left: Expr, right: Expr }
+export type Or = { line: int, col: int, left: Expr, right: Expr }
+export type Bin = { line: int, col: int, op: string, left: Expr, right: Expr }        // == != < <= > >= + - * / %
+export type Is = { line: int, col: int, value: Expr, target: Array[string] }          // ["null"], ["func"], or an identifier path
+export type Unary = { line: int, col: int, op: string, operand: Expr }                // - ! try
+export type Field = { line: int, col: int, object: Expr, name: string }
+export type OptField = { line: int, col: int, object: Expr, name: string }
+export type Index = { line: int, col: int, object: Expr, index: Expr }
+export type OptIndex = { line: int, col: int, object: Expr, index: Expr }
+export type Call = { line: int, col: int, callee: Expr, args: Array[Arg] }
+export type OptCall = { line: int, col: int, callee: Expr, args: Array[Arg] }
+export type Arg = PosArg | NamedArg
+export type PosArg = { line: int, col: int, value: Expr }
+export type NamedArg = { line: int, col: int, name: string, value: Expr }
+export type Int = { line: int, col: int, text: string }
+export type Float = { line: int, col: int, text: string }
+export type StringLit = { line: int, col: int, text: string }                         // raw, quotes included
+export type Template = { line: int, col: int, text: string, parts: Array[Expr] }      // raw text, backticks included
+export type Ident = { line: int, col: int, name: string }
+export type Lit = { line: int, col: int, text: string }                               // true false null void
+export type AnonFunc = { line: int, col: int, params: Array[Param], ret: TypeExpr | null, body: Block }
+export type If = { line: int, col: int, cond: Expr, then: Block, otherwise: Block | If | null }
+export type While = { line: int, col: int, cond: Expr, body: Block }
+export type For = { line: int, col: int, target: Target, iter: Expr, body: Block }
+export type Go = { line: int, col: int, body: Block }
+export type Defer = { line: int, col: int, body: Block }
+export type Return = { line: int, col: int, value: Expr | null }
+export type Break = { line: int, col: int }
+export type Continue = { line: int, col: int }
+export type Lambda = { line: int, col: int, stmts: Array[Stmt] }
+export type ArrayLit = { line: int, col: int, elems: Array[Elem | Spread] }
+export type Elem = { line: int, col: int, value: Expr }
+export type Spread = { line: int, col: int, value: Expr }                             // in arrays and brace literals
+export type Paren = { line: int, col: int, inner: Expr }
+export type MapLit = { line: int, col: int, entries: Array[LitEntry | Spread] }
+export type RecordLit = { line: int, col: int, path: Array[string], entries: Array[LitEntry | Spread] }
+export type LitEntry = { line: int, col: int, key: Expr, value: Expr }

@@ -1,0 +1,950 @@
+// The antc parser: tokens to the AST of ast.ant (ant-lang.md sections 2-6,
+// 10; grammar.ebnf).
+//
+// It mirrors the Parser class of tools/antparse.py method by method, so that
+// tools/compare_frontend.py can diff the two: the same tree, and every error
+// with the message and at the position the reference reports it. Positions
+// are those of the token `peek` returns at the moment an error is raised,
+// which is often after a sub-expression was parsed; `expected newline or ';'`
+// uses the raw token. Mirror the call order, not the intent.
+import "./lexer.ant" Lex
+import "./ast.ant" Ast
+
+export type ParseError = { line: int, col: int, message: string }
+
+// The parser state. `nl > 0` means newlines are ignored (inside parentheses,
+// brackets and non-block braces); `header` is set while parsing the header of
+// an if, while or for, where `{` after an identifier path opens the block
+// rather than a record literal.
+type Parser = { toks: Array[Lex.Token], i: int, nl: int, header: bool }
+type Saved = { nl: int, header: bool }
+// A parsed parameter list and return type.
+type Sig = { params: Array[Ast.Param], ret: Ast.TypeExpr | null }
+
+var ASSIGN_OPS = Map{ "=": true, "+=": true, "-=": true, "*=": true, "/=": true, "%=": true }
+var MIX_MESSAGE = "'??' cannot mix with '&&' or '||' without parentheses"
+
+export func parse(src: string): Result[Ast.Module, ParseError] {
+  var toks = try Result.mapErr(Lex.tokenize(src, 1, 1), fromLex)
+  parseFile(Parser{ toks, i: 0, nl: 0, header: false })
+}
+
+func fromLex(e: Lex.LexError): ParseError {
+  ParseError{ line: e.line, col: e.col, message: e.message }
+}
+
+// --- token helpers
+
+// The current token, newlines included.
+func raw(p: Parser): Lex.Token {
+  p.toks[p.i]
+}
+
+// The current token, skipping newlines when they are ignored. The skip
+// advances the position for good, as the reference does.
+func peek(p: Parser): Lex.Token {
+  while p.nl > 0 && p.toks[p.i].kind == "NEWLINE" { p.i += 1 }
+  p.toks[p.i]
+}
+
+func next(p: Parser): Lex.Token {
+  var t = peek(p)
+  p.i += 1
+  t
+}
+
+// Whether t is the operator or keyword `value`.
+func isWord(t: Lex.Token, value: string): bool {
+  t.value == value && (t.kind == "OP" || t.kind == "KW")
+}
+
+// Whether the next token is the operator or keyword `value`.
+func at(p: Parser, value: string): bool {
+  isWord(peek(p), value)
+}
+
+func atOp(p: Parser, value: string): bool {
+  var t = peek(p)
+  t.kind == "OP" && t.value == value
+}
+
+func atKw(p: Parser, value: string): bool {
+  var t = peek(p)
+  t.kind == "KW" && t.value == value
+}
+
+func atKind(p: Parser, kind: string): bool {
+  peek(p).kind == kind
+}
+
+func failAt(t: Lex.Token, message: string): ParseError {
+  ParseError{ line: t.line, col: t.col, message }
+}
+
+// An error at the next token.
+func fail(p: Parser, message: string): ParseError {
+  failAt(peek(p), message)
+}
+
+// `<message>, got <token>` at t: the form of every "expected ..." error.
+func failGot(t: Lex.Token, message: string): ParseError {
+  failAt(t, `${message}, got ${describe(t)}`)
+}
+
+func expect(p: Parser, value: string): Result[Lex.Token, ParseError] {
+  var t = peek(p)
+  if !isWord(t, value) { return Result.err(failGot(t, `expected '${value}'`)) }
+  p.i += 1
+  Result.ok(t)
+}
+
+func expectIdent(p: Parser, what: string = "identifier"): Result[string, ParseError] {
+  var t = peek(p)
+  if t.kind != "IDENT" { return Result.err(failGot(t, `expected ${what}`)) }
+  p.i += 1
+  Result.ok(t.value)
+}
+
+// An identifier path `a.b.c`; the caller has checked that an identifier is next.
+func identPath(p: Parser): Result[Array[string], ParseError] {
+  var path: Array[string] = [next(p).value]
+  while at(p, ".") {
+    next(p)
+    Array.push(path, try expectIdent(p))
+  }
+  Result.ok(path)
+}
+
+// Skips newlines and semicolons; returns how many.
+func skipTerms(p: Parser): int {
+  var n = 0
+  var t = raw(p)
+  while t.kind == "NEWLINE" || (t.kind == "OP" && t.value == ";") {
+    p.i += 1
+    n += 1
+    t = raw(p)
+  }
+  n
+}
+
+// A statement must be followed by a terminator, a `}` or the end of the file.
+func expectTerm(p: Parser): Result[void, ParseError] {
+  var t = raw(p)
+  if t.kind == "EOF" || (t.kind == "OP" && t.value == "}") { return Result.ok(void) }
+  if skipTerms(p) == 0 {
+    return Result.err(failGot(t, "expected newline or ';'"))
+  }
+  Result.ok(void)
+}
+
+// The reference's Token.__repr__, used in `got ...` messages.
+func describe(t: Lex.Token): string {
+  if t.kind == "OP" || t.kind == "KW" { `'${t.value}'` }
+  else if t.kind == "NEWLINE" { "newline" }
+  else if t.kind == "EOF" { "end of file" }
+  else { `${String.toLower(t.kind)} ${pyRepr(t.value)}` }
+}
+
+// Python's repr of a str: single quotes unless the text holds a single quote
+// and no double quote; backslash, the quote, LF, CR and tab escaped by
+// letter, other ASCII control characters as \xNN. (Python also escapes
+// non-printable code points outside ASCII; none occur in a token.)
+func pyRepr(s: string): string {
+  var quote = if String.contains(s, "'") && !String.contains(s, "\"") { "\"" } else { "'" }
+  var out: Array[string] = [quote]
+  for c in s {
+    if c == "\\" { Array.push(out, "\\\\") }
+    else if c == quote { Array.push(out, "\\" + quote) }
+    else if c == "\n" { Array.push(out, "\\n") }
+    else if c == "\r" { Array.push(out, "\\r") }
+    else if c == "\t" { Array.push(out, "\\t") }
+    else if c < " " || c == "\u{7f}" { Array.push(out, "\\x" + hex2(int(String.toBytes(c)[0]))) }
+    else { Array.push(out, c) }
+  }
+  Array.push(out, quote)
+  String.concat(out)
+}
+
+func hex2(n: int): string {
+  var digits = String.chars("0123456789abcdef")
+  digits[n / 16] + digits[n % 16]
+}
+
+// --- scopes for newline sensitivity and headers
+
+func enterList(p: Parser): Saved {
+  var saved = Saved{ nl: p.nl, header: p.header }
+  p.nl += 1
+  p.header = false
+  saved
+}
+
+func enterBlock(p: Parser): Saved {
+  var saved = Saved{ nl: p.nl, header: p.header }
+  p.nl = 0
+  p.header = false
+  saved
+}
+
+func leave(p: Parser, saved: Saved): void {
+  p.nl = saved.nl
+  p.header = saved.header
+}
+
+// --- file
+
+func parseFile(p: Parser): Result[Ast.Module, ParseError] {
+  var imports: Array[Ast.Import] = []
+  var decls: Array[Ast.Decl] = []
+  skipTerms(p)
+  while atKw(p, "import") {
+    var i = try importDecl(p)
+    Array.push(imports, i)
+    skipTerms(p)
+  }
+  while !atKind(p, "EOF") {
+    if atKw(p, "import") { return Result.err(fail(p, "import must come before declarations")) }
+    var t = peek(p)
+    if t.kind == "KW" && (t.value == "export" || t.value == "var" || t.value == "func" || t.value == "type") {
+      var d = try declaration(p)
+      Array.push(decls, d)
+    } else {
+      return Result.err(failGot(t, "expected declaration"))
+    }
+    try expectTerm(p)
+    skipTerms(p)
+  }
+  Result.ok(Ast.Module{ imports, decls })
+}
+
+func importDecl(p: Parser): Result[Ast.Import, ParseError] {
+  var kw = try expect(p, "import")
+  var path = peek(p)
+  if path.kind != "STRING" {
+    return Result.err(failGot(path, "expected module path string"))
+  }
+  p.i += 1
+  var pattern: Ast.ImportPattern = if atKind(p, "IDENT") {
+    var t = next(p)
+    Ast.Namespace{ line: t.line, col: t.col, name: t.value }
+  } else {
+    var open = try expect(p, "{")
+    var saved = enterList(p)
+    var items: Array[Ast.Alias] = []
+    while !at(p, "}") {
+      var item = try aliasItem(p, "export name")
+      Array.push(items, item)
+      if !at(p, "}") { try expect(p, ",") }
+    }
+    try expect(p, "}")
+    leave(p, saved)
+    Ast.Names{ line: open.line, col: open.col, items }
+  }
+  try expectTerm(p)
+  Result.ok(Ast.Import{ line: kw.line, col: kw.col, path: path.value, pattern })
+}
+
+// `name` or `name: local`, an import item or a destructure field; `what`
+// names the first identifier in the error message.
+func aliasItem(p: Parser, what: string): Result[Ast.Alias, ParseError] {
+  var t = peek(p)
+  var name = try expectIdent(p, what)
+  var alias: string | null = null
+  if at(p, ":") {
+    next(p)
+    alias = try expectIdent(p, "local name")
+  }
+  Result.ok(Ast.Alias{ line: t.line, col: t.col, name, alias })
+}
+
+func declaration(p: Parser): Result[Ast.Decl, ParseError] {
+  var exported = false
+  if atKw(p, "export") {
+    next(p)
+    exported = true
+  }
+  var t = peek(p)
+  var d: Ast.Decl = if t.value == "var" { try varDecl(p, exported) }
+    else if t.value == "func" { try funcDecl(p, exported) }
+    else if t.value == "type" { try typeDecl(p, exported) }
+    else { return Result.err(failGot(t, "expected var, func, or type after export")) }
+  Result.ok(d)
+}
+
+func varDecl(p: Parser, exported: bool): Result[Ast.VarDecl, ParseError] {
+  var kw = try expect(p, "var")
+  var typ: Ast.TypeExpr | null = null
+  var target: Ast.Target = if at(p, "{") { try destructure(p) }
+    else if atKind(p, "IDENT") {
+      var t = next(p)
+      if at(p, ":") {
+        next(p)
+        typ = try typeExpr(p)
+      }
+      Ast.Name{ line: t.line, col: t.col, name: t.value }
+    } else {
+      return Result.err(failGot(peek(p), "expected identifier or '{' after var"))
+    }
+  try expect(p, "=")
+  var value = try expression(p)
+  Result.ok(Ast.VarDecl{ line: kw.line, col: kw.col, exported, target, typ, value })
+}
+
+func funcDecl(p: Parser, exported: bool): Result[Ast.FuncDecl, ParseError] {
+  var kw = try expect(p, "func")
+  var name = try expectIdent(p, "function name")
+  var tparams: Array[Ast.TypeParam] = if at(p, "[") { try typeParams(p) } else { [] }
+  var sig = try signature(p)
+  var body = try block(p)
+  Result.ok(Ast.FuncDecl{ line: kw.line, col: kw.col, exported, name, tparams, params: sig.params, ret: sig.ret, body })
+}
+
+func typeDecl(p: Parser, exported: bool): Result[Ast.TypeDecl, ParseError] {
+  var kw = try expect(p, "type")
+  var name = try expectIdent(p, "type name")
+  var tparams: Array[Ast.TypeParam] = if at(p, "[") { try typeParams(p) } else { [] }
+  try expect(p, "=")
+  var body = try typeExpr(p)
+  Result.ok(Ast.TypeDecl{ line: kw.line, col: kw.col, exported, name, tparams, body })
+}
+
+func typeParams(p: Parser): Result[Array[Ast.TypeParam], ParseError] {
+  try expect(p, "[")
+  var saved = enterList(p)
+  var params: Array[Ast.TypeParam] = []
+  while !at(p, "]") {
+    var t = peek(p)
+    var name = try expectIdent(p, "type parameter")
+    var bound: Ast.TypeExpr | null = null
+    if at(p, ":") {
+      next(p)
+      bound = try typeExpr(p)
+    }
+    Array.push(params, Ast.TypeParam{ line: t.line, col: t.col, name, bound })
+    if !at(p, "]") { try expect(p, ",") }
+  }
+  try expect(p, "]")
+  leave(p, saved)
+  Result.ok(params)
+}
+
+func signature(p: Parser): Result[Sig, ParseError] {
+  try expect(p, "(")
+  var saved = enterList(p)
+  var params: Array[Ast.Param] = []
+  while !at(p, ")") {
+    var t = peek(p)
+    var name = try expectIdent(p, "parameter name")
+    try expect(p, ":")
+    var typ = try typeExpr(p)
+    var default: Ast.Expr | null = null
+    if at(p, "=") {
+      next(p)
+      default = try expression(p)
+    }
+    Array.push(params, Ast.Param{ line: t.line, col: t.col, name, typ, default })
+    if !at(p, ")") { try expect(p, ",") }
+  }
+  try expect(p, ")")
+  leave(p, saved)
+  var ret: Ast.TypeExpr | null = null
+  if at(p, ":") {
+    next(p)
+    ret = try typeExpr(p)
+  }
+  Result.ok(Sig{ params, ret })
+}
+
+// --- types
+
+func typeExpr(p: Parser): Result[Ast.TypeExpr, ParseError] {
+  var first = try typeTerm(p)
+  var terms: Array[Ast.TypeExpr] = [first]
+  while at(p, "|") {
+    next(p)
+    var term = try typeTerm(p)
+    Array.push(terms, term)
+  }
+  if Array.length(terms) == 1 { Result.ok(first) }
+  else { Result.ok(Ast.Union{ line: first.line, col: first.col, terms }) }
+}
+
+func typeTerm(p: Parser): Result[Ast.TypeExpr, ParseError] {
+  var t = peek(p)
+  if t.kind == "KW" && (t.value == "null" || t.value == "void") {
+    next(p)
+    return Result.ok(Ast.TPath{ line: t.line, col: t.col, path: [t.value], args: [] })
+  }
+  if t.kind == "OP" && t.value == "{" { return Result.ok(try recordType(p)) }
+  if t.kind == "KW" && t.value == "func" { return Result.ok(try funcType(p)) }
+  if t.kind == "OP" && t.value == "(" {
+    next(p)
+    var saved = enterList(p)
+    var inner = try typeExpr(p)
+    try expect(p, ")")
+    leave(p, saved)
+    return Result.ok(inner)
+  }
+  if t.kind != "IDENT" { return Result.err(failGot(t, "expected type")) }
+  var path = try identPath(p)
+  var args: Array[Ast.TypeExpr] = []
+  if at(p, "[") {
+    next(p)
+    var saved = enterList(p)
+    while !at(p, "]") {
+      var arg = try typeExpr(p)
+      Array.push(args, arg)
+      if !at(p, "]") { try expect(p, ",") }
+    }
+    try expect(p, "]")
+    leave(p, saved)
+  }
+  Result.ok(Ast.TPath{ line: t.line, col: t.col, path, args })
+}
+
+func recordType(p: Parser): Result[Ast.TRecord, ParseError] {
+  var open = try expect(p, "{")
+  var saved = enterList(p)
+  var fields: Array[Ast.FieldType] = []
+  while !at(p, "}") {
+    var t = peek(p)
+    var name = try expectIdent(p, "field name")
+    try expect(p, ":")
+    var typ = try typeExpr(p)
+    Array.push(fields, Ast.FieldType{ line: t.line, col: t.col, name, typ })
+    if !at(p, "}") { try expect(p, ",") }
+  }
+  try expect(p, "}")
+  leave(p, saved)
+  Result.ok(Ast.TRecord{ line: open.line, col: open.col, fields })
+}
+
+func funcType(p: Parser): Result[Ast.TFunc, ParseError] {
+  var kw = try expect(p, "func")
+  try expect(p, "(")
+  var saved = enterList(p)
+  var params: Array[Ast.FtParam] = []
+  while !at(p, ")") {
+    var t = peek(p)
+    var typ = try typeExpr(p)
+    var name: string | null = null
+    if at(p, ":") {
+      // `name: type`: the name was read as a one-identifier type path.
+      if typ is Ast.TPath && Array.length(typ.path) == 1 && Array.isEmpty(typ.args) {
+        name = typ.path[0]
+        next(p)
+        typ = try typeExpr(p)
+      } else {
+        return Result.err(fail(p, "expected ',' or ')' in function type"))
+      }
+    }
+    Array.push(params, Ast.FtParam{ line: t.line, col: t.col, name, typ })
+    if !at(p, ")") { try expect(p, ",") }
+  }
+  try expect(p, ")")
+  leave(p, saved)
+  try expect(p, ":")
+  var ret = try typeExpr(p)
+  Result.ok(Ast.TFunc{ line: kw.line, col: kw.col, params, ret })
+}
+
+// --- blocks and statements
+
+func block(p: Parser): Result[Ast.Block, ParseError] {
+  var open = try expect(p, "{")
+  var saved = enterBlock(p)
+  var stmts = try statements(p)
+  try expect(p, "}")
+  leave(p, saved)
+  Result.ok(Ast.Block{ line: open.line, col: open.col, stmts })
+}
+
+func statements(p: Parser): Result[Array[Ast.Stmt], ParseError] {
+  var stmts: Array[Ast.Stmt] = []
+  skipTerms(p)
+  while !at(p, "}") {
+    if atKind(p, "EOF") { return Result.err(fail(p, "expected '}', got end of file")) }
+    var s = try statement(p)
+    Array.push(stmts, s)
+    if at(p, "}") { break }
+    try expectTerm(p)
+    skipTerms(p)
+  }
+  Result.ok(stmts)
+}
+
+func statement(p: Parser): Result[Ast.Stmt, ParseError] {
+  var t = peek(p)
+  if t.kind == "KW" {
+    if t.value == "var" { return Result.ok(try varDecl(p, false)) }
+    if t.value == "type" {
+      return Result.err(failAt(t, "type declarations are only allowed at the top level"))
+    }
+    if t.value == "export" || t.value == "import" {
+      return Result.err(failAt(t, `'${t.value}' is only allowed at the top level`))
+    }
+  }
+  Result.ok(try expression(p))
+}
+
+// A lambda is a block in expression position: the same braces and statements.
+func lambda(p: Parser): Result[Ast.Lambda, ParseError] {
+  var b = try block(p)
+  Result.ok(Ast.Lambda{ line: b.line, col: b.col, stmts: b.stmts })
+}
+
+// --- expressions
+
+func atAssign(p: Parser): bool {
+  var t = peek(p)
+  t.kind == "OP" && Map.has(ASSIGN_OPS, t.value)
+}
+
+func expression(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try pipe(p)
+  var t = peek(p)
+  if atAssign(p) {
+    next(p)
+    var right = try pipe(p)
+    if atAssign(p) { return Result.err(fail(p, "assignment cannot be chained")) }
+    return Result.ok(Ast.Assign{ line: t.line, col: t.col, op: t.value, target: left, value: right })
+  }
+  Result.ok(left)
+}
+
+func pipe(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try pipeOperand(p)
+  while at(p, "|") {
+    var op = next(p)
+    var right = try postfix(p)
+    if !(right is Ast.Call) { return Result.err(fail(p, "pipe right side must be a call")) }
+    left = Ast.Pipe{ line: op.line, col: op.col, left, right }
+  }
+  Result.ok(left)
+}
+
+// `??` chains, or `&&`/`||` chains with `&&` binding tighter; the two kinds
+// cannot mix without parentheses.
+func pipeOperand(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try equality(p)
+  if at(p, "??") {
+    while at(p, "??") {
+      var op = next(p)
+      var right = try equality(p)
+      left = Ast.Nullish{ line: op.line, col: op.col, left, right }
+    }
+    if at(p, "&&") || at(p, "||") { return Result.err(fail(p, MIX_MESSAGE)) }
+    return Result.ok(left)
+  }
+  if at(p, "&&") || at(p, "||") {
+    while at(p, "&&") {
+      var op = next(p)
+      var right = try equality(p)
+      left = Ast.And{ line: op.line, col: op.col, left, right }
+    }
+    while at(p, "||") {
+      var op = next(p)
+      var right = try equality(p)
+      while at(p, "&&") {
+        var andOp = next(p)
+        var more = try equality(p)
+        right = Ast.And{ line: andOp.line, col: andOp.col, left: right, right: more }
+      }
+      left = Ast.Or{ line: op.line, col: op.col, left, right }
+    }
+    if at(p, "??") { return Result.err(fail(p, MIX_MESSAGE)) }
+  }
+  Result.ok(left)
+}
+
+func equality(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try comparison(p)
+  while atOp(p, "==") || atOp(p, "!=") {
+    var op = next(p)
+    var right = try comparison(p)
+    left = Ast.Bin{ line: op.line, col: op.col, op: op.value, left, right }
+  }
+  Result.ok(left)
+}
+
+func isCompareOp(t: Lex.Token): bool {
+  t.kind == "OP" && (t.value == "<" || t.value == "<=" || t.value == ">" || t.value == ">=")
+}
+
+func comparison(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try additive(p)
+  var t = peek(p)
+  while isCompareOp(t) || (t.kind == "KW" && t.value == "is") {
+    next(p)
+    if t.kind == "OP" {
+      var right = try additive(p)
+      left = Ast.Bin{ line: t.line, col: t.col, op: t.value, left, right }
+    } else {
+      var target = try isTarget(p)
+      left = Ast.Is{ line: t.line, col: t.col, value: left, target }
+    }
+    t = peek(p)
+  }
+  Result.ok(left)
+}
+
+// After `is`: `null`, `func`, or an identifier path.
+func isTarget(p: Parser): Result[Array[string], ParseError] {
+  var t = peek(p)
+  if t.kind == "KW" && (t.value == "null" || t.value == "func") {
+    next(p)
+    return Result.ok([t.value])
+  }
+  if t.kind != "IDENT" { return Result.err(failGot(t, "expected type name after 'is'")) }
+  identPath(p)
+}
+
+func additive(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try multiplicative(p)
+  while atOp(p, "+") || atOp(p, "-") {
+    var op = next(p)
+    var right = try multiplicative(p)
+    left = Ast.Bin{ line: op.line, col: op.col, op: op.value, left, right }
+  }
+  Result.ok(left)
+}
+
+func multiplicative(p: Parser): Result[Ast.Expr, ParseError] {
+  var left = try unary(p)
+  while atOp(p, "*") || atOp(p, "/") || atOp(p, "%") {
+    var op = next(p)
+    var right = try unary(p)
+    left = Ast.Bin{ line: op.line, col: op.col, op: op.value, left, right }
+  }
+  Result.ok(left)
+}
+
+func unary(p: Parser): Result[Ast.Expr, ParseError] {
+  var t = peek(p)
+  if (t.kind == "OP" && (t.value == "-" || t.value == "!")) || (t.kind == "KW" && t.value == "try") {
+    next(p)
+    var operand = try unary(p)
+    return Result.ok(Ast.Unary{ line: t.line, col: t.col, op: t.value, operand })
+  }
+  postfix(p)
+}
+
+// --- postfix and calls
+
+func isPostfixOp(t: Lex.Token): bool {
+  t.kind == "OP" && (t.value == "." || t.value == "?." || t.value == "[" || t.value == "(")
+}
+
+func postfix(p: Parser): Result[Ast.Expr, ParseError] {
+  var start = peek(p)
+  var node = try primary(p)
+  // An identifier path `a.b.c` followed by `{` is a record literal.
+  var isPath = node is Ast.Ident
+  var path: Array[string] = if node is Ast.Ident { [node.name] } else { [] }
+  var t = peek(p)
+  while isPostfixOp(t) {
+    if t.value == "." {
+      next(p)
+      var name = try expectIdent(p)
+      node = Ast.Field{ line: t.line, col: t.col, object: node, name }
+      if isPath {
+        Array.push(path, name)
+        if at(p, "{") && !p.header { return braceLit(p, path, start.line, start.col) }
+      }
+    } else if t.value == "?." {
+      next(p)
+      isPath = false
+      if at(p, "[") {
+        var index = try indexExpr(p)
+        node = Ast.OptIndex{ line: t.line, col: t.col, object: node, index }
+      } else if at(p, "(") {
+        var args = try callArgs(p)
+        node = Ast.OptCall{ line: t.line, col: t.col, callee: node, args }
+      } else {
+        var name = try expectIdent(p)
+        node = Ast.OptField{ line: t.line, col: t.col, object: node, name }
+      }
+    } else if t.value == "[" {
+      isPath = false
+      var index = try indexExpr(p)
+      node = Ast.Index{ line: t.line, col: t.col, object: node, index }
+    } else {
+      isPath = false
+      var args = try callArgs(p)
+      node = Ast.Call{ line: t.line, col: t.col, callee: node, args }
+    }
+    t = peek(p)
+  }
+  Result.ok(node)
+}
+
+// `[ expression ]` after an object, with newlines ignored inside.
+func indexExpr(p: Parser): Result[Ast.Expr, ParseError] {
+  try expect(p, "[")
+  var saved = enterList(p)
+  var index = try expression(p)
+  try expect(p, "]")
+  leave(p, saved)
+  Result.ok(index)
+}
+
+func callArgs(p: Parser): Result[Array[Ast.Arg], ParseError] {
+  try expect(p, "(")
+  var saved = enterList(p)
+  var args: Array[Ast.Arg] = []
+  var seenNamed = false
+  while !at(p, ")") {
+    var start = peek(p)
+    var e = try expression(p)
+    if e is Ast.Ident && at(p, ":") {
+      next(p)
+      var value = try expression(p)
+      Array.push(args, Ast.NamedArg{ line: start.line, col: start.col, name: e.name, value })
+      seenNamed = true
+    } else {
+      if seenNamed { return Result.err(fail(p, "positional argument after a named argument")) }
+      Array.push(args, Ast.PosArg{ line: start.line, col: start.col, value: e })
+    }
+    if !at(p, ")") { try expect(p, ",") }
+  }
+  try expect(p, ")")
+  leave(p, saved)
+  Result.ok(args)
+}
+
+// --- primary expressions
+
+func primary(p: Parser): Result[Ast.Expr, ParseError] {
+  var t = peek(p)
+  if t.kind == "INT" {
+    next(p)
+    return Result.ok(Ast.Int{ line: t.line, col: t.col, text: t.value })
+  }
+  if t.kind == "FLOAT" {
+    next(p)
+    return Result.ok(Ast.Float{ line: t.line, col: t.col, text: t.value })
+  }
+  if t.kind == "STRING" {
+    next(p)
+    return Result.ok(Ast.StringLit{ line: t.line, col: t.col, text: t.value })
+  }
+  if t.kind == "TEMPLATE" {
+    next(p)
+    var parts: Array[Ast.Expr] = []
+    for part in t.parts {
+      var e = try parsePart(part)
+      Array.push(parts, e)
+    }
+    return Result.ok(Ast.Template{ line: t.line, col: t.col, text: t.value, parts })
+  }
+  if t.kind == "IDENT" {
+    next(p)
+    if at(p, "{") && !p.header { return braceLit(p, [t.value], t.line, t.col) }
+    return Result.ok(Ast.Ident{ line: t.line, col: t.col, name: t.value })
+  }
+  if t.kind == "KW" { return keyword(p, t) }
+  if t.kind == "OP" {
+    if t.value == "{" { return Result.ok(try lambda(p)) }
+    if t.value == "[" { return Result.ok(try arrayLit(p)) }
+    if t.value == "(" {
+      next(p)
+      var saved = enterList(p)
+      var inner = try expression(p)
+      try expect(p, ")")
+      leave(p, saved)
+      return Result.ok(Ast.Paren{ line: t.line, col: t.col, inner })
+    }
+  }
+  Result.err(failAt(t, `unexpected ${describe(t)}`))
+}
+
+// A primary that starts with the keyword t.
+func keyword(p: Parser, t: Lex.Token): Result[Ast.Expr, ParseError] {
+  var v = t.value
+  if v == "true" || v == "false" || v == "null" || v == "void" {
+    next(p)
+    return Result.ok(Ast.Lit{ line: t.line, col: t.col, text: v })
+  }
+  if v == "func" {
+    next(p)
+    if atKind(p, "IDENT") {
+      return Result.err(fail(p, "a named function is only allowed at the top level; bind it with var"))
+    }
+    var sig = try signature(p)
+    var body = try block(p)
+    return Result.ok(Ast.AnonFunc{ line: t.line, col: t.col, params: sig.params, ret: sig.ret, body })
+  }
+  if v == "if" { return Result.ok(try ifExpr(p)) }
+  if v == "while" {
+    next(p)
+    var cond = try headerExpr(p)
+    var body = try block(p)
+    return Result.ok(Ast.While{ line: t.line, col: t.col, cond, body })
+  }
+  if v == "for" { return Result.ok(try forExpr(p)) }
+  if v == "go" {
+    next(p)
+    var body = try block(p)
+    return Result.ok(Ast.Go{ line: t.line, col: t.col, body })
+  }
+  if v == "defer" {
+    next(p)
+    var body = try block(p)
+    return Result.ok(Ast.Defer{ line: t.line, col: t.col, body })
+  }
+  if v == "return" {
+    next(p)
+    // Bare before a newline, `;`, a closer, `,` or the end of the file.
+    var r = raw(p)
+    if r.kind == "NEWLINE" || r.kind == "EOF" || (r.kind == "OP" && endsReturn(r.value)) {
+      return Result.ok(Ast.Return{ line: t.line, col: t.col, value: null })
+    }
+    var value = try expression(p)
+    return Result.ok(Ast.Return{ line: t.line, col: t.col, value })
+  }
+  if v == "break" {
+    next(p)
+    return Result.ok(Ast.Break{ line: t.line, col: t.col })
+  }
+  if v == "continue" {
+    next(p)
+    return Result.ok(Ast.Continue{ line: t.line, col: t.col })
+  }
+  Result.err(failAt(t, `unexpected ${describe(t)}`))
+}
+
+func endsReturn(op: string): bool {
+  op == ";" || op == "}" || op == ")" || op == "]" || op == ","
+}
+
+// One `${...}` body of a template, lexed on its own and parsed with newlines
+// ignored. The body is lexed at (1, 1) and its tokens are shifted afterwards,
+// as the reference does, so a lexer error inside it is reported at part-local
+// coordinates while a parser error is reported at file coordinates.
+func parsePart(part: Lex.Part): Result[Ast.Expr, ParseError] {
+  var toks = try Result.mapErr(Lex.tokenize(part.text, 1, 1), fromLex)
+  for t in toks {
+    if t.line == 1 { t.col = t.col + part.col - 1 }
+    t.line = t.line + part.line - 1
+  }
+  var q = Parser{ toks, i: 0, nl: 1, header: false }
+  var e = try expression(q)
+  if !atKind(q, "EOF") {
+    return Result.err(fail(q, `unexpected ${describe(peek(q))} in template expression`))
+  }
+  Result.ok(e)
+}
+
+// The condition of an if or while, or the iterable of a for: parsed with the
+// header flag set, so `{` after an identifier path opens the block.
+func headerExpr(p: Parser): Result[Ast.Expr, ParseError] {
+  var savedHeader = p.header
+  p.header = true
+  var e = try expression(p)
+  p.header = savedHeader
+  if !at(p, "{") { return Result.err(failGot(peek(p), "expected '{' after header")) }
+  Result.ok(e)
+}
+
+func ifExpr(p: Parser): Result[Ast.If, ParseError] {
+  var kw = try expect(p, "if")
+  var cond = try headerExpr(p)
+  var then = try block(p)
+  var otherwise: Ast.Block | Ast.If | null = null
+  if atKw(p, "else") {
+    next(p)
+    otherwise = if atKw(p, "if") { try ifExpr(p) } else { try block(p) }
+  }
+  Result.ok(Ast.If{ line: kw.line, col: kw.col, cond, then, otherwise })
+}
+
+func forExpr(p: Parser): Result[Ast.For, ParseError] {
+  var kw = try expect(p, "for")
+  var target: Ast.Target = if at(p, "{") { try destructure(p) } else {
+    var t = peek(p)
+    var name = try expectIdent(p, "loop variable")
+    Ast.Name{ line: t.line, col: t.col, name }
+  }
+  try expect(p, "in")
+  var iter = try headerExpr(p)
+  var body = try block(p)
+  Result.ok(Ast.For{ line: kw.line, col: kw.col, target, iter, body })
+}
+
+func destructure(p: Parser): Result[Ast.Destructure, ParseError] {
+  var open = try expect(p, "{")
+  var saved = enterList(p)
+  var fields: Array[Ast.Alias] = []
+  while !at(p, "}") {
+    var field = try aliasItem(p, "field name")
+    Array.push(fields, field)
+    if !at(p, "}") { try expect(p, ",") }
+  }
+  try expect(p, "}")
+  leave(p, saved)
+  Result.ok(Ast.Destructure{ line: open.line, col: open.col, fields })
+}
+
+// `Path{ ... }` after an identifier path: a map literal when the path is the
+// single name Map, a record literal otherwise. A bare identifier key in a map
+// literal is its name as a string, both with and without `:`.
+func braceLit(p: Parser, path: Array[string], line: int, col: int): Result[Ast.Expr, ParseError] {
+  try expect(p, "{")
+  var saved = enterList(p)
+  var isMap = Array.length(path) == 1 && path[0] == "Map"
+  var entries: Array[Ast.LitEntry | Ast.Spread] = []
+  while !at(p, "}") {
+    var start = peek(p)
+    if at(p, "...") {
+      next(p)
+      if isMap { return Result.err(fail(p, "spread is not allowed in a map literal")) }
+      var value = try expression(p)
+      Array.push(entries, Ast.Spread{ line: start.line, col: start.col, value })
+    } else {
+      var key = try expression(p)
+      if at(p, ":") {
+        next(p)
+        var value = try expression(p)
+        if !isMap && !(key is Ast.Ident) { return Result.err(fail(p, "record field must be an identifier")) }
+        if isMap && key is Ast.Ident { key = keyString(key) }
+        Array.push(entries, Ast.LitEntry{ line: start.line, col: start.col, key, value })
+      } else if key is Ast.Ident {
+        var name: Ast.Expr = if isMap { keyString(key) } else { key }
+        Array.push(entries, Ast.LitEntry{ line: start.line, col: start.col, key: name, value: key })
+      } else {
+        return Result.err(fail(p, "shorthand entry must be an identifier"))
+      }
+    }
+    if !at(p, "}") { try expect(p, ",") }
+  }
+  try expect(p, "}")
+  leave(p, saved)
+  if isMap { Result.ok(Ast.MapLit{ line, col, entries }) }
+  else { Result.ok(Ast.RecordLit{ line, col, path, entries }) }
+}
+
+// The string literal a bare identifier key stands for in a map literal.
+func keyString(key: Ast.Ident): Ast.StringLit {
+  Ast.StringLit{ line: key.line, col: key.col, text: `"${key.name}"` }
+}
+
+func arrayLit(p: Parser): Result[Ast.ArrayLit, ParseError] {
+  var open = try expect(p, "[")
+  var saved = enterList(p)
+  var elems: Array[Ast.Elem | Ast.Spread] = []
+  while !at(p, "]") {
+    var start = peek(p)
+    if at(p, "...") {
+      next(p)
+      var value = try expression(p)
+      Array.push(elems, Ast.Spread{ line: start.line, col: start.col, value })
+    } else {
+      var value = try expression(p)
+      Array.push(elems, Ast.Elem{ line: start.line, col: start.col, value })
+    }
+    if !at(p, "]") { try expect(p, ",") }
+  }
+  try expect(p, "]")
+  leave(p, saved)
+  Result.ok(Ast.ArrayLit{ line: open.line, col: open.col, elems })
+}

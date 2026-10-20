@@ -1,0 +1,4 @@
+var a = A.B{ x: 1 }
+var b = A.B.C{ x: 1 }
+var c = a.b.c.d
+var d = a.b.c(1)

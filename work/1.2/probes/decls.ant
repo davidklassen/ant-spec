@@ -1,0 +1,13 @@
+import "./a.ant" { x, y: z, }
+import "./b.ant" {}
+import "./c.ant" {
+  a,
+  b: c
+}
+import "./d.ant" D;
+var x: int = 1
+var { a, b: c } = r
+var { } = r
+export var y: Array[int] | null = null
+export func f(a: int = 1, b: string = "x",): int { a }
+export type T[A, B: Ordered,] = A

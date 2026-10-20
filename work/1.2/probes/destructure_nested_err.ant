@@ -1,0 +1,4 @@
+func f() {
+  for x in xs { 1 }
+  for { a: { b } } in m { 2 }
+}

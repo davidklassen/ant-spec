@@ -1,0 +1,4 @@
+var a = B{}.x
+var b = B{ x: 1 }.x.y
+var c = B{}(1)
+var d = B{}[0]

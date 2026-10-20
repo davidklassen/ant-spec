@@ -1,0 +1,12 @@
+func f() {
+  if a { } else if b { } else { }
+  if a { 1 }
+  else if b { 2 }
+  else { 3 }
+  var x = if a { 1 } else { 2 }
+  if a {
+    1
+  } else {
+    2
+  }
+}

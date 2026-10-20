@@ -1,0 +1,194 @@
+// The S-expression dump of an AST, shared with tools/compare_frontend.py,
+// which renders the reference parser's tuples in the same form:
+//
+//   nil for null; strings quoted with `\` `"` LF CR escaped (in that order,
+//   nothing else); lists as [a b ...]; nodes as (Kind child ...), where the
+//   reference's untagged tuples (import items, destructure fields, type
+//   parameters, parameters, record-type fields) print their name bare.
+//
+// The File node is the only multi-line one: `(File`, `  [`, one import per
+// line, `  ]`, `  [`, one declaration per line, `  ]`, `)`.
+import "./ast.ant" Ast
+
+// The whole dump, without a trailing newline.
+export func module(m: Ast.Module): string {
+  var lines: Array[string] = ["(File", "  ["]
+  for i in m.imports { Array.push(lines, "    " + importDecl(i)) }
+  Array.push(lines, "  ]")
+  Array.push(lines, "  [")
+  for d in m.decls { Array.push(lines, "    " + decl(d)) }
+  Array.push(lines, "  ]")
+  Array.push(lines, ")")
+  String.join(lines, "\n")
+}
+
+func quote(s: string): string {
+  var text = s
+    | String.replace("\\", "\\\\")
+    | String.replace("\"", "\\\"")
+    | String.replace("\n", "\\n")
+    | String.replace("\r", "\\r")
+  `"${text}"`
+}
+
+func list(xs: Array[string]): string {
+  `[${String.join(xs, " ")}]`
+}
+
+// A list of quoted strings (type paths, `is` targets, record literal heads).
+func strs(xs: Array[string]): string {
+  list(Array.map(xs, quote))
+}
+
+func opt(s: string | null): string {
+  s ?? "nil"
+}
+
+// --- imports and declarations
+
+func importDecl(i: Ast.Import): string {
+  var pattern = i.pattern
+  var text = if pattern is Ast.Namespace { `(Namespace ${quote(pattern.name)})` }
+    else if pattern is Ast.Names { `(Names ${list(Array.map(pattern.items, alias))})` }
+    else { "?" }
+  `(Import ${quote(i.path)} ${text})`
+}
+
+func alias(a: Ast.Alias): string {
+  var local = a.alias
+  `(${a.name} ${if local == null { "nil" } else { quote(local) }})`
+}
+
+func decl(d: Ast.Decl): string {
+  if d is Ast.VarDecl { exported(d.exported, varDecl(d)) }
+  else if d is Ast.FuncDecl {
+    var sig = signature(d.params, d.ret)
+    exported(d.exported, `(Func ${quote(d.name)} ${list(Array.map(d.tparams, tparam))} ${sig} ${block(d.body)})`)
+  }
+  else if d is Ast.TypeDecl {
+    exported(d.exported, `(Type ${quote(d.name)} ${list(Array.map(d.tparams, tparam))} ${typ(d.body)})`)
+  }
+  else { "?" }
+}
+
+func exported(flag: bool, text: string): string {
+  if flag { `(Export ${text})` } else { text }
+}
+
+func varDecl(v: Ast.VarDecl): string {
+  `(Var ${target(v.target)} ${optTyp(v.typ)} ${expr(v.value)})`
+}
+
+func tparam(p: Ast.TypeParam): string {
+  `(${p.name} ${optTyp(p.bound)})`
+}
+
+func param(p: Ast.Param): string {
+  `(${p.name} ${typ(p.typ)} ${optExpr(p.default)})`
+}
+
+func signature(params: Array[Ast.Param], ret: Ast.TypeExpr | null): string {
+  `(${list(Array.map(params, param))} ${optTyp(ret)})`
+}
+
+func target(t: Ast.Target): string {
+  if t is Ast.Name { `(Name ${quote(t.name)})` }
+  else if t is Ast.Destructure { `(Destructure ${list(Array.map(t.fields, alias))})` }
+  else { "?" }
+}
+
+// --- types
+
+func typ(t: Ast.TypeExpr): string {
+  if t is Ast.TPath { `(TPath ${strs(t.path)} ${list(Array.map(t.args, typ))})` }
+  else if t is Ast.Union { `(Union ${list(Array.map(t.terms, typ))})` }
+  else if t is Ast.TRecord { `(TRecord ${list(Array.map(t.fields, fieldType))})` }
+  else if t is Ast.TFunc { `(TFunc ${list(Array.map(t.params, ftParam))} ${typ(t.ret)})` }
+  else { "?" }
+}
+
+func fieldType(f: Ast.FieldType): string {
+  `(${f.name} ${typ(f.typ)})`
+}
+
+func ftParam(p: Ast.FtParam): string {
+  `(${opt(p.name)} ${typ(p.typ)})`
+}
+
+// --- statements and expressions
+
+func block(b: Ast.Block): string {
+  `(Block ${list(Array.map(b.stmts, stmt))})`
+}
+
+func stmt(s: Ast.Stmt): string {
+  if s is Ast.VarDecl { varDecl(s) } else { expr(s) }
+}
+
+func optExpr(e: Ast.Expr | null): string {
+  if e == null { "nil" } else { expr(e) }
+}
+
+func optTyp(t: Ast.TypeExpr | null): string {
+  if t == null { "nil" } else { typ(t) }
+}
+
+func expr(e: Ast.Expr): string {
+  if e is Ast.Assign { `(Assign ${quote(e.op)} ${expr(e.target)} ${expr(e.value)})` }
+  else if e is Ast.Pipe { `(Pipe ${expr(e.left)} ${expr(e.right)})` }
+  else if e is Ast.Nullish { `(Nullish ${expr(e.left)} ${expr(e.right)})` }
+  else if e is Ast.And { `(And ${expr(e.left)} ${expr(e.right)})` }
+  else if e is Ast.Or { `(Or ${expr(e.left)} ${expr(e.right)})` }
+  else if e is Ast.Bin { `(Bin ${quote(e.op)} ${expr(e.left)} ${expr(e.right)})` }
+  else if e is Ast.Is { `(Is ${expr(e.value)} ${strs(e.target)})` }
+  else if e is Ast.Unary { `(Unary ${quote(e.op)} ${expr(e.operand)})` }
+  else if e is Ast.Field { `(Field ${expr(e.object)} ${quote(e.name)})` }
+  else if e is Ast.OptField { `(OptField ${expr(e.object)} ${quote(e.name)})` }
+  else if e is Ast.Index { `(Index ${expr(e.object)} ${expr(e.index)})` }
+  else if e is Ast.OptIndex { `(OptIndex ${expr(e.object)} ${expr(e.index)})` }
+  else if e is Ast.Call { `(Call ${expr(e.callee)} ${list(Array.map(e.args, arg))})` }
+  else if e is Ast.OptCall { `(OptCall ${expr(e.callee)} ${list(Array.map(e.args, arg))})` }
+  else if e is Ast.Int { `(Int ${quote(e.text)})` }
+  else if e is Ast.Float { `(Float ${quote(e.text)})` }
+  else if e is Ast.StringLit { `(String ${quote(e.text)})` }
+  else if e is Ast.Template { `(Template ${quote(e.text)} ${list(Array.map(e.parts, expr))})` }
+  else if e is Ast.Ident { `(Ident ${quote(e.name)})` }
+  else if e is Ast.Lit { `(Lit ${quote(e.text)})` }
+  else if e is Ast.AnonFunc { `(AnonFunc ${signature(e.params, e.ret)} ${block(e.body)})` }
+  else if e is Ast.If { ifExpr(e) }
+  else if e is Ast.While { `(While ${expr(e.cond)} ${block(e.body)})` }
+  else if e is Ast.For { `(For ${target(e.target)} ${expr(e.iter)} ${block(e.body)})` }
+  else if e is Ast.Go { `(Go ${block(e.body)})` }
+  else if e is Ast.Defer { `(Defer ${block(e.body)})` }
+  else if e is Ast.Return { `(Return ${optExpr(e.value)})` }
+  else if e is Ast.Break { "(Break)" }
+  else if e is Ast.Continue { "(Continue)" }
+  else if e is Ast.Lambda { `(Lambda ${list(Array.map(e.stmts, stmt))})` }
+  else if e is Ast.ArrayLit { `(ArrayLit ${list(Array.map(e.elems, elem))})` }
+  else if e is Ast.Paren { `(Paren ${expr(e.inner)})` }
+  else if e is Ast.MapLit { `(MapLit ${list(Array.map(e.entries, entry))})` }
+  else if e is Ast.RecordLit { `(RecordLit ${strs(e.path)} ${list(Array.map(e.entries, entry))})` }
+  else { "?" }
+}
+
+func ifExpr(e: Ast.If): string {
+  var otherwise = e.otherwise
+  var tail = if otherwise == null { "nil" }
+    else if otherwise is Ast.If { ifExpr(otherwise) }
+    else { block(otherwise) }
+  `(If ${expr(e.cond)} ${block(e.then)} ${tail})`
+}
+
+func arg(a: Ast.Arg): string {
+  if a is Ast.PosArg { `(Pos ${expr(a.value)})` }
+  else if a is Ast.NamedArg { `(Named ${quote(a.name)} ${expr(a.value)})` }
+  else { "?" }
+}
+
+func elem(e: Ast.Elem | Ast.Spread): string {
+  if e is Ast.Spread { `(Spread ${expr(e.value)})` } else { `(Elem ${expr(e.value)})` }
+}
+
+func entry(e: Ast.LitEntry | Ast.Spread): string {
+  if e is Ast.Spread { `(Spread ${expr(e.value)})` } else { `(Entry ${expr(e.key)} ${expr(e.value)})` }
+}

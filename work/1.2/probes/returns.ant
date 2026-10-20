@@ -1,0 +1,9 @@
+func f(y: int) {
+  var a = x ?? return y + 1
+  var b = [return, 1]
+  var c = (return)
+  var d = { return }
+  var e = Map{ k: return }
+  return; f(1)
+  return
+}

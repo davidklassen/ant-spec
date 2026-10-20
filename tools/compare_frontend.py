@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Compare antc's frontend with the reference parser, tools/antparse.py.
 
-    python3 -I tools/compare_frontend.py lex (--sample | --all | PATHS...) [-j N] [-v]
-    python3 -I tools/compare_frontend.py parse ...        # arrives in step 1.2
+    python3 -I tools/compare_frontend.py lex   (--sample | --all | PATHS...) [-j N] [-v]
+    python3 -I tools/compare_frontend.py parse (--sample | --all | PATHS...) [-j N] [-v]
 
 For every selected file the reference side is rendered in a canonical text
-form and compared with what `antc lex FILE` prints when antc runs under the
-bootstrap interpreter. A file the reference rejects must be rejected by antc
-at the same line:col with the same message (the reference's `unexpected
-character {c!r}` is Python's repr of the character; antc writes '<c>', and the
-two are compared with that normalised); every other file must produce the same
-dump. The last
-line is always `<N> files, <M> failures`, and the exit status is 0 iff M == 0.
+form and compared with what `antc lex FILE` or `antc parse --dump FILE` prints
+when antc runs under the bootstrap interpreter. A file the reference rejects
+must be rejected by antc at the same line:col with the same message (the
+reference's `unexpected character {c!r}` is Python's repr of the character;
+antc writes '<c>', and the two are compared with that normalised); every other
+file must produce the same dump. In parse mode a file under tests/err must be
+rejected by both sides. The last line is always `<N> files, <M> failures`, and
+the exit status is 0 iff M == 0.
 
 Selection: `--sample` is tests/ok/*, tests/err/* and every 14th file of the
 sorted suite under src/tests; `--all` is every .ant file in the repository;
@@ -25,6 +26,22 @@ Lex dump, one line per token, in order:
 
 The value and the part text are escaped: `\\` for a backslash, `\\n` for a
 newline, `\\r` for a carriage return, nothing else.
+
+AST dump, an S-expression of the reference's tuple tree:
+
+    None            nil
+    string          quoted: `\\` `\"` `\\n` `\\r` escaped (in that order), nothing else
+    list            [a b ...]
+    tuple           (head b ...) where the head is printed bare when it is a
+                    string: the node kind of a tagged node, and the name that
+                    opens the untagged tuples (import items and destructure
+                    fields `(name alias)`, type parameters `(name bound)`,
+                    parameters `(name type default)`, record-type fields
+                    `(name type)`); any other first element is rendered
+                    normally, as in a signature `([...] ret)`
+
+The top-level File is the only multi-line node: `(File`, `  [`, one import per
+line indented four spaces, `  ]`, `  [`, one declaration per line, `  ]`, `)`.
 """
 import argparse
 import ast
@@ -41,6 +58,7 @@ sys.path.insert(0, HERE)
 import antparse  # noqa: E402
 
 ANTC = [sys.executable, "-I", "bootstrap/antpy.py", "run", "src/antc/main.ant"]
+ANTC_ARGS = {"lex": ["lex"], "parse": ["parse", "--dump"]}
 DIAGNOSTIC = re.compile(r"^(.*):(\d+):(\d+): (.*)$")
 
 
@@ -89,10 +107,34 @@ def lex_dump(toks):
     return "".join(line + "\n" for line in lines)
 
 
+def quote(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r") + '"'
+
+
+def sexpr(node):
+    if node is None:
+        return "nil"
+    if isinstance(node, str):
+        return quote(node)
+    if isinstance(node, list):
+        return "[" + " ".join(sexpr(x) for x in node) + "]"
+    head = node[0] if isinstance(node[0], str) else sexpr(node[0])
+    return "(" + " ".join([head] + [sexpr(x) for x in node[1:]]) + ")"
+
+
+def ast_dump(tree):
+    _, imports, decls = tree
+    lines = ["(File", "  ["] + ["    " + sexpr(i) for i in imports] + ["  ]", "  ["] \
+        + ["    " + sexpr(d) for d in decls] + ["  ]", ")"]
+    return "".join(line + "\n" for line in lines)
+
+
 def reference(mode, src):
     """("ok", dump) or ("error", line, col, message) from the reference parser."""
     try:
-        return ("ok", lex_dump(antparse.Lexer(src).tokenize()))  # parse mode arrives in step 1.2
+        if mode == "lex":
+            return ("ok", lex_dump(antparse.Lexer(src).tokenize()))
+        return ("ok", ast_dump(antparse.parse(src)))
     except antparse.ParseError as e:
         return ("error", e.line, e.col, e.msg)
 
@@ -100,7 +142,7 @@ def reference(mode, src):
 def antc(mode, path):
     """("ok", stdout), ("error", line, col, message) or ("crash", what, stderr) from antc."""
     try:
-        p = subprocess.run(ANTC + [mode, path], cwd=ROOT, capture_output=True, timeout=120)
+        p = subprocess.run(ANTC + ANTC_ARGS[mode] + [path], cwd=ROOT, capture_output=True, timeout=120)
     except subprocess.TimeoutExpired:
         return ("crash", "timed out after 120 s", "")
     out = p.stdout.decode("utf-8", errors="replace")
@@ -142,6 +184,11 @@ def compare(mode, path):
         src = f.read().decode("utf-8", errors="replace")
     ref = reference(mode, src)
     got = antc(mode, path)
+    if mode == "parse" and path.startswith("tests/err/"):
+        accepted = [side for side, result in (("reference", ref), ("antc", got)) if result[0] == "ok"]
+        if accepted:
+            return (path, False, [f"tests/err file accepted by {side}" for side in accepted]
+                    + [f"reference: {describe(ref)}", f"antc:      {describe(got)}"])
     if ref[0] == "ok" and got[0] == "ok":
         if ref[1] == got[1]:
             return (path, True, [])
@@ -166,8 +213,6 @@ def main():
     ap.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 1, help="parallel antc runs")
     ap.add_argument("-v", "--verbose", action="store_true", help="also print the files that agree")
     args = ap.parse_args()
-    if args.mode == "parse":
-        sys.exit("parse mode arrives in step 1.2")
     if not (args.sample or args.all or args.paths):
         ap.error("give --sample, --all or at least one path")
 

@@ -1,0 +1,4 @@
+var a = Map{ name, (name): 1, "k": 2, 3: 4, a.b: 5 }
+var b = X.Map{ a: 1 }
+var c = Map{}
+var d = Map{ (1 + 2): 3, }

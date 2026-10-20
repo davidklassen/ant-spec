@@ -1,0 +1,11 @@
+var a = try -x
+var b = !!a
+var c = -(-a)
+var d = - -a
+var e = try f(x) | g()
+var f = !a == b
+var g = -a * b + c < d == e
+var h = a is null
+var i = (a is func)
+var j = a is A.B
+var k = a is func && b

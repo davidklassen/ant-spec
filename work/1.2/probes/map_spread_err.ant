@@ -1,0 +1,2 @@
+var m = Map{ a: 1 }
+var a = Map{ ...m }

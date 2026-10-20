@@ -1,0 +1,19 @@
+func f() {
+  var a = x
+  (b)
+  var c = x
+  [0]
+  var d = x
+  .y
+  var e = x
+  ?.y
+  var f = a +
+    b
+  var g = a
+    | f()
+  var h = a ==
+    // comment
+    b
+  var i = a
+    /* comment */ .b
+}

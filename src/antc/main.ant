@@ -1,38 +1,55 @@
 // antc: the Ant compiler (ROADMAP.md). Command line:
 //
 //   antc lex FILE              one token per line on stdout (see dump below)
-//   antc parse [--dump] FILE   step 1.2
+//   antc parse [--dump] FILE   exit 0 when FILE parses; --dump prints the AST
+//                              as the S-expression of dump.ant
 //
 // Diagnostics go to stderr as `path:line:col: message` with exit status 1;
 // a usage error exits 2.
 import "./lexer.ant" Lex
+import "./parser.ant" Parser
+import "./dump.ant" Dump
 
 func main() {
   var args = Os.args()
   var command = if Array.length(args) > 0 { args[0] } else { "" }
   if command == "lex" && Array.length(args) == 2 {
     lexCommand(args[1])
-  } else if command == "parse" {
-    eprint("antc parse: not implemented until step 1.2")
-    Os.exit(2)
+  } else if command == "parse" && Array.length(args) == 2 && args[1] != "--dump" {
+    parseCommand(args[1], false)
+  } else if command == "parse" && Array.length(args) == 3 && args[1] == "--dump" {
+    parseCommand(args[2], true)
   } else {
     eprint("usage: antc lex FILE | antc parse [--dump] FILE")
     Os.exit(2)
   }
 }
 
-func lexCommand(path: string): void {
+// The file's text, or a diagnostic at 1:1 and exit 1.
+func readSource(path: string): string {
   var read = File.read(path)
-  var source = if read is Ok { read.value } else {
+  if read is Ok { read.value } else {
     report(path, 1, 1, read.error.message)
     Os.exit(1)
   }
-  var lexed = Lex.tokenize(source, 1, 1)
+}
+
+func lexCommand(path: string): void {
+  var lexed = Lex.tokenize(readSource(path), 1, 1)
   var toks = if lexed is Ok { lexed.value } else {
     report(path, lexed.error.line, lexed.error.col, lexed.error.message)
     Os.exit(1)
   }
   dump(toks)
+}
+
+func parseCommand(path: string, withDump: bool): void {
+  var parsed = Parser.parse(readSource(path))
+  var m = if parsed is Ok { parsed.value } else {
+    report(path, parsed.error.line, parsed.error.col, parsed.error.message)
+    Os.exit(1)
+  }
+  if withDump { print(Dump.module(m)) }
 }
 
 // The token dump shared with tools/compare_frontend.py:

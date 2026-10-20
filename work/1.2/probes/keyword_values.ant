@@ -1,0 +1,14 @@
+func f() {
+  var x = if c { 1 } else { 2 }
+  var y = while false {}
+  var z = for i in xs {}
+  var g = go {}
+  var d = defer {}
+  var b = { break }
+  var k = { continue }
+  var a = func(a: int): int { a }
+  var n = func() {}
+  var l = { }
+  f(if c { 1 } else { 2 }, while false {}, for i in xs {}, go {}, defer {}, func() {}, {})
+  [if c { 1 }, while c {}, { x }]
+}

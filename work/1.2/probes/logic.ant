@@ -1,0 +1,9 @@
+func f() {
+  var a = a && b || c && d
+  var b = a || b && c
+  var c = a ?? b ?? c
+  var d = a || b || c && d && e
+  var e = (a ?? b) && c
+  var f = a && (b ?? c)
+  var g = !a && -b || c
+}
