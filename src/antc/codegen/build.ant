@@ -1,0 +1,74 @@
+// The build driver: the module graph to one C file, clang against the
+// runtime archive, and `antc run`. Commands run from the repository root:
+// the runtime is `runtime/` (or $ANT_RUNTIME), where `make runtime` left
+// the archive and, in `libantrt.flags`, what it links with; the compiler
+// is $ANT_CC or clang; temporary files go to $TMPDIR (or /tmp).
+import "./modules.ant" Mod
+import "./emit.ant" Emit
+
+// The C program for the module graph rooted at `entry`.
+export func compile(entry: string): Result[string, Mod.Problem] {
+  Emit.program(try Mod.load(entry))
+}
+
+// Writes the C to `out` (emitC), or builds the binary `out`. The error is
+// a diagnostic for `path:line:col: message` or a plain message.
+export func build(entry: string, out: string, emitC: bool): Result[void, Mod.Problem] {
+  var c = try compile(entry)
+  if emitC { return writeFile(out, c) }
+  var rt = Os.env("ANT_RUNTIME") ?? "runtime"
+  if !File.exists(`${rt}/libantrt.a`) { return Result.err(message(NOT_BUILT)) }
+  var flags = File.read(`${rt}/libantrt.flags`)
+  if flags is Err { return Result.err(message(NOT_BUILT)) }
+  var cfile = tempPath(entry, ".c")
+  try writeFile(cfile, c)
+  var cc = Os.env("ANT_CC") ?? "clang"
+  var status = Os.exec([cc, "-O1", "-std=gnu11", "-w", "-o", out, cfile, "-I" + rt, `${rt}/libantrt.a`, ...words(flags.value)])
+  if status is Err { return Result.err(message(`cannot run ${cc}: ${status.error.message}`)) }
+  if status.value != 0 {
+    return Result.err(message(`${cc} failed with status ${status.value}; the C file is kept at ${cfile}`))
+  }
+  File.remove(cfile)
+  Result.ok(void)
+}
+
+// Builds `entry` to a temporary binary and runs it with `args`; the exit
+// status is the program's.
+export func run(entry: string, args: Array[string]): Result[int, Mod.Problem] {
+  var bin = tempPath(entry, "")
+  try build(entry, bin, false)
+  var status = Os.exec([bin, ...args])
+  File.remove(bin)
+  if status is Err { return Result.err(message(`cannot run the program: ${status.error.message}`)) }
+  Result.ok(status.value)
+}
+
+var NOT_BUILT = "runtime library not built: run make runtime"
+
+// The whitespace-separated words of a text (the link flags file).
+func words(text: string): Array[string] {
+  Array.filter(String.split(String.trim(text), " "), { x != "" })
+}
+
+func writeFile(path: string, text: string): Result[void, Mod.Problem] {
+  var r = File.write(path, text)
+  if r is Err { return Result.err(message(r.error.message)) }
+  Result.ok(void)
+}
+
+// A diagnostic without a position.
+func message(text: string): Mod.Problem {
+  Mod.Problem{ path: "", line: 0, col: 0, message: text }
+}
+
+// A fresh path under the temporary directory, unique enough for the builds
+// that run side by side: the clocks and a hash of the entry path.
+func tempPath(entry: string, suffix: string): string {
+  var tmp = Os.env("TMPDIR") ?? "/tmp"
+  var dir = if String.endsWith(tmp, "/") { String.slice(tmp, 0, String.length(tmp) - 1) } else { tmp }
+  var h = 5381
+  for b in String.toBytes(entry) { h = Bits.wrapAdd(Bits.wrapMul(h, 33), int(b)) }
+  if h < 0 { h = Bits.wrapSub(0, h) }
+  if h < 0 { h = 0 }
+  `${dir}/antc-${Time.now()}-${Time.monotonic()}-${h}-${Mod.basename(entry)}${suffix}`
+}

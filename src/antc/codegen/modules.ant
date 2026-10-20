@@ -1,0 +1,191 @@
+// The module graph (ant-lang.md section 10): every module reachable from
+// the entry, loaded depth first in import order, with its top-level names
+// and its import bindings resolved. The array `load` returns is in
+// post-order, so a module's dependencies come before it and the entry
+// module is last.
+import "../lexer.ant" Lex
+import "../parser.ant" Parser
+import "../ast.ant" Ast
+import "./literals.ant" Lit
+
+// A diagnostic with the file it belongs to: `path:line:col: message`.
+export type Problem = { path: string, line: int, col: int, message: string }
+
+export type Loaded = {
+  path: string,
+  index: int,
+  ast: Ast.Module,
+  names: Array[string],            // top-level names in declaration order: the module record's fields
+  nameIndex: Map[string, int],     // name -> field index
+  bindings: Map[string, Binding],  // local import name -> what it stands for
+  deps: Array[int],                // the imported modules, in source order
+}
+// What an import binds: a whole module record (kind "namespace"), or a
+// destructured name (kind "name") with the exporter's field index, -1 when
+// the exporter has no such name (the use site then panics `unbound name`).
+export type Binding = { module: int, kind: string, field: int }
+
+type Loader = {
+  modules: Array[Loaded],
+  byPath: Map[string, int],
+  loading: Array[Pending],         // the imports being resolved, outermost first
+}
+type Pending = { importer: string, line: int }
+
+export func load(entry: string): Result[Array[Loaded], Problem] {
+  var ld = Loader{ modules: [], byPath: Map{}, loading: [] }
+  var index = try loadModule(ld, entry, null, 0)
+  try checkMain(ld.modules[index])
+  Result.ok(ld.modules)
+}
+
+// Loads the module at `path` once, and returns its index.
+func loadModule(ld: Loader, path: string, importer: string | null, line: int): Result[int, Problem] {
+  try checkCycle(ld, path)
+  var known = Map.get(ld.byPath, path)
+  if known != null { return Result.ok(known) }
+  var src = File.read(path)
+  if src is Err {
+    return Result.err(Problem{ path: importer ?? path, line, col: 1, message: "not found: " + path })
+  }
+  var ast = Parser.parse(src.value)
+  if ast is Err {
+    var d = ast.error
+    return Result.err(Problem{ path, line: d.line, col: d.col, message: d.message })
+  }
+  var m = ast.value
+  var deps: Array[int] = []
+  var base = dirname(path)
+  for imp in m.imports {
+    Array.push(ld.loading, Pending{ importer: path, line: imp.line })
+    var target = resolve(base, importPath(imp.path))
+    var dep = loadModule(ld, target, path, imp.line)
+    Array.pop(ld.loading)
+    Array.push(deps, try dep)
+  }
+  var loaded = Loaded{ path, index: Array.length(ld.modules), ast: m, names: [], nameIndex: Map{}, bindings: Map{}, deps }
+  collectNames(loaded)
+  bindImports(ld, loaded)
+  Array.push(ld.modules, loaded)
+  Map.set(ld.byPath, path, loaded.index)
+  Result.ok(loaded.index)
+}
+
+// A module still being loaded is an import cycle, reported on the import
+// line of the first module of the cycle.
+func checkCycle(ld: Loader, path: string): Result[void, Problem] {
+  var n = Array.length(ld.loading)
+  var i = 0
+  while i < n {
+    var p = ld.loading[i]
+    if p.importer == path {
+      var chain: Array[string] = []
+      var j = i
+      while j < n {
+        Array.push(chain, basename(ld.loading[j].importer))
+        j += 1
+      }
+      Array.push(chain, basename(path))
+      return Result.err(Problem{ path: p.importer, line: p.line, col: 1, message: "cycle: " + String.join(chain, " -> ") })
+    }
+    i += 1
+  }
+  Result.ok(void)
+}
+
+func collectNames(m: Loaded): void {
+  for d in m.ast.decls {
+    if d is Ast.VarDecl {
+      for name in targetNames(d.target) { addName(m, name) }
+    } else if d is Ast.FuncDecl || d is Ast.TypeDecl {
+      addName(m, d.name)
+    }
+  }
+}
+
+func addName(m: Loaded, name: string): void {
+  if Map.has(m.nameIndex, name) { return }
+  Map.set(m.nameIndex, name, Array.length(m.names))
+  Array.push(m.names, name)
+}
+
+// The names a `var` or `for` target binds.
+export func targetNames(t: Ast.Target): Array[string] {
+  if t is Ast.Name { return [t.name] }
+  if t is Ast.Destructure { return Array.map(t.fields, { x.alias ?? x.name }) }
+  []
+}
+
+func bindImports(ld: Loader, m: Loaded): void {
+  var i = 0
+  for imp in m.ast.imports {
+    var dep = ld.modules[m.deps[i]]
+    i += 1
+    var pattern = imp.pattern
+    if pattern is Ast.Namespace {
+      Map.set(m.bindings, pattern.name, Binding{ module: dep.index, kind: "namespace", field: -1 })
+    } else if pattern is Ast.Names {
+      for item in pattern.items {
+        var field = Map.get(dep.nameIndex, item.name) ?? -1
+        Map.set(m.bindings, item.alias ?? item.name, Binding{ module: dep.index, kind: "name", field })
+      }
+    }
+  }
+}
+
+// Section 10: the entry module declares `func main()` with no parameters
+// (G32); a missing one is reported at the last declaration (G53).
+func checkMain(m: Loaded): Result[void, Problem] {
+  for d in m.ast.decls {
+    if d is Ast.FuncDecl && d.name == "main" {
+      if Array.length(d.params) > 0 {
+        return Result.err(Problem{ path: m.path, line: d.line, col: 1, message: "main: takes no parameters" })
+      }
+      return Result.ok(void)
+    }
+  }
+  var n = Array.length(m.ast.decls)
+  var line = if n > 0 { m.ast.decls[n - 1].line } else { 1 }
+  Result.err(Problem{ path: m.path, line, col: 1, message: "main: missing or not a function" })
+}
+
+// --- paths
+
+export func dirname(path: string): string {
+  var parts = String.split(path, "/")
+  var n = Array.length(parts)
+  if n == 1 { return "." }
+  if n == 2 && parts[0] == "" { return "/" }
+  String.join(Array.slice(parts, 0, n - 1), "/")
+}
+
+export func basename(path: string): string {
+  var parts = String.split(path, "/")
+  parts[Array.length(parts) - 1]
+}
+
+// `target` relative to the directory `base`, with `.` and `..` folded.
+func resolve(base: string, target: string): string {
+  var joined = if String.startsWith(target, "/") { target } else { base + "/" + target }
+  var out: Array[string] = []
+  var first = true
+  for part in String.split(joined, "/") {
+    if part == "." || (part == "" && !first) {
+    } else if part == ".." {
+      var n = Array.length(out)
+      if n > 0 && out[n - 1] != ".." && out[n - 1] != "" { Array.pop(out) }
+      else { Array.push(out, part) }
+    } else {
+      Array.push(out, part)
+    }
+    first = false
+  }
+  if Array.length(out) == 1 && out[0] == "" { return "/" }
+  String.join(out, "/")
+}
+
+// The decoded text of an import's path literal (the parser keeps it raw).
+func importPath(raw: string): string {
+  var decoded = Lit.stringValue(raw)
+  if decoded is Ok { decoded.value } else { raw }
+}

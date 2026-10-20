@@ -1,14 +1,22 @@
 // antc: the Ant compiler (ROADMAP.md). Command line:
 //
-//   antc lex FILE              one token per line on stdout (see dump.ant)
-//   antc parse [--dump] FILE   exit 0 when FILE parses; --dump prints the AST
-//                              as the S-expression of dump.ant
+//   antc lex FILE                                   one token per line on stdout (see dump.ant)
+//   antc parse [--dump] FILE                        exit 0 when FILE parses; --dump prints the AST
+//                                                   as the S-expression of dump.ant
+//   antc build [--unchecked] [--emit-c] FILE -o OUT  compile FILE and its imports to the binary OUT,
+//                                                   or with --emit-c write the C program to OUT
+//   antc run [--unchecked] FILE [ARGS...]           build FILE to a temporary binary and run it
 //
-// Diagnostics go to stderr as `path:line:col: message` with exit status 1;
-// a usage error exits 2.
+// Before M3 there is no checker: `--unchecked` is accepted and changes
+// nothing. Diagnostics go to stderr as `path:line:col: message` with exit
+// status 1; a usage error exits 2.
 import "./lexer.ant" Lex
 import "./parser.ant" Parser
 import "./dump.ant" Dump
+import "./codegen/modules.ant" Mod
+import "./codegen/build.ant" Build
+
+var USAGE = "usage: antc lex FILE | antc parse [--dump] FILE | antc build [--unchecked] [--emit-c] FILE -o OUT | antc run [--unchecked] FILE [ARGS...]"
 
 func main() {
   var args = Os.args()
@@ -19,10 +27,18 @@ func main() {
     parseCommand(args[1], false)
   } else if command == "parse" && Array.length(args) == 3 && args[1] == "--dump" {
     parseCommand(args[2], true)
+  } else if command == "build" {
+    buildCommand(Array.slice(args, 1, Array.length(args)))
+  } else if command == "run" {
+    runCommand(Array.slice(args, 1, Array.length(args)))
   } else {
-    eprint("usage: antc lex FILE | antc parse [--dump] FILE")
-    Os.exit(2)
+    usage()
   }
+}
+
+func usage(): never {
+  eprint(USAGE)
+  Os.exit(2)
 }
 
 // The file's text, or a diagnostic at 1:1 and exit 1.
@@ -39,6 +55,30 @@ func parseCommand(path: string, withDump: bool): void {
   if withDump { print(Dump.module(m)) }
 }
 
+// build [--unchecked] [--emit-c] FILE -o OUT
+func buildCommand(args: Array[string]): void {
+  var emitC = false
+  var i = 0
+  while i < Array.length(args) && String.startsWith(args[i], "--") {
+    if args[i] == "--emit-c" { emitC = true }
+    else if args[i] != "--unchecked" { usage() }
+    i += 1
+  }
+  if Array.length(args) != i + 3 || args[i + 1] != "-o" { usage() }
+  var r = Build.build(args[i], args[i + 2], emitC)
+  if r is Err { problemExit(r.error) }
+}
+
+// run [--unchecked] FILE [ARGS...]: everything after FILE is a program argument.
+func runCommand(args: Array[string]): void {
+  var i = 0
+  if i < Array.length(args) && args[i] == "--unchecked" { i += 1 }
+  if i >= Array.length(args) { usage() }
+  var r = Build.run(args[i], Array.slice(args, i + 1, Array.length(args)))
+  if r is Err { problemExit(r.error) }
+  Os.exit(r.value)
+}
+
 // The value of r, or its diagnostic reported for path and exit 1.
 func orExit[T](path: string, r: Result[T, Lex.Diagnostic]): T {
   if r is Ok { r.value } else {
@@ -50,6 +90,12 @@ func orExit[T](path: string, r: Result[T, Lex.Diagnostic]): T {
 // The one diagnostic form: path:line:col: message, on stderr.
 func report(path: string, d: Lex.Diagnostic): void {
   eprint(`${path}:${d.line}:${d.col}: ${d.message}`)
+}
+
+func problemExit(p: Mod.Problem): never {
+  if p.path == "" { eprint(`antc: ${p.message}`) }
+  else { report(p.path, Lex.Diagnostic{ line: p.line, col: p.col, message: p.message }) }
+  Os.exit(1)
 }
 
 func eprint(text: string): void {

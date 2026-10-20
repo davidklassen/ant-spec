@@ -1,9 +1,11 @@
 """The Os and Time namespaces of stdlib.md."""
 import os
+import subprocess
 import sys
 import time
 
-from antpy.values import VOID, need_int, need_string
+from antpy.fileio import failed
+from antpy.values import VOID, need_int, need_string, need_array, ok, err, error
 
 
 # ----------------------------------------------------------------------------- Os
@@ -27,10 +29,25 @@ def os_exit(status):
     os._exit(status & 0xFF)
 
 
+def os_exec(args):
+    """Runs args[0] with the rest as arguments, stdio inherited; Ok(exit status) or Err."""
+    items = [need_string(a) for a in list(need_array(args))]
+    if not items:
+        return err(error("no program"))
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        code = subprocess.run(items).returncode
+    except OSError as e:
+        return failed(e, items[0])
+    return ok(code if code >= 0 else 128 - code)
+
+
 OS = {
     "args": ([], os_args, True),
     "env": (["name"], os_env),
     "exit": (["status"], os_exit),
+    "exec": (["args"], os_exec),
 }
 
 

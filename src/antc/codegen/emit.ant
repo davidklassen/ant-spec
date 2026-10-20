@@ -1,0 +1,1159 @@
+// The C emitter (docs/runtime-design.md section 4): every module of the
+// graph becomes a section of one C file, every function body is lowered to
+// ANF-style statements over temps, and every operation that can panic is
+// followed by a CHK that starts the unwinding cascade.
+//
+// Scoping (design section 1): the `var`s of a block are declared at its
+// entry as K_UNBOUND and activated when their `var` statement is emitted, so
+// code before a declaration, and the declaration's own initializer, resolve
+// outward (G3) while nested function bodies see the hoisted binding (G29).
+// A variable that any nested body of its function mentions by name lives in
+// a heap box; closures copy the box pointers (flat closure conversion).
+//
+// Every emitted function has one `pend` (0, 1 = break, 2 = continue), the
+// temps `t<n>` declared in its prologue, and a `result`. `for` bodies are
+// closures driven by ant_for_each, whose `return` targets the enclosing
+// function's frame through `self->ret`.
+import "../ast.ant" Ast
+import "./modules.ant" Mod
+import "./literals.ant" Lit
+
+export type Gen = {
+  modules: Array[Mod.Loaded],
+  symbols: Map[string, bool],
+  symNames: Array[string],
+  literals: Map[string, int],      // string literal text -> its L_ static
+  shapes: Map[string, string],     // joined field names -> the SH_ static
+  paths: Map[string, string],      // module path -> its C literal
+  inits: Array[string],            // init_constants: the literals and the interned shapes
+  statics: Array[string],          // literal slots, shapes, caches, infos, prototypes
+  funcs: Array[string],            // function definitions
+  globals: Map[string, bool],
+  globalNames: Array[string],
+  counters: Map[string, int],
+  problem: Mod.Problem | null,     // the first literal error met
+}
+
+type Var = { name: string, cname: string, boxed: bool, active: bool, fn: Fn }
+type Scope = {
+  vars: Map[string, Var],
+  exit: string,                    // the exit label
+  parent: Scope | null,            // within the same Fn
+  defers: string | null,           // the AntDefers variable, once a defer is registered
+  declAt: int,                     // the line reserved for its declaration
+}
+type Fn = {
+  cname: string,
+  kind: string,                    // decl anon lambda defer go forbody init
+  info: string,                    // the AntFuncInfo static, once declared
+  lines: Array[string],
+  ntemps: int,
+  retTarget: string,               // where `return` aims: &fr, or self->ret in a for body
+  lineTarget: string,              // fr.line, or self->ret->line
+  free: Array[Var],
+  freeIndex: Map[string, int],     // var cname -> index into self->free
+  parent: Fn | null,
+  scope: Scope | null,             // the innermost open scope
+  captured: Map[string, bool],     // names mentioned inside nested bodies: these are boxed
+  nlabels: int,
+  nvars: int,
+  module: Mod.Loaded,
+}
+
+var KIND_TESTS = Map{
+  "null": "K_NULL", "void": "K_VOID", "bool": "K_BOOL", "string": "K_STRING", "func": "K_FUNC",
+  "Array": "K_ARRAY", "Map": "K_MAP", "int8": "K_INT8", "int16": "K_INT16", "int32": "K_INT32",
+  "int64": "K_INT64", "uint8": "K_UINT8", "uint16": "K_UINT16", "uint32": "K_UINT32",
+  "uint64": "K_UINT64", "float32": "K_FLOAT32", "float64": "K_FLOAT64", "int": "K_INT64", "byte": "K_UINT8",
+}
+var BINARY_OPS = Map{
+  "+": "ant_add", "-": "ant_sub", "*": "ant_mul", "/": "ant_div", "%": "ant_mod",
+  "<": "ant_lt", "<=": "ant_le", ">": "ant_gt", ">=": "ant_ge",
+}
+var VOID_TYPE = Ast.TPath{ line: 0, col: 0, path: ["void"], args: [] }
+
+// The whole C program for the module graph (the entry module last).
+export func program(modules: Array[Mod.Loaded]): Result[string, Mod.Problem] {
+  var g = Gen{ modules, symbols: Map{}, symNames: [], literals: Map{}, shapes: Map{}, paths: Map{}, inits: [],
+    statics: [], funcs: [], globals: Map{}, globalNames: [], counters: Map{}, problem: null }
+  for m in modules { Array.push(g.statics, `static AntValue M_${m.index}; static int M_${m.index}_state;`) }
+  for m in modules { emitModule(g, m) }
+  var problem = g.problem
+  if problem != null { return Result.err(problem) }
+  var out: Array[string] = ["#include \"ant.h\"", ""]
+  Array.push(out, "enum { " + String.join(Array.map(g.symNames, { `SY_${x}` }), ", ") + " };")
+  Array.push(out, "static const char *const ant_symnames[] = { " + String.join(Array.map(g.symNames, { `"${x}"` }), ", ") + " };")
+  Array.push(out, "")
+  for name in g.globalNames { Array.push(out, `static AntValue G_${name};`) }
+  for s in g.statics { Array.push(out, s) }
+  Array.push(out, "")
+  Array.push(out, "static void init_constants(void) {")
+  for l in g.inits { Array.push(out, l) }
+  Array.push(out, "}")
+  Array.push(out, "static void init_prelude_refs(void) {")
+  for name in g.globalNames { Array.push(out, `G_${name} = ant_prelude_get("${name}");`) }
+  Array.push(out, "}")
+  Array.push(out, "")
+  for f in g.funcs { Array.push(out, f) }
+  var entry = modules[Array.length(modules) - 1]
+  Array.push(out, "int main(int argc, char **argv) {")
+  Array.push(out, "ant_runtime_init(argc, argv);")
+  Array.push(out, `ant_symbols_init(${Array.length(g.symNames)}, ant_symnames);`)
+  Array.push(out, "ant_prelude_init();")
+  Array.push(out, "init_constants();")
+  Array.push(out, "init_prelude_refs();")
+  Array.push(out, `return ant_run_main(init_${entry.index}, &M_${entry.index}, ${fieldIndex(entry, "main")});`)
+  Array.push(out, "}")
+  Result.ok(String.join(out, "\n") + "\n")
+}
+
+// --- bookkeeping
+
+func counter(g: Gen, what: string): int {
+  var n = Map.get(g.counters, what) ?? 0
+  Map.set(g.counters, what, n + 1)
+  n
+}
+
+// The C name of a symbol, registering it for the program's symbol table.
+func sym(g: Gen, name: string): string {
+  if !Map.has(g.symbols, name) {
+    Map.set(g.symbols, name, true)
+    Array.push(g.symNames, name)
+  }
+  `SY_${name}`
+}
+
+// The static holding a string literal, one per distinct text.
+func literal(g: Gen, text: string): string {
+  var known = Map.get(g.literals, text)
+  if known != null { return `L_${known}` }
+  var n = Map.size(g.literals)
+  Map.set(g.literals, text, n)
+  Array.push(g.statics, `static AntValue L_${n};`)
+  Array.push(g.inits, `L_${n} = ant_str_lit(${Lit.cQuote(text)}, ${Lit.byteLength(text)});`)
+  `L_${n}`
+}
+
+// The C literal of a module path, quoted once.
+func cPath(g: Gen, path: string): string {
+  var known = Map.get(g.paths, path)
+  if known != null { return known }
+  var quoted = Lit.cQuote(path)
+  Map.set(g.paths, path, quoted)
+  quoted
+}
+
+// A prelude global, resolved once at startup.
+func global(g: Gen, name: string): string {
+  if !Map.has(g.globals, name) {
+    Map.set(g.globals, name, true)
+    Array.push(g.globalNames, name)
+  }
+  `G_${name}`
+}
+
+// The shape over a list of field names: one static per distinct list,
+// interned at startup so that records of one shape share it with the
+// records the runtime builds (the field caches and `==` compare shapes by
+// address).
+func shape(g: Gen, names: Array[string]): string {
+  var key = String.join(names, " ")
+  var known = Map.get(g.shapes, key)
+  if known != null { return known }
+  var n = counter(g, "shape")
+  symArray(g, `SHN_${n}`, Array.map(names, { sym(g, x) }))
+  Array.push(g.statics, `static const AntShape *SH_${n};`)
+  Array.push(g.inits, `SH_${n} = ant_shape_intern(${Array.length(names)}, SHN_${n});`)
+  Map.set(g.shapes, key, `SH_${n}`)
+  `SH_${n}`
+}
+
+// A static array of symbols (a `0` keeps an empty one legal C).
+func symArray(g: Gen, name: string, syms: Array[string]): void {
+  var items = if Array.isEmpty(syms) { ["0"] } else { syms }
+  Array.push(g.statics, `static const Sym ${name}[] = { ${String.join(items, ", ")} };`)
+}
+
+// A per-site inline cache for a field access.
+func fieldCache(g: Gen): string {
+  var n = counter(g, "cache")
+  Array.push(g.statics, `static AntFieldCache FC_${n};`)
+  `&FC_${n}`
+}
+
+func problem(g: Gen, fn: Fn, line: int, col: int, message: string): void {
+  if g.problem == null {
+    g.problem = Mod.Problem{ path: fn.module.path, line, col, message }
+  }
+}
+
+func emit(fn: Fn, line: string): void {
+  Array.push(fn.lines, line)
+}
+
+func temp(fn: Fn): string {
+  var t = `t${fn.ntemps}`
+  fn.ntemps += 1
+  t
+}
+
+func label(fn: Fn, prefix: string): string {
+  var l = `${prefix}${fn.nlabels}`
+  fn.nlabels += 1
+  l
+}
+
+func scopeOf(fn: Fn): Scope {
+  fn.scope ?? panic("emitter: no open scope")
+}
+
+// The innermost exit label: where a CHK goes on unwind.
+func exitOf(fn: Fn): string {
+  scopeOf(fn).exit
+}
+
+func chk(fn: Fn, expr: string): string {
+  `CHK(${expr}, ${exitOf(fn)})`
+}
+
+// Materializes a C expression in a fresh temp.
+func into(fn: Fn, expr: string): string {
+  var t = temp(fn)
+  emit(fn, `${t} = ${expr};`)
+  t
+}
+
+func checked(fn: Fn, expr: string): string {
+  into(fn, chk(fn, expr))
+}
+
+// A C array literal of AntValues, or NULL when empty.
+func valueList(items: Array[string]): string {
+  if Array.isEmpty(items) { "NULL" } else { `(AntValue[]){ ${String.join(items, ", ")} }` }
+}
+
+func lineUpdate(fn: Fn, line: int): void {
+  emit(fn, `${fn.lineTarget} = ${line};`)
+}
+
+// --- functions
+
+func newFn(kind: string, parent: Fn | null, module: Mod.Loaded, cname: string): Fn {
+  var isBody = kind == "forbody"
+  Fn{ cname, kind, info: "", lines: [], ntemps: 0,
+    retTarget: if isBody { "self->ret" } else { "&fr" },
+    lineTarget: if isBody { "self->ret->line" } else { "fr.line" },
+    free: [], freeIndex: Map{}, parent, scope: null, captured: Map{}, nlabels: 0, nvars: 0, module }
+}
+
+// Registers the function's AntFuncInfo as fn.info.
+func declareInfo(g: Gen, fn: Fn, name: string, line: int, params: Array[Ast.Param], isLambda: bool): void {
+  var n = counter(g, "info")
+  symArray(g, `P_${n}`, Array.map(params, { sym(g, x.name) }))
+  var defaults = "NULL"
+  if Array.some(params, { x.default != null }) {
+    defaults = `D_${n}`
+    var flags = Array.map(params, { if x.default == null { "0" } else { "1" } })
+    Array.push(g.statics, `static const bool D_${n}[] = { ${String.join(flags, ", ")} };`)
+  }
+  fn.info = `FI_${n}`
+  Array.push(g.statics, `static const AntFuncInfo FI_${n} = { ${Lit.cQuote(name)}, ${cPath(g, fn.module.path)}, ${line}, ${Array.length(params)}, P_${n}, ${defaults}, ${if isLambda { "true" } else { "false" }} };`)
+}
+
+// Emits a complete function of any kind but `init` and `forbody`: the
+// frame, the parameters, the body as the root block, and the epilogue.
+func emitFunction(g: Gen, fn: Fn, name: string, line: int, params: Array[Ast.Param], isLambda: bool, stmts: Array[Ast.Stmt]): void {
+  declareInfo(g, fn, name, line, params, isLambda)
+  fn.captured = capturedOf(params, stmts)
+  emit(fn, "AntValue result = ANT_VOID; int pend = 0;")
+  var s = openScope(fn)
+  bindParams(fn, s, params)
+  declareBlockVars(fn, s, stmts)
+  emitDefaults(g, fn, s, params)
+  var value = emitStmts(g, fn, stmts)
+  emit(fn, `result = ${value};`)
+  closeScope(fn, s, "root")
+  emit(fn, "f_exit: ;")
+  if fn.kind == "defer" || fn.kind == "go" {
+    emit(fn, "pend = 0;")
+  } else {
+    emit(fn, "if (pend) { pend = 0; ant_panic(\"break or continue outside a loop\"); }")
+  }
+  emit(fn, "ant_frame_pop(&fr); return ant_finish(&fr, result);")
+  finish(g, fn, [`AntFrame fr; ant_frame_push(&fr, &${fn.info}); ANT_SAFEPOINT();`])
+}
+
+// A `for` body: argv[0] is the element, bound to the target; the body is a
+// loop body whose `break` makes the closure answer false.
+func emitForBody(g: Gen, fn: Fn, line: int, target: Ast.Target, stmts: Array[Ast.Stmt]): void {
+  declareInfo(g, fn, "for", line, [xParam()], false)
+  fn.captured = capturedOf([], stmts)
+  emit(fn, "AntValue result = ANT_TRUE; int pend = 0;")
+  var s = openScope(fn)
+  for name in Mod.targetNames(target) { declareVar(fn, s, name, false, "ANT_UNBOUND") }
+  declareBlockVars(fn, s, stmts)
+  bindTarget(g, fn, target, "argv[0]")
+  emitStmts(g, fn, stmts)
+  closeScope(fn, s, "forroot")
+  emit(fn, "f_exit: ;")
+  emit(fn, "return result;")
+  finish(g, fn, [])
+}
+
+// The module initializer: imports first, then the record with its hoisted
+// tags and functions, then the `var` initializers in order.
+func emitInit(g: Gen, fn: Fn, m: Mod.Loaded, infos: Map[string, string]): void {
+  declareInfo(g, fn, "module", 0, [], false)
+  var head: Array[string] = [`if (M_${m.index}_state) return; M_${m.index}_state = 1;`]
+  for dep in m.deps { Array.push(head, `init_${dep}(); if (ant_g->unwind.mode) return;`) }
+  Array.push(head, `M_${m.index} = ant_module_new(${shape(g, m.names)});`)
+  var inits: Array[Ast.Stmt] = []
+  for d in m.ast.decls {
+    if d is Ast.TypeDecl {
+      Array.push(head, `ant_module_set(M_${m.index}, ${fieldIndex(m, d.name)}, ant_tag_new(${Lit.cQuote(d.name)}));`)
+    } else if d is Ast.FuncDecl {
+      var info = Map.get(infos, d.name) ?? panic("emitter: function not emitted: " + d.name)
+      Array.push(head, `ant_module_set(M_${m.index}, ${fieldIndex(m, d.name)}, ant_closure(F_${m.index}_${d.name}, &${info}, 0, NULL));`)
+    } else if d is Ast.VarDecl {
+      Array.push(inits, d)
+    }
+  }
+  Array.push(head, `AntFrame fr; ant_frame_push(&fr, &${fn.info});`)
+  fn.captured = capturedOf([], inits)
+  emit(fn, "AntValue result = ANT_VOID; int pend = 0;")
+  var s = openScope(fn)
+  emitStmts(g, fn, inits)
+  closeScope(fn, s, "root")
+  emit(fn, "f_exit: ;")
+  emit(fn, "ant_finish_init(&fr);")
+  emit(fn, "if (pend) { pend = 0; ant_panic(\"break or continue outside a loop\"); }")
+  emit(fn, "ant_frame_pop(&fr);")
+  emit(fn, `M_${m.index}_state = 2;`)
+  finish(g, fn, head)
+}
+
+// Assembles a finished function: its prototype among the statics, then the
+// signature, prologue and body lines.
+func finish(g: Gen, fn: Fn, prologue: Array[string]): void {
+  var signature = if fn.kind == "init" { `static void ${fn.cname}(void)` }
+    else { `static AntValue ${fn.cname}(AntFunc *self, int argc, AntValue *argv)` }
+  Array.push(g.statics, signature + ";")
+  var out: Array[string] = [signature + " {"]
+  for l in prologue { Array.push(out, l) }
+  var i = 0
+  while i < fn.ntemps {
+    var names: Array[string] = []
+    var j = i
+    while j < fn.ntemps && j < i + 40 {
+      Array.push(names, `t${j}`)
+      j += 1
+    }
+    Array.push(out, `AntValue ${String.join(names, ", ")};`)
+    i = j
+  }
+  for l in fn.lines { Array.push(out, l) }
+  Array.push(out, "}")
+  Array.push(g.funcs, String.join(out, "\n"))
+}
+
+func xParam(): Ast.Param {
+  Ast.Param{ line: 0, col: 0, name: "x", typ: VOID_TYPE, default: null }
+}
+
+func fieldIndex(m: Mod.Loaded, name: string): int {
+  Map.get(m.nameIndex, name) ?? panic("emitter: no top-level name " + name)
+}
+
+// The declared functions, then the initializer, which takes their infos by name.
+func emitModule(g: Gen, m: Mod.Loaded): void {
+  var infos: Map[string, string] = Map{}
+  for d in m.ast.decls {
+    if d is Ast.FuncDecl {
+      var fn = newFn("decl", null, m, `F_${m.index}_${d.name}`)
+      emitFunction(g, fn, d.name, d.line, d.params, false, d.body.stmts)
+      Map.set(infos, d.name, fn.info)
+    }
+  }
+  emitInit(g, newFn("init", null, m, `init_${m.index}`), m, infos)
+}
+
+// --- scopes and variables
+
+func openScope(fn: Fn): Scope {
+  var s = Scope{ vars: Map{}, exit: label(fn, "b") + "_exit", parent: fn.scope, defers: null, declAt: 0 }
+  emit(fn, "{")
+  s.declAt = Array.length(fn.lines)
+  emit(fn, "")
+  fn.scope = s
+  s
+}
+
+// Closes a block. `kind`: "plain" cascades to the parent block; "loop" is
+// a while body (break leaves the C loop); "forroot" is a for body's root
+// block (break makes the closure answer false); "root" falls out.
+func closeScope(fn: Fn, s: Scope, kind: string): void {
+  emit(fn, `${s.exit}: ;`)
+  var d = s.defers
+  if d != null {
+    fn.lines[s.declAt] = `AntDefers ${d} = {0};`
+    emit(fn, `ant_run_defers(&${d});`)
+  }
+  var parent = s.parent
+  if kind == "loop" {
+    emit(fn, `if (ant_g->unwind.mode) goto ${parentExit(s)};`)
+    emit(fn, "if (pend == 1) { pend = 0; break; }")
+    emit(fn, "pend = 0;")
+  } else if kind == "forroot" {
+    emit(fn, "if (ant_g->unwind.mode) goto f_exit;")
+    emit(fn, "if (pend == 1) result = ANT_FALSE;")
+    emit(fn, "pend = 0;")
+  } else if parent != null {
+    emit(fn, `if (ant_g->unwind.mode || pend) goto ${parent.exit};`)
+  }
+  emit(fn, "}")
+  fn.scope = parent
+}
+
+func parentExit(s: Scope): string {
+  (s.parent ?? panic("emitter: loop body without a parent scope")).exit
+}
+
+// Declares a variable of the block: a plain C local, or a box when a
+// nested body mentions the name.
+func declareVar(fn: Fn, s: Scope, name: string, active: bool, init: string): Var {
+  var boxed = Map.has(fn.captured, name)
+  var cname = `${if boxed { "b_" } else { "v_" }}${name}_${fn.nvars}`
+  fn.nvars += 1
+  var v = Var{ name, cname, boxed, active, fn }
+  Map.set(s.vars, name, v)
+  if boxed { emit(fn, `AntBox *${cname} = ant_box_new(${init});`) }
+  else { emit(fn, `AntValue ${cname} = ${init};`) }
+  v
+}
+
+// Every `var` of the block, hoisted as K_UNBOUND.
+func declareBlockVars(fn: Fn, s: Scope, stmts: Array[Ast.Stmt]): void {
+  for st in stmts {
+    if st is Ast.VarDecl {
+      for name in Mod.targetNames(st.target) {
+        if !Map.has(s.vars, name) { declareVar(fn, s, name, false, "ANT_UNBOUND") }
+      }
+    }
+  }
+}
+
+func bindParams(fn: Fn, s: Scope, params: Array[Ast.Param]): void {
+  var i = 0
+  for p in params {
+    declareVar(fn, s, p.name, true, `argv[${i}]`)
+    i += 1
+  }
+}
+
+// Defaults evaluate after all arguments, in parameter order, in the callee (G26).
+func emitDefaults(g: Gen, fn: Fn, s: Scope, params: Array[Ast.Param]): void {
+  for p in params {
+    var d = p.default
+    if d != null {
+      var v = Map.get(s.vars, p.name) ?? panic("emitter: parameter not declared")
+      emit(fn, `if (${rawVar(v)}.kind == K_ABSENT) {`)
+      lineUpdate(fn, p.line)
+      var value = emitExpr(g, fn, d)
+      emit(fn, `${rawVar(v)} = ${value};`)
+      emit(fn, "}")
+    }
+  }
+}
+
+// The C lvalue of a variable of the current function.
+func rawVar(v: Var): string {
+  if v.boxed { `${v.cname}->v` } else { v.cname }
+}
+
+// The binding for a name: the innermost active binding of this function, or
+// a hoisted binding of an enclosing function, routed through the free lists
+// of every function between; null when no local binding exists.
+func lookup(fn: Fn, name: string): Var | null {
+  var f: Fn | null = fn
+  var crossed = false
+  while f != null {
+    var s = f.scope
+    while s != null {
+      var v = Map.get(s.vars, name)
+      if v != null && (crossed || v.active) {
+        if crossed { route(fn, v) }
+        return v
+      }
+      s = s.parent
+    }
+    crossed = true
+    f = f.parent
+  }
+  null
+}
+
+// Adds v to the free list of every function from fn up to its owner.
+func route(fn: Fn, v: Var): void {
+  var f = fn
+  while !Record.same(f, v.fn) {
+    if !Map.has(f.freeIndex, v.cname) {
+      Map.set(f.freeIndex, v.cname, Array.length(f.free))
+      Array.push(f.free, v)
+    }
+    f = f.parent ?? panic("emitter: variable owner not an ancestor")
+  }
+}
+
+// The box of a captured variable as seen from fn (for closure creation).
+func boxExpr(fn: Fn, v: Var): string {
+  if Record.same(v.fn, fn) { return v.cname }
+  `self->free[${Map.get(fn.freeIndex, v.cname) ?? panic("emitter: unrouted variable")}]`
+}
+
+func readVar(fn: Fn, v: Var): string {
+  if Record.same(v.fn, fn) {
+    if v.boxed { return checked(fn, `ant_box_get(${v.cname}, "${v.name}")`) }
+    return into(fn, v.cname)
+  }
+  checked(fn, `ant_box_get(${boxExpr(fn, v)}, "${v.name}")`)
+}
+
+func storeVar(fn: Fn, v: Var, expr: string): void {
+  if Record.same(v.fn, fn) { emit(fn, `${rawVar(v)} = ${expr};`) }
+  else { emit(fn, `${boxExpr(fn, v)}->v = ${expr};`) }
+}
+
+// A name read: local, module, import, or prelude.
+func emitIdent(g: Gen, fn: Fn, name: string): string {
+  var v = lookup(fn, name)
+  if v != null { return readVar(fn, v) }
+  var m = fn.module
+  var idx = Map.get(m.nameIndex, name)
+  if idx != null { return checked(fn, `ant_module_get(M_${m.index}, ${idx})`) }
+  var b = Map.get(m.bindings, name)
+  if b != null {
+    if b.kind == "namespace" { return into(fn, `M_${b.module}`) }
+    if b.field >= 0 { return checked(fn, `ant_module_get(M_${b.module}, ${b.field})`) }
+    return unbound(fn, name)
+  }
+  checked(fn, `ant_global(${global(g, name)}, "${name}")`)
+}
+
+func unbound(fn: Fn, name: string): string {
+  emit(fn, `ant_panic("unbound name: ${name}"); goto ${exitOf(fn)};`)
+  "ANT_VOID"
+}
+
+// A name written: a local, a module var, or an import (G31).
+func storeName(fn: Fn, name: string, expr: string): void {
+  var v = lookup(fn, name)
+  if v != null { return storeVar(fn, v, expr) }
+  var m = fn.module
+  var idx = Map.get(m.nameIndex, name)
+  if idx != null { return emit(fn, `ant_module_set(M_${m.index}, ${idx}, ${expr});`) }
+  var b = Map.get(m.bindings, name)
+  if b != null && b.kind == "name" && b.field >= 0 {
+    return emit(fn, `ant_module_set(M_${b.module}, ${b.field}, ${expr});`)
+  }
+  unbound(fn, name)
+}
+
+// Binds a `var` or `for` target to a value and activates its names.
+func bindTarget(g: Gen, fn: Fn, target: Ast.Target, value: string): void {
+  if target is Ast.Name {
+    bindName(fn, target.name, value)
+  } else if target is Ast.Destructure {
+    var r = into(fn, value)
+    for f in target.fields {
+      bindName(fn, f.alias ?? f.name, chk(fn, `ant_field_get(${r}, ${sym(g, f.name)}, ${fieldCache(g)})`))
+    }
+  }
+}
+
+// A name the block declares, activated; otherwise a module var (the
+// initializer's root declares none).
+func bindName(fn: Fn, name: string, value: string): void {
+  var v = Map.get(scopeOf(fn).vars, name)
+  if v == null { return storeName(fn, name, value) }
+  storeVar(fn, v, value)
+  v.active = true
+}
+
+// --- statements and blocks
+
+// Emits statements in order; the value of the last one, or ANT_VOID.
+func emitStmts(g: Gen, fn: Fn, stmts: Array[Ast.Stmt]): string {
+  var value = "ANT_VOID"
+  for st in stmts {
+    if st is Ast.VarDecl {
+      emitVarDecl(g, fn, st)
+      value = "ANT_VOID"
+    } else {
+      lineUpdate(fn, st.line)
+      value = emitExpr(g, fn, st)
+      if st is Ast.Assign { value = "ANT_VOID" }
+    }
+  }
+  value
+}
+
+func emitVarDecl(g: Gen, fn: Fn, d: Ast.VarDecl): void {
+  lineUpdate(fn, d.line)
+  bindTarget(g, fn, d.target, emitExpr(g, fn, d.value))
+}
+
+// A nested block as a C compound statement; its value lands in `result`
+// when one is given.
+func emitBlock(g: Gen, fn: Fn, stmts: Array[Ast.Stmt], result: string | null, kind: string): void {
+  var s = openScope(fn)
+  declareBlockVars(fn, s, stmts)
+  var value = emitStmts(g, fn, stmts)
+  if result != null { emit(fn, `${result} = ${value};`) }
+  closeScope(fn, s, kind)
+}
+
+// --- expressions
+
+// Lowers e to statements and returns a C expression for its value: a temp
+// or a constant, never something a later statement could change.
+func emitExpr(g: Gen, fn: Fn, e: Ast.Expr): string {
+  if e is Ast.Int { return emitInt(g, fn, e) }
+  if e is Ast.Float { return emitFloat(g, fn, e) }
+  if e is Ast.StringLit { return emitString(g, fn, e) }
+  if e is Ast.Lit { return emitLit(e.text) }
+  if e is Ast.Template { return emitTemplate(g, fn, e) }
+  if e is Ast.Ident { return emitIdent(g, fn, e.name) }
+  if e is Ast.Paren { return emitExpr(g, fn, e.inner) }
+  if e is Ast.Field || e is Ast.OptField || e is Ast.Index || e is Ast.OptIndex || e is Ast.Call || e is Ast.OptCall {
+    return emitChain(g, fn, e)
+  }
+  if e is Ast.Pipe { return emitPipe(g, fn, e) }
+  if e is Ast.Bin { return emitBin(g, fn, e) }
+  if e is Ast.Unary { return emitUnary(g, fn, e) }
+  if e is Ast.And { return emitAnd(g, fn, e) }
+  if e is Ast.Or { return emitOr(g, fn, e) }
+  if e is Ast.Nullish { return emitNullish(g, fn, e) }
+  if e is Ast.Is { return emitIs(g, fn, e) }
+  if e is Ast.Assign { return emitAssign(g, fn, e) }
+  if e is Ast.If { return emitIf(g, fn, e) }
+  if e is Ast.While { return emitWhile(g, fn, e) }
+  if e is Ast.For { return emitFor(g, fn, e) }
+  if e is Ast.Return { return emitReturn(g, fn, e) }
+  if e is Ast.Break { return emitJump(fn, 1) }
+  if e is Ast.Continue { return emitJump(fn, 2) }
+  if e is Ast.Defer { return emitDefer(g, fn, e) }
+  if e is Ast.Go { return emitGo(g, fn, e) }
+  if e is Ast.Lambda { return emitLambda(g, fn, e) }
+  if e is Ast.AnonFunc { return emitAnonFunc(g, fn, e) }
+  if e is Ast.ArrayLit { return emitArrayLit(g, fn, e) }
+  if e is Ast.MapLit { return emitMapLit(g, fn, e) }
+  if e is Ast.RecordLit { return emitRecordLit(g, fn, e) }
+  panic("emitter: unknown expression")
+}
+
+func emitInt(g: Gen, fn: Fn, e: Ast.Int): string {
+  var v = Lit.intValue(e.text)
+  if v == null {
+    problem(g, fn, e.line, e.col, "literal out of range")
+    return "ant_int(0)"
+  }
+  `ant_int(INT64_C(${v}))`
+}
+
+func emitFloat(g: Gen, fn: Fn, e: Ast.Float): string {
+  var v = Lit.floatValue(e.text)
+  if v == null {
+    problem(g, fn, e.line, e.col, "literal out of range")
+    return "ant_float(0.0)"
+  }
+  `ant_float(${v})`
+}
+
+func emitString(g: Gen, fn: Fn, e: Ast.StringLit): string {
+  var v = Lit.stringValue(e.text)
+  if v is Err {
+    problem(g, fn, e.line, e.col, v.error)
+    return literal(g, "")
+  }
+  literal(g, v.value)
+}
+
+func emitLit(text: string): string {
+  if text == "true" { "ANT_TRUE" }
+  else if text == "false" { "ANT_FALSE" }
+  else if text == "null" { "ANT_NULL" }
+  else { "ANT_VOID" }
+}
+
+func emitTemplate(g: Gen, fn: Fn, e: Ast.Template): string {
+  var chunks = Lit.templateChunks(e.text)
+  if chunks is Err {
+    problem(g, fn, e.line, e.col, chunks.error)
+    return literal(g, "")
+  }
+  var sb = label(fn, "sb")
+  emit(fn, `AntSb ${sb}; ant_sb_init(&${sb});`)
+  var i = 0
+  for c in chunks.value {
+    if c != "" { emit(fn, `ant_template_add(&${sb}, ${literal(g, c)});`) }
+    if i < Array.length(e.parts) {
+      var v = emitExpr(g, fn, e.parts[i])
+      emit(fn, `ant_template_add(&${sb}, ${v});`)
+    }
+    i += 1
+  }
+  into(fn, `ant_sb_finish(&${sb})`)
+}
+
+// --- postfix chains
+
+type Chain = { skip: string, result: string }
+
+func hasOpt(e: Ast.Expr): bool {
+  if e is Ast.OptField || e is Ast.OptIndex || e is Ast.OptCall { return true }
+  if e is Ast.Field { return hasOpt(e.object) }
+  if e is Ast.Index { return hasOpt(e.object) }
+  if e is Ast.Call { return hasOpt(e.callee) }
+  false
+}
+
+// A postfix chain: with a `?.` somewhere on its spine, a null operand makes
+// the whole chain null and skips the rest.
+func emitChain(g: Gen, fn: Fn, e: Ast.Expr): string {
+  var chain = openChain(fn, hasOpt(e))
+  closeChain(fn, chain, emitStep(g, fn, e, chain))
+}
+
+// The context of a chain with a `?.`: the label a null operand jumps to
+// and the temp that then holds the chain's null.
+func openChain(fn: Fn, needed: bool): Chain | null {
+  if needed { Chain{ skip: label(fn, "skip"), result: temp(fn) } } else { null }
+}
+
+// The chain's value v, through the result temp when there is a skip label.
+func closeChain(fn: Fn, chain: Chain | null, v: string): string {
+  if chain == null { return v }
+  emit(fn, `${chain.result} = ${v};`)
+  emit(fn, `${chain.skip}: ;`)
+  chain.result
+}
+
+func nullSkip(fn: Fn, chain: Chain | null, v: string): void {
+  var c = chain ?? panic("emitter: optional step outside a chain")
+  emit(fn, `if (${v}.kind == K_NULL) { ${c.result} = ANT_NULL; goto ${c.skip}; }`)
+}
+
+func emitStep(g: Gen, fn: Fn, e: Ast.Expr, chain: Chain | null): string {
+  if e is Ast.Field || e is Ast.OptField {
+    var obj = emitStep(g, fn, e.object, chain)
+    if e is Ast.OptField { nullSkip(fn, chain, obj) }
+    return checked(fn, `ant_field_get(${obj}, ${sym(g, e.name)}, ${fieldCache(g)})`)
+  }
+  if e is Ast.Index || e is Ast.OptIndex {
+    var obj = emitStep(g, fn, e.object, chain)
+    if e is Ast.OptIndex { nullSkip(fn, chain, obj) }
+    var idx = emitExpr(g, fn, e.index)
+    return checked(fn, `ant_index_get(${obj}, ${idx})`)
+  }
+  if e is Ast.Call || e is Ast.OptCall {
+    var f = emitStep(g, fn, e.callee, chain)
+    if e is Ast.OptCall { nullSkip(fn, chain, f) }
+    return emitCall(g, fn, f, [], e.args)
+  }
+  emitExpr(g, fn, e)
+}
+
+// A call of f: the callee is checked before the arguments evaluate; `first`
+// holds already evaluated positional values (a piped left side).
+func emitCall(g: Gen, fn: Fn, f: string, first: Array[string], args: Array[Ast.Arg]): string {
+  var callee = checked(fn, `ant_callee(${f})`)
+  var pos: Array[string] = first
+  var names: Array[string] = []
+  var named: Array[string] = []
+  for a in args {
+    if a is Ast.PosArg {
+      Array.push(pos, emitExpr(g, fn, a.value))
+    } else if a is Ast.NamedArg {
+      Array.push(names, sym(g, a.name))
+      Array.push(named, emitExpr(g, fn, a.value))
+    }
+  }
+  if Array.isEmpty(named) {
+    return checked(fn, `ant_call(${callee}, ${Array.length(pos)}, ${valueList(pos)})`)
+  }
+  checked(fn, `ant_call_named(${callee}, ${Array.length(pos)}, ${valueList(pos)}, ${Array.length(named)}, (const Sym[]){ ${String.join(names, ", ")} }, ${valueList(named)})`)
+}
+
+// `a | f(b)` is `f(a, b)`: a, then f, then b.
+func emitPipe(g: Gen, fn: Fn, e: Ast.Pipe): string {
+  var left = emitExpr(g, fn, e.left)
+  var call = e.right
+  if call is Ast.Call {
+    var chain = openChain(fn, hasOpt(call.callee))
+    var f = emitStep(g, fn, call.callee, chain)
+    return closeChain(fn, chain, emitCall(g, fn, f, [left], call.args))
+  }
+  panic("emitter: pipe right side is not a call")
+}
+
+// --- operators
+
+func emitBin(g: Gen, fn: Fn, e: Ast.Bin): string {
+  var a = emitExpr(g, fn, e.left)
+  var b = emitExpr(g, fn, e.right)
+  if e.op == "==" { return into(fn, `ant_bool(ant_equal(${a}, ${b}))`) }
+  if e.op == "!=" { return into(fn, `ant_bool(!ant_equal(${a}, ${b}))`) }
+  var op = Map.get(BINARY_OPS, e.op) ?? panic("emitter: unknown operator " + e.op)
+  checked(fn, `${op}(${a}, ${b})`)
+}
+
+func emitUnary(g: Gen, fn: Fn, e: Ast.Unary): string {
+  var v = emitExpr(g, fn, e.operand)
+  if e.op == "-" { return checked(fn, `ant_neg(${v})`) }
+  if e.op == "!" { return checked(fn, `ant_not(${v})`) }
+  checked(fn, `ant_try(${v}, ${fn.retTarget})`)
+}
+
+func emitAnd(g: Gen, fn: Fn, e: Ast.And): string {
+  var a = emitExpr(g, fn, e.left)
+  var r = temp(fn)
+  emit(fn, `if (CHKB(ant_truth(${a}), ${exitOf(fn)})) {`)
+  var b = emitExpr(g, fn, e.right)
+  emit(fn, `${r} = ${chk(fn, `ant_check_bool(${b})`)};`)
+  emit(fn, `} else { ${r} = ANT_FALSE; }`)
+  r
+}
+
+func emitOr(g: Gen, fn: Fn, e: Ast.Or): string {
+  var a = emitExpr(g, fn, e.left)
+  var r = temp(fn)
+  emit(fn, `if (CHKB(ant_truth(${a}), ${exitOf(fn)})) { ${r} = ANT_TRUE; } else {`)
+  var b = emitExpr(g, fn, e.right)
+  emit(fn, `${r} = ${chk(fn, `ant_check_bool(${b})`)};`)
+  emit(fn, "}")
+  r
+}
+
+func emitNullish(g: Gen, fn: Fn, e: Ast.Nullish): string {
+  var r = into(fn, emitExpr(g, fn, e.left))
+  emit(fn, `if (${r}.kind == K_NULL) {`)
+  var b = emitExpr(g, fn, e.right)
+  emit(fn, `${r} = ${b};`)
+  emit(fn, "}")
+  r
+}
+
+// `a is T`: a kind test by name, or a path that must evaluate to a tag.
+func emitIs(g: Gen, fn: Fn, e: Ast.Is): string {
+  var v = emitExpr(g, fn, e.value)
+  var kind = kindTest(e.target)
+  if kind != null { return into(fn, `ant_is_kind(${v}, ${kind})`) }
+  var tag = emitPath(g, fn, e.target)
+  checked(fn, `ant_is_tag(${v}, ${tag})`)
+}
+
+// The kind a one-name `is` target tests, or null when it names a tag.
+func kindTest(path: Array[string]): string | null {
+  if Array.length(path) == 1 { Map.get(KIND_TESTS, path[0]) } else { null }
+}
+
+// An identifier path: a name followed by field reads.
+func emitPath(g: Gen, fn: Fn, path: Array[string]): string {
+  var v = emitIdent(g, fn, path[0])
+  var i = 1
+  while i < Array.length(path) {
+    v = checked(fn, `ant_field_get(${v}, ${sym(g, path[i])}, ${fieldCache(g)})`)
+    i += 1
+  }
+  v
+}
+
+// Assignment: the target's sub-expressions and checks first, then the
+// right side, then the store; compound forms read the target once (G4).
+func emitAssign(g: Gen, fn: Fn, e: Ast.Assign): string {
+  var op: string | null = if e.op == "=" { null } else { Map.get(BINARY_OPS, String.slice(e.op, 0, 1)) }
+  var target = e.target
+  if target is Ast.Ident {
+    var value = assigned(g, fn, op, e.value, { emitIdent(g, fn, target.name) })
+    storeName(fn, target.name, value)
+    return "ANT_VOID"
+  }
+  if target is Ast.Field {
+    var obj = emitChain(g, fn, target.object)
+    var s = sym(g, target.name)
+    var cache = fieldCache(g)
+    emit(fn, `${chk(fn, `ant_field_check(${obj}, ${s}, ${cache})`)};`)
+    var value = assigned(g, fn, op, e.value, { checked(fn, `ant_field_get(${obj}, ${s}, ${cache})`) })
+    emit(fn, `${chk(fn, `ant_field_set(${obj}, ${s}, ${value}, ${cache})`)};`)
+    return "ANT_VOID"
+  }
+  if target is Ast.Index {
+    var obj = emitChain(g, fn, target.object)
+    var idx = emitExpr(g, fn, target.index)
+    emit(fn, `${chk(fn, `ant_index_check(${obj}, ${idx})`)};`)
+    var value = assigned(g, fn, op, e.value, { checked(fn, `ant_index_get(${obj}, ${idx})`) })
+    emit(fn, `${chk(fn, `ant_index_set(${obj}, ${idx}, ${value})`)};`)
+    return "ANT_VOID"
+  }
+  emit(fn, `ant_panic("cannot assign"); goto ${exitOf(fn)};`)
+  "ANT_VOID"
+}
+
+// The value an assignment stores: the right side, or for `op=` the target's
+// current value (read once, before the right side, G4) combined with it.
+func assigned(g: Gen, fn: Fn, op: string | null, value: Ast.Expr, current: func(): string): string {
+  if op == null { return emitExpr(g, fn, value) }
+  var cur = current()
+  var rhs = emitExpr(g, fn, value)
+  checked(fn, `${op}(${cur}, ${rhs})`)
+}
+
+// --- control flow
+
+func emitIf(g: Gen, fn: Fn, e: Ast.If): string {
+  var c = emitExpr(g, fn, e.cond)
+  var r = temp(fn)
+  emit(fn, `if (CHKB(ant_truth(${c}), ${exitOf(fn)}))`)
+  emitBlock(g, fn, e.then.stmts, r, "plain")
+  var otherwise = e.otherwise
+  if otherwise == null {
+    emit(fn, `else { ${r} = ANT_VOID; }`)
+  } else if otherwise is Ast.If {
+    emit(fn, "else {")
+    var v = emitIf(g, fn, otherwise)
+    emit(fn, `${r} = ${v};`)
+    emit(fn, "}")
+  } else if otherwise is Ast.Block {
+    emit(fn, "else")
+    emitBlock(g, fn, otherwise.stmts, r, "plain")
+  }
+  r
+}
+
+func emitWhile(g: Gen, fn: Fn, e: Ast.While): string {
+  emit(fn, "for (;;) {")
+  emit(fn, "ANT_SAFEPOINT();")
+  var c = emitExpr(g, fn, e.cond)
+  emit(fn, `if (!CHKB(ant_truth(${c}), ${exitOf(fn)})) break;`)
+  emitBlock(g, fn, e.body.stmts, null, "loop")
+  emit(fn, "}")
+  "ANT_VOID"
+}
+
+// `for x in e`: the body is a closure driven by the runtime.
+func emitFor(g: Gen, fn: Fn, e: Ast.For): string {
+  var source = emitExpr(g, fn, e.iter)
+  var body = newFn("forbody", fn, fn.module, `F_for_${counter(g, "fn")}`)
+  emitForBody(g, body, e.line, e.target, e.body.stmts)
+  var closure = into(fn, `ant_closure_ret(${body.cname}, &${body.info}, ${fn.retTarget}, ${boxList(fn, body)})`)
+  emit(fn, `${chk(fn, `ant_for_each(${source}, ${closure})`)};`)
+  "ANT_VOID"
+}
+
+func emitReturn(g: Gen, fn: Fn, e: Ast.Return): string {
+  var value = e.value
+  var v = if value == null { "ANT_VOID" } else { emitExpr(g, fn, value) }
+  emit(fn, `ant_set_return(${fn.retTarget}, ${v}); goto ${exitOf(fn)};`)
+  "ANT_VOID"
+}
+
+func emitJump(fn: Fn, code: int): string {
+  emit(fn, `pend = ${code}; goto ${exitOf(fn)};`)
+  "ANT_VOID"
+}
+
+func emitDefer(g: Gen, fn: Fn, e: Ast.Defer): string {
+  var closure = emitClosure(g, fn, "defer", "defer", e.line, [], false, e.body.stmts)
+  var s = scopeOf(fn)
+  var d = s.defers
+  if d == null {
+    d = `d${counter(g, "defers")}`
+    s.defers = d
+  }
+  emit(fn, `ant_defer_push(&${d}, ${closure});`)
+  "ANT_VOID"
+}
+
+func emitGo(g: Gen, fn: Fn, e: Ast.Go): string {
+  var closure = emitClosure(g, fn, "go", "goroutine", e.line, [], false, e.body.stmts)
+  emit(fn, `ant_go(${closure});`)
+  "ANT_VOID"
+}
+
+func emitLambda(g: Gen, fn: Fn, e: Ast.Lambda): string {
+  emitClosure(g, fn, "lambda", "lambda", e.line, [xParam()], true, e.stmts)
+}
+
+func emitAnonFunc(g: Gen, fn: Fn, e: Ast.AnonFunc): string {
+  emitClosure(g, fn, "anon", "func", e.line, e.params, false, e.body.stmts)
+}
+
+// Emits a nested function and its creation at the site.
+func emitClosure(g: Gen, fn: Fn, kind: string, name: string, line: int, params: Array[Ast.Param], isLambda: bool, stmts: Array[Ast.Stmt]): string {
+  var inner = newFn(kind, fn, fn.module, `F_${kind}_${counter(g, "fn")}`)
+  emitFunction(g, inner, name, line, params, isLambda, stmts)
+  into(fn, `ant_closure(${inner.cname}, &${inner.info}, ${boxList(fn, inner)})`)
+}
+
+// The free-variable count and box pointers for creating `inner` in fn.
+func boxList(fn: Fn, inner: Fn): string {
+  var n = Array.length(inner.free)
+  if n == 0 { return "0, NULL" }
+  `${n}, (AntBox *[]){ ${String.join(Array.map(inner.free, { boxExpr(fn, x) }), ", ")} }`
+}
+
+// --- literals of containers
+
+func emitArrayLit(g: Gen, fn: Fn, e: Ast.ArrayLit): string {
+  var a = into(fn, `ant_array_new(${Array.length(e.elems)})`)
+  for el in e.elems {
+    var v = emitExpr(g, fn, el.value)
+    if el is Ast.Spread { emit(fn, `${chk(fn, `ant_array_extend(${a}, ${v})`)};`) }
+    else { emit(fn, `ant_array_push(${a}, ${v});`) }
+  }
+  a
+}
+
+func emitMapLit(g: Gen, fn: Fn, e: Ast.MapLit): string {
+  var m = into(fn, "ant_map_new()")
+  for en in e.entries {
+    if en is Ast.LitEntry {
+      var k = emitExpr(g, fn, en.key)
+      var v = emitExpr(g, fn, en.value)
+      emit(fn, `ant_map_set(${m}, ${k}, ${v});`)
+    }
+  }
+  m
+}
+
+// `Head{ ... }`: the head must be a tag; entries evaluate in order; a static
+// shape without spread (later duplicates keep the first position, G10).
+func emitRecordLit(g: Gen, fn: Fn, e: Ast.RecordLit): string {
+  var tag = checked(fn, `ant_check_tag(${emitPath(g, fn, e.path)})`)
+  var names: Array[string] = []      // "" for a spread
+  var syms: Array[string] = []       // "0" for a spread
+  var values: Array[string] = []
+  var spreads: Array[string] = []
+  for en in e.entries {
+    if en is Ast.Spread {
+      Array.push(names, "")
+      Array.push(syms, "0")
+      Array.push(values, emitExpr(g, fn, en.value))
+      Array.push(spreads, "1")
+    } else if en is Ast.LitEntry {
+      var key = en.key
+      var name = if key is Ast.Ident { key.name } else { "" }
+      Array.push(names, name)
+      Array.push(syms, sym(g, name))
+      Array.push(values, emitExpr(g, fn, en.value))
+      Array.push(spreads, "0")
+    }
+  }
+  if Array.contains(spreads, "1") {
+    return checked(fn, `ant_record_build(${tag}, ${Array.length(names)}, (const Sym[]){ ${String.join(syms, ", ")} }, ${valueList(values)}, (const bool[]){ ${String.join(spreads, ", ")} })`)
+  }
+  // without spread: unique names in first-seen order, the last value for each
+  var order: Array[string] = []
+  var last: Map[string, string] = Map{}
+  var i = 0
+  while i < Array.length(names) {
+    if !Map.has(last, names[i]) { Array.push(order, names[i]) }
+    Map.set(last, names[i], values[i])
+    i += 1
+  }
+  var fields = Array.map(order, { Map.get(last, x) ?? "ANT_VOID" })
+  into(fn, `ant_record_new(${tag}, ${shape(g, order)}, ${valueList(fields)})`)
+}
+
+// --- the capture pre-pass
+
+// The names mentioned inside the nested function bodies (lambdas, anonymous
+// functions, go and defer blocks, for bodies) of a function body.
+func capturedOf(params: Array[Ast.Param], stmts: Array[Ast.Stmt]): Map[string, bool] {
+  var out: Map[string, bool] = Map{}
+  walkParams(params, false, out)
+  walkStmts(stmts, false, out)
+  out
+}
+
+func walkStmts(stmts: Array[Ast.Stmt], nested: bool, out: Map[string, bool]): void {
+  for st in stmts {
+    if st is Ast.VarDecl { walkExpr(st.value, nested, out) }
+    else { walkExpr(st, nested, out) }
+  }
+}
+
+func walkBlock(b: Ast.Block, nested: bool, out: Map[string, bool]): void {
+  walkStmts(b.stmts, nested, out)
+}
+
+func walkParams(params: Array[Ast.Param], nested: bool, out: Map[string, bool]): void {
+  for p in params {
+    var d = p.default
+    if d != null { walkExpr(d, nested, out) }
+  }
+}
+
+func walkExpr(e: Ast.Expr, nested: bool, out: Map[string, bool]): void {
+  if e is Ast.Ident {
+    if nested { Map.set(out, e.name, true) }
+  } else if e is Ast.Assign {
+    walkExpr(e.target, nested, out)
+    walkExpr(e.value, nested, out)
+  } else if e is Ast.Pipe || e is Ast.Nullish || e is Ast.And || e is Ast.Or || e is Ast.Bin {
+    walkExpr(e.left, nested, out)
+    walkExpr(e.right, nested, out)
+  } else if e is Ast.Is {
+    walkExpr(e.value, nested, out)
+    if nested && kindTest(e.target) == null { Map.set(out, e.target[0], true) }
+  } else if e is Ast.Unary {
+    walkExpr(e.operand, nested, out)
+  } else if e is Ast.Field || e is Ast.OptField {
+    walkExpr(e.object, nested, out)
+  } else if e is Ast.Index || e is Ast.OptIndex {
+    walkExpr(e.object, nested, out)
+    walkExpr(e.index, nested, out)
+  } else if e is Ast.Call || e is Ast.OptCall {
+    walkExpr(e.callee, nested, out)
+    for a in e.args { walkExpr(a.value, nested, out) }
+  } else if e is Ast.Template {
+    for p in e.parts { walkExpr(p, nested, out) }
+  } else if e is Ast.Paren {
+    walkExpr(e.inner, nested, out)
+  } else if e is Ast.AnonFunc {
+    walkParams(e.params, true, out)
+    walkBlock(e.body, true, out)
+  } else if e is Ast.Lambda {
+    walkStmts(e.stmts, true, out)
+  } else if e is Ast.If {
+    walkExpr(e.cond, nested, out)
+    walkBlock(e.then, nested, out)
+    var otherwise = e.otherwise
+    if otherwise is Ast.If { walkExpr(otherwise, nested, out) }
+    else if otherwise is Ast.Block { walkBlock(otherwise, nested, out) }
+  } else if e is Ast.While {
+    walkExpr(e.cond, nested, out)
+    walkBlock(e.body, nested, out)
+  } else if e is Ast.For {
+    walkExpr(e.iter, nested, out)
+    walkBlock(e.body, true, out)
+  } else if e is Ast.Go {
+    walkBlock(e.body, true, out)
+  } else if e is Ast.Defer {
+    walkBlock(e.body, true, out)
+  } else if e is Ast.Return {
+    var v = e.value
+    if v != null { walkExpr(v, nested, out) }
+  } else if e is Ast.ArrayLit {
+    for el in e.elems { walkExpr(el.value, nested, out) }
+  } else if e is Ast.MapLit {
+    for en in e.entries {
+      if en is Ast.LitEntry { walkExpr(en.key, nested, out) }
+      walkExpr(en.value, nested, out)
+    }
+  } else if e is Ast.RecordLit {
+    if nested { Map.set(out, e.path[0], true) }
+    for en in e.entries { walkExpr(en.value, nested, out) }
+  }
+}
