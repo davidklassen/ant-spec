@@ -1,0 +1,16 @@
+// panic
+// spec: 10 modules (initialization order); 12 names and scopes; 12 runtime panics
+// panic: not initialized
+// output:
+//   computing a
+var a = compute()
+var b = 10
+
+func compute(): int {
+  print("computing a")
+  b + 1                    // the initializer of b has not run yet
+}
+
+func main() {
+  print(a)
+}

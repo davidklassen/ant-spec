@@ -1,0 +1,15 @@
+// run
+// spec: 4 generics (an operator applies to T when it applies to every member of the bound)
+// gap: G15
+import "../../lib/expect.ant" Expect
+
+func addMin[T: Ordered](a: T, b: T): T {
+  if a < b { a + b } else { b + a }
+}
+
+func main() {
+  Expect.eq(addMin(1, 2), 3, "ints add")
+  Expect.eq(addMin(2.5, 0.5), 3.0, "floats add")
+  Expect.eq(addMin("b", "a"), "ab", "strings concatenate, < orders them")
+  Expect.eq(addMin(int8(1), int8(2)), int8(3), "sized ints keep their kind")
+}

@@ -1,0 +1,56 @@
+// Assertion helpers for the semantic test suite. See README.md.
+// Every helper panics with a message that includes the label `what`.
+
+export func eq[T](got: T, want: T, what: string): void {
+  if got != want { panic(`${what}: got ${got}, want ${want}`) }
+}
+
+export func ne[T](got: T, other: T, what: string): void {
+  if got == other { panic(`${what}: ${got} should differ from ${other}`) }
+}
+
+export func isTrue(cond: bool, what: string): void {
+  if !cond { panic(`${what}: expected true`) }
+}
+
+export func isFalse(cond: bool, what: string): void {
+  if cond { panic(`${what}: expected false`) }
+}
+
+export func isNull[T](v: T | null, what: string): void {
+  if v != null { panic(`${what}: expected null, got ${v}`) }
+}
+
+export func notNull[T](v: T | null, what: string): T {
+  v ?? panic(`${what}: unexpected null`)
+}
+
+export func same[T: {}](a: T, b: T, what: string): void {
+  if !Record.same(a, b) { panic(`${what}: expected the same record`) }
+}
+
+export func notSame[T: {}](a: T, b: T, what: string): void {
+  if Record.same(a, b) { panic(`${what}: expected distinct records`) }
+}
+
+export func fail(what: string): never {
+  panic(`failed: ${what}`)
+}
+
+// Evaluation-order log: mark records a step, marks returns and clears the record.
+export var log: Array[string] = []
+
+export func mark(s: string): void {
+  Array.push(log, s)
+}
+
+export func markv[T](s: string, v: T): T {
+  Array.push(log, s)
+  v
+}
+
+export func marks(): string {
+  var s = String.join(log, ",")
+  log = []
+  s
+}

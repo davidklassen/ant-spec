@@ -1,0 +1,7 @@
+// check
+// spec: 7 nullability (a string can never hold null); 4 assignability (null only to a type that includes it)
+func main() {
+  var s: string = null     // ERROR "not assignable"
+  var n: int = null        // ERROR "not assignable"
+  var ok: string | null = null
+}

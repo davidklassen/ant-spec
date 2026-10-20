@@ -1,0 +1,19 @@
+// run
+// spec: 11 synchronization Atomic (add on any Number); 12 arithmetic (floats follow IEEE 754)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var a = Atomic.new(1.5)
+  Expect.eq(Atomic.add(a, 2.25), 3.75, "add on a float64 returns the new value")
+  Expect.eq(Atomic.load(a), 3.75, "add stored it")
+  Expect.eq(Atomic.add(a, -0.75), 3.0, "a negative delta subtracts")
+
+  var sum = Atomic.new(0.0)
+  var wg = WaitGroup.new()
+  for i in Array.range(0, 100) {
+    WaitGroup.add(wg, 1)
+    go { Atomic.add(sum, 0.25); WaitGroup.done(wg) }
+  }
+  WaitGroup.wait(wg)
+  Expect.eq(Atomic.load(sum), 25.0, "concurrent float adds are atomic")
+}

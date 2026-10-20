@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Iter.toArray; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var xs = Iter.toArray([1])    // ERROR "not assignable"
+}

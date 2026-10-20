@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 arithmetic (operands must be numbers of the same kind); 12 runtime panics
+// panic: kind mismatch
+// output:
+//   before
+func main() {
+  print("before")
+  var n = 1 + 1.0          // ERROR "mismatched operand types"
+}

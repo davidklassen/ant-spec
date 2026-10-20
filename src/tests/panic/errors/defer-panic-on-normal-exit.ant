@@ -1,0 +1,12 @@
+// panic
+// spec: 8 defer; 12 deferred blocks and panics
+// panic: from defer
+// output:
+//   body
+func main() {
+  if true {
+    defer { panic("from defer") }
+    print("body")
+  }
+  print("not reached")
+}

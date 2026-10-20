@@ -1,0 +1,16 @@
+// run
+// spec: 8 defer (reverse order of registration); 12 deferred blocks and panics
+// source: zig:behavior/defer.zig
+import "../../lib/expect.ant" Expect
+
+func run(): void {
+  defer { Expect.mark("first") }
+  defer { Expect.mark("second") }
+  defer { Expect.mark("third") }
+  Expect.mark("body")
+}
+
+func main() {
+  run()
+  Expect.eq(Expect.marks(), "body,third,second,first", "deferred blocks run last-registered first")
+}

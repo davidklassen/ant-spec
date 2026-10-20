@@ -1,0 +1,22 @@
+// run
+// spec: 3 variables; 4 inference
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var count = 0                        // inferred: int
+  var name: string = "ant"             // annotated
+  var scores: Array[int] = []          // the annotation fixes the element type
+  count = count + 1
+  Expect.eq(count, 1, "inferred int")
+  Expect.eq(name, "ant", "annotated string")
+  Expect.isTrue(Array.isEmpty(scores), "annotated array starts empty")
+  Array.push(scores, 10)
+  Expect.eq(scores, [10], "push onto the annotated array")
+  var ratio = 1.5                      // inferred: float64
+  Expect.eq(ratio * 2.0, 3.0, "inferred float64")
+  var maybe: int | null = null         // the annotation is wider than the initializer
+  Expect.isNull(maybe, "nullable starts null")
+  maybe = 4
+  Expect.eq(maybe, 4, "the binding has the annotated type")
+}

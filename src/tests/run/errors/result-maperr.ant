@@ -1,0 +1,19 @@
+// run
+// spec: 11 Result and Record (Result.mapErr); 8 Result
+import "../../lib/expect.ant" Expect
+
+type Wrapped = { inner: string }
+
+func main() {
+  var ok: Result[int, Error] = Result.ok(3)
+  var err: Result[int, Error] = Result.err(Error{ message: "no" })
+
+  var wrapped = Result.mapErr(err, { Expect.markv("f", Wrapped{ inner: x.message }) })
+  if wrapped is Err { Expect.eq(wrapped.error, Wrapped{ inner: "no" }, "f is applied to the error") }
+  else { Expect.fail("mapErr on an Err yields an Err") }
+  Expect.eq(Expect.marks(), "f", "f ran once")
+
+  var kept = Result.mapErr(ok, { Expect.markv("f", Wrapped{ inner: x.message }) })
+  Expect.eq(Result.unwrap(kept), 3, "the Ok value passes through")
+  Expect.eq(Expect.marks(), "", "f is not applied to an Ok")
+}

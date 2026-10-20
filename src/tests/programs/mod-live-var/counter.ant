@@ -1,0 +1,4 @@
+// counter.ant: exported state and the function that changes it.
+export var count = 0
+
+export func bump(): void { count += 1 }

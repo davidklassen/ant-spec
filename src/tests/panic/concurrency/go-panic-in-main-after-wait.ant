@@ -1,0 +1,20 @@
+// panic
+// spec: 8 panic (a panic in the main goroutine ends the program); 9 goroutines; 10 main
+// panic: main gave up
+// output:
+//   workers finished: 4
+func main() {
+  var wg = WaitGroup.new()
+  var lock = Mutex.new()
+  var finished = 0
+  for i in Array.range(0, 4) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      Mutex.withLock(lock, { finished += 1 })
+    }
+  }
+  WaitGroup.wait(wg)
+  print(`workers finished: ${finished}`)
+  panic("main gave up")
+}

@@ -1,0 +1,16 @@
+// run
+// spec: 12 goroutines (preemptive); 9 goroutines (the program exits when main returns)
+// output:
+//   main exits
+func main() {
+  var wg = WaitGroup.new()
+  for i in Array.range(0, 8) {
+    WaitGroup.add(wg, 1)
+    go {
+      WaitGroup.done(wg)
+      while true { }                    // never blocks, never ends
+    }
+  }
+  WaitGroup.wait(wg)                    // every spinner has started by now
+  print("main exits")
+}

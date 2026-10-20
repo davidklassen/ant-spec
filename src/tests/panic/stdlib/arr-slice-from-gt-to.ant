@@ -1,0 +1,7 @@
+// panic
+// spec: 11 Array.slice; 12 runtime panics
+// panic: index out of range
+func main() {
+  var xs = [1, 2, 3]
+  var ys = Array.slice(xs, 2, 1)
+}

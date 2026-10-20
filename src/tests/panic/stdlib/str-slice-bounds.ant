@@ -1,0 +1,6 @@
+// panic
+// spec: 11 String.slice; 12 runtime panics
+// panic: index out of range
+func main() {
+  var s = String.slice("abc", 1, 5)
+}

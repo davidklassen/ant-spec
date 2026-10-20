@@ -1,0 +1,13 @@
+// run
+// spec: 5 expressions (evaluation order); 12 record literal
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ y: Expect.markv("y", 2.0), x: Expect.markv("x", 1.0) }
+  Expect.eq(Expect.marks(), "y,x", "fields evaluate in written order, not declaration order")
+  var q = Point{ ...Expect.markv("spread", p), x: Expect.markv("x", 0.0) }
+  Expect.eq(Expect.marks(), "spread,x", "a spread evaluates in its place")
+  Expect.eq(q, Point{ x: 0.0, y: 2.0 }, "contents")
+}

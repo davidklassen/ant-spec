@@ -1,0 +1,6 @@
+// shapes.ant: the exporter of the tags.
+export type Circle = { radius: float64 }
+export type Square = { side: float64 }
+export type Shape = Circle | Square
+
+export func circle(r: float64): Circle { Circle{ radius: r } }

@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 runtime panics (operands differ in kind)
+// panic: kind mismatch
+func main() {
+  var n = "a" + 1             // ERROR "mismatched operand types"
+}

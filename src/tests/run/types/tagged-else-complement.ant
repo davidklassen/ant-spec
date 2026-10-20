@@ -1,0 +1,22 @@
+// run
+// spec: 4 tagged unions (else sees the union minus the tested member); 7 nullability (complement)
+import "../../lib/expect.ant" Expect
+
+type EmptyInput = {}
+type BadDigit = { at: int }
+type TooLong = { length: int }
+type ParseError = EmptyInput | BadDigit | TooLong
+
+func explain(e: ParseError): string {
+  if e is EmptyInput { "empty" }
+  else {
+    // e: BadDigit | TooLong here
+    if e is BadDigit { `digit ${e.at}` } else { `length ${e.length}` }
+  }
+}
+
+func main() {
+  Expect.eq(explain(EmptyInput{}), "empty", "first member")
+  Expect.eq(explain(BadDigit{ at: 3 }), "digit 3", "second member")
+  Expect.eq(explain(TooLong{ length: 9 }), "length 9", "last member through two complements")
+}

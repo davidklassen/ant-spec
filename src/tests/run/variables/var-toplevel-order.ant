@@ -1,0 +1,18 @@
+// run
+// spec: 3 variables; 10 modules
+import "../../lib/expect.ant" Expect
+
+var base = 10
+var doubled = twice(base)                       // twice is declared below: hoisted
+var origin = Point{ x: 0, y: 0 }                // so is the type Point
+var moved = Point{ x: origin.x + doubled, y: origin.y + base }
+
+func twice(n: int): int { n * 2 }
+
+type Point = { x: int, y: int }
+
+func main() {
+  Expect.eq(doubled, 20, "a later var reads an earlier one through a hoisted func")
+  Expect.eq(moved.x, 20, "an initializer reads earlier vars")
+  Expect.eq(moved.y, 10, "a type declared later is usable in an initializer")
+}

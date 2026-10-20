@@ -1,0 +1,20 @@
+// run
+// spec: 4 unions; 5 is
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Id = int | string
+
+func describe(id: Id): string {
+  if id is int { `number ${id}` } else { `text ${id}` }
+}
+
+func main() {
+  Expect.eq(describe(7), "number 7", "int member")
+  Expect.eq(describe("seven"), "text seven", "string member")
+  var id: Id = 3
+  Expect.isTrue(id is int, "is int")
+  Expect.isFalse(id is string, "is string")
+  id = "x"
+  Expect.isTrue(id is string, "after reassignment")
+}

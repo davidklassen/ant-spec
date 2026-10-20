@@ -1,0 +1,7 @@
+// panic
+// spec: 11 Math and Bits (negative shift count); 5 operators
+// panic: shift count
+func main() {
+  var n = -1
+  Bits.shiftRight(1, n)
+}

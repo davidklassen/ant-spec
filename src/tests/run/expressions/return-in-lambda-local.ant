@@ -1,0 +1,15 @@
+// run
+// spec: 6 closures (return inside a lambda returns from the lambda only); 12 expressions (return)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var classify: func(int): string = { if x < 0 { return "negative" }; "non-negative" }
+  Expect.eq(classify(-1), "negative", "return leaves the lambda with its value")
+  Expect.eq(classify(1), "non-negative", "falls through to the last expression")
+
+  var clamped = Array.map([-1, 2], { if x < 0 { return 0 }; x * 10 })
+  Expect.eq(clamped, [0, 20], "return inside a map lambda")
+
+  Expect.mark("main continues")
+  Expect.eq(Expect.marks(), "main continues", "the returns did not leave main")
+}

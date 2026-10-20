@@ -1,0 +1,16 @@
+// program
+// spec: 10 modules (import with name: alias renaming)
+// source: spec
+import "../../lib/expect.ant" Expect
+import "./geometry.ant" { distance: dist, Point: P }
+
+func origin(): P { P{ x: 0.0, y: 0.0 } }
+
+func main() {
+  var q = P{ x: 3.0, y: 4.0 }
+  Expect.eq(dist(origin(), q), 5.0, "a function under its alias")
+  var r: P = q
+  Expect.eq(r.y, 4.0, "the alias in an annotation")
+  var v: P | null = q
+  Expect.isTrue(v is P, "is against the alias")
+}

@@ -1,0 +1,45 @@
+// run
+// spec: 5 is; 12 expressions (a is T)
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func main() {
+  var a: int | string = 1
+  Expect.isTrue(a is int, "is int")
+  Expect.isTrue(a is int64, "is int64 is the same test as is int")
+  Expect.isFalse(a is string, "an int is not a string")
+  var b: int | string = "s"
+  Expect.isTrue(b is string, "is string")
+  Expect.isFalse(b is int, "a string is not an int")
+
+  var c: bool | null = true
+  Expect.isTrue(c is bool, "is bool")
+  Expect.isFalse(c is null, "true is not null")
+  var d: float64 | null = null
+  Expect.isTrue(d is null, "is null")
+  Expect.isFalse(d is float64, "null is not a float64")
+  var e: float64 | null = 1.5
+  Expect.isTrue(e is float64, "is float64")
+  var g: int8 | string = int8(1)
+  Expect.isTrue(g is int8, "is int8")
+
+  var xs = [1]
+  var m: Map[string, int] = Map{}
+  var fn = func(): int { 1 }
+  var u1: Array[int] | Map[string, int] | func(): int = xs
+  var u2: Array[int] | Map[string, int] | func(): int = m
+  var u3: Array[int] | Map[string, int] | func(): int = fn
+  Expect.isTrue(u1 is Array, "is Array")
+  Expect.isFalse(u1 is Map, "an array is not a map")
+  Expect.isTrue(u2 is Map, "is Map")
+  Expect.isFalse(u2 is func, "a map is not a function")
+  Expect.isTrue(u3 is func, "is func")
+  Expect.isFalse(u3 is Array, "a function is not an array")
+
+  var s: Shape = Circle{ radius: 1.0 }
+  Expect.isTrue(s is Circle, "is Circle tests the tag")
+  Expect.isFalse(s is Rect, "a Circle is not a Rect")
+}

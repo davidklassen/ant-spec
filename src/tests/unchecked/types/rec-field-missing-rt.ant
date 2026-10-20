@@ -1,0 +1,12 @@
+// unchecked
+// spec: 12 field read (a must be a record with a field b); 12 runtime panics
+// panic: no field
+// output:
+//   before
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  print("before")
+  print(p.z)               // ERROR "unknown field"
+}

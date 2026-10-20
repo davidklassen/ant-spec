@@ -1,0 +1,21 @@
+// run
+// spec: 4 records (width subtyping); 4 assignability (anonymous record type)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Named = { name: string }
+type Person = { name: string, age: int }
+
+func greet(n: { name: string }): string { `hi ${n.name}` }
+
+func main() {
+  var user = Person{ name: "ada", age: 36 }
+  Expect.eq(greet(user), "hi ada", "a Person has a name")
+  Expect.eq(greet(Named{ name: "bob" }), "hi bob", "a Named has a name")
+  var anyNamed: { name: string } = user
+  Expect.eq(anyNamed.name, "ada", "an anonymous record type accepts a Person")
+  anyNamed = Named{ name: "cy" }
+  Expect.eq(anyNamed.name, "cy", "and a Named")
+  anyNamed.name = "dee"
+  Expect.eq(greet(anyNamed), "hi dee", "its fields are assignable")
+}

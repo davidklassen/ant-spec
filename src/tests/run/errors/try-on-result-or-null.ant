@@ -1,0 +1,33 @@
+// run
+// spec: 8 try; 12 expressions (try); 7 nullability
+// gap: G28
+import "../../lib/expect.ant" Expect
+
+func lookup(key: string): Result[int, Error] | null {
+  if key == "missing" { return null }
+  var r: Result[int, Error] = Result.ok(String.length(key))
+  if key == "bad" { r = Result.err(Error{ message: "bad key" }) }
+  r
+}
+
+func label(key: string): Result[string, Error] | null {
+  var n = try lookup(key)
+  Expect.mark(key)
+  var r: Result[string, Error] = Result.ok(`${key}=${n}`)
+  r
+}
+
+func main() {
+  var ok = label("ab")
+  Expect.eq(Expect.marks(), "ab", "an Ok continues the function")
+  if ok is Ok { Expect.eq(ok.value, "ab=2", "try yielded the Ok value") }
+  else { Expect.fail("expected an Ok") }
+
+  Expect.isNull(label("missing"), "try on null returns null")
+  Expect.eq(Expect.marks(), "", "the null path returned at once")
+
+  var err = label("bad")
+  if err is Err { Expect.eq(err.error, Error{ message: "bad key" }, "try on Err returns the error") }
+  else { Expect.fail("expected an Err") }
+  Expect.eq(Expect.marks(), "", "the Err path returned at once")
+}

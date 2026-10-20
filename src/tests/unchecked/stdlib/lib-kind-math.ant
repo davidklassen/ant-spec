@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Math.sqrt; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var r = Math.sqrt(4)    // ERROR "not assignable"
+}

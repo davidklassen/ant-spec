@@ -1,0 +1,16 @@
+// run
+// spec: 4 inference (lambdas go last; the body solves an unsolved result type parameter)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [1, 2, 3]
+  var strs = Array.map(xs, { String.from(x) })      // Array[string]
+  var typed: Array[string] = strs
+  Expect.eq(typed, ["1", "2", "3"], "U = string from the body")
+  Expect.eq(String.join(strs, "-"), "1-2-3", "usable as Array[string]")
+  var doubled = Array.map(xs, { x * 2 })            // Array[int]
+  Expect.eq(Array.sum(doubled) ?? 0, 12, "U = int from the body")
+  var flags = Array.map(xs, { x > 1 })              // Array[bool]
+  Expect.eq(flags, [false, true, true], "U = bool from the body")
+}

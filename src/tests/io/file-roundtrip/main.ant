@@ -1,0 +1,14 @@
+// io
+// spec: stdlib File; 8 Result
+// gap: G39
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var path = Os.args()[0] + "/note.txt"
+  Expect.isFalse(File.exists(path), "fresh directory has no file")
+  Expect.isTrue(Result.isOk(File.write(path, "hello, ant")), "write")
+  Expect.isTrue(File.exists(path), "exists after write")
+  Expect.eq(Result.unwrap(File.read(path)), "hello, ant", "read back")
+  Expect.isTrue(Result.isOk(File.remove(path)), "remove")
+  Expect.isFalse(File.exists(path), "exists after remove")
+}

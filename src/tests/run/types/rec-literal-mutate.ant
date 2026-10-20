@@ -1,0 +1,17 @@
+// run
+// spec: 4 records (literal, mutable fields); 12 record literal; 12 assignment
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ y: 2.0, x: 1.0 }
+  Expect.eq(p.x, 1.0, "x")
+  Expect.eq(p.y, 2.0, "y")
+  Expect.eq(p, Point{ x: 1.0, y: 2.0 }, "field order in the literal is irrelevant")
+  p.x = 3.0
+  Expect.eq(p.x, 3.0, "assigned field")
+  p.y += 1.0
+  Expect.eq(p.y, 3.0, "compound assignment to a field")
+  Expect.eq(p, Point{ x: 3.0, y: 3.0 }, "the record after mutation")
+}

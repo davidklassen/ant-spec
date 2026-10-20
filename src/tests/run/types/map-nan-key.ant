@@ -1,0 +1,19 @@
+// run
+// spec: 4 arrays and maps (keys compare the way == does); 12 equality (IEEE 754 for floats)
+// gap: G13
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var nan = 0.0 / 0.0
+  Expect.isFalse(nan == nan, "NaN is not equal to itself")
+  var m: Map[float64, int] = Map{}
+  m[nan] = 1
+  m[nan] = 2
+  Expect.eq(Map.size(m), 2, "each insert under NaN adds an entry")
+  Expect.isNull(m[nan], "a lookup under NaN finds nothing")
+  Expect.isFalse(Map.has(m, nan), "Map.has agrees")
+  Expect.isNull(Map.remove(m, nan), "nothing to remove")
+  Expect.eq(Map.size(m), 2, "still two entries")
+  m[1.0] = 3
+  Expect.eq(m[1.0], 3, "an ordinary float key still works")
+}

@@ -1,0 +1,13 @@
+// run
+// spec: 5 if (implicit else of type void); 12 expressions (if)
+// gap: G9, G41
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var no = false
+  var yes = true
+  Expect.isTrue((if no { 1 }) == void, "if without else and a false condition is void")
+  Expect.isFalse((if yes { 1 }) == void, "a taken branch is not void")
+  Expect.isTrue((if yes { 1 }) == 1, "a taken branch has its value")
+  Expect.isFalse((if no { 1 }) == 1, "void is not 1")
+}

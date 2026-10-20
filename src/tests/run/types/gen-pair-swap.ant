@@ -1,0 +1,20 @@
+// run
+// spec: 4 generics
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Pair[A, B] = { first: A, second: B }
+
+func swap[A, B](p: Pair[A, B]): Pair[B, A] {
+  Pair{ first: p.second, second: p.first }
+}
+
+func main() {
+  var p: Pair[int, string] = Pair{ first: 1, second: "one" }
+  var q = swap(p)                            // Pair[string, int]: A and B solved from the argument
+  Expect.eq(q.first, "one", "first")
+  Expect.eq(q.second, 1, "second")
+  var back: Pair[int, string] = swap(q)
+  Expect.eq(back, p, "swapping twice restores the pair")
+  Expect.notSame(back, p, "but builds a new record")
+}

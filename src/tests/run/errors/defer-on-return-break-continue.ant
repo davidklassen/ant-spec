@@ -1,0 +1,28 @@
+// run
+// spec: 8 defer; 12 expressions (break, continue, return); 12 deferred blocks and panics
+import "../../lib/expect.ant" Expect
+
+func early(flag: bool): int {
+  defer { Expect.mark("exit") }
+  if flag { return 1 }
+  2
+}
+
+func loop(): void {
+  for i in [1, 2, 3] {
+    defer { Expect.mark(`end${i}`) }
+    if i == 1 { continue }
+    if i == 3 { break }
+    Expect.mark(`body${i}`)
+  }
+  Expect.mark("after")
+}
+
+func main() {
+  Expect.eq(early(true), 1, "value on return")
+  Expect.eq(Expect.marks(), "exit", "defer runs on return")
+  Expect.eq(early(false), 2, "value on falling off the end")
+  Expect.eq(Expect.marks(), "exit", "defer runs on falling off the end")
+  loop()
+  Expect.eq(Expect.marks(), "end1,body2,end2,end3,after", "a loop body's defer runs at the end of every iteration, on continue and on break")
+}

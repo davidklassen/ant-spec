@@ -1,0 +1,15 @@
+// run
+// spec: 4 records; 12 equality
+// gap: G11
+import "../../lib/expect.ant" Expect
+
+type Box = { v: float64 }
+
+func main() {
+  var nan = 0.0 / 0.0
+  var p = Box{ v: nan }
+  Expect.isFalse(p == p, "no identity short-circuit: a NaN field makes a record unequal to itself")
+  Expect.isTrue(p != p, "!= agrees")
+  Expect.isTrue(Record.same(p, p), "identity is unaffected")
+  Expect.isFalse([nan] == [nan], "arrays follow the same rule")
+}

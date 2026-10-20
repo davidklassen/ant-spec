@@ -1,0 +1,12 @@
+// run
+// spec: 6 calling; 12 expressions (call)
+// gap: G26
+import "../../lib/expect.ant" Expect
+
+func scale(a: int, b: int = a * 2): int { a + b }
+
+func main() {
+  Expect.eq(scale(3), 9, "the default reads the earlier parameter")
+  Expect.eq(scale(3, 1), 4, "an explicit argument wins")
+  Expect.eq(scale(b: 1, a: 3), 4, "named arguments, default unused")
+}

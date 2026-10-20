@@ -1,0 +1,18 @@
+// run
+// spec: 4 primitives (void is a type and its only value); 11 prelude; 8 Result
+// gap: G9, G12, G17, G41
+// output:
+//   x
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isTrue(print("x") == void, "print returns void")
+  var r: Result[void, Error] = Result.ok(void)
+  Expect.isTrue(r is Ok, "Result.ok(void) is an Ok")
+  if r is Ok { Expect.isTrue(r.value == void, "its value is void") }
+  var flags: Array[bool | null | void] = [true, false, null, void]
+  Expect.eq(Array.length(flags), 4, "void is an element like any other")
+  Expect.isTrue(flags[3] == void, "the last element is void")
+  var v: void = void
+  Expect.isTrue(v == void, "void is assignable to void")
+}

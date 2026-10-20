@@ -1,0 +1,5 @@
+// check
+// spec: 10 modules (import cycles are a compile error; the shortest cycle is a module importing itself)
+import "./mod-self-import.ant" Self    // ERROR "cycle"
+
+func main() {}

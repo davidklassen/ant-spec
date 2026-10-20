@@ -1,0 +1,27 @@
+// run
+// spec: 4 primitives (conversions); 12 conversion
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var n = 7
+  var f = 7.0
+  Expect.eq(int8(n), int8(f), "int8")
+  Expect.eq(int16(n), int16(f), "int16")
+  Expect.eq(int32(n), int32(f), "int32")
+  Expect.eq(int64(n), int64(f), "int64")
+  Expect.eq(uint8(n), uint8(f), "uint8")
+  Expect.eq(uint16(n), uint16(f), "uint16")
+  Expect.eq(uint32(n), uint32(f), "uint32")
+  Expect.eq(uint64(n), uint64(f), "uint64")
+  Expect.eq(float32(n), float32(f), "float32")
+  Expect.eq(float64(n), float64(f), "float64")
+  Expect.eq(int(n), int(f), "int")
+  Expect.eq(byte(n), byte(f), "byte")
+
+  Expect.eq(int64(n), 7, "int64 of an int is the int")
+  Expect.eq(float64(n), 7.0, "float64 of an int")
+  Expect.eq(int(f), 7, "int of a whole float")
+  Expect.eq(float64(n) / 2.0, 3.5, "spec example")
+  var k: int8 | float32 = int8(f)
+  Expect.isTrue(k is int8, "the result has the target kind")
+}

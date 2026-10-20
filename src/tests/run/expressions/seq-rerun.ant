@@ -1,0 +1,13 @@
+// run
+// spec: 11 Iter (a sequence may be run more than once); 5 loops (sequences)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var r = Iter.range(1, 4)
+  Expect.eq(Iter.toArray(r), [1, 2, 3], "first run")
+  Expect.eq(Iter.toArray(r), [1, 2, 3], "second run yields the same elements")
+  var sum = 0
+  for n in r { sum += n }
+  for n in r { sum += n }
+  Expect.eq(sum, 12, "two for loops over one sequence")
+}

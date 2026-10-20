@@ -1,0 +1,11 @@
+// io
+// spec: stdlib File; 8 Result
+// gap: G39
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var r = File.read(Os.args()[0] + "/missing.txt")
+  if r is Ok { Expect.fail("reading a missing path succeeded") }
+  else { Expect.isFalse(String.isEmpty(r.error.message), "the error has a message") }
+  Expect.isFalse(Result.isOk(r), "a missing path is an Err, not a panic")
+}

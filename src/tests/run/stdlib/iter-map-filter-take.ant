@@ -1,0 +1,17 @@
+// run
+// spec: 11 Iter.map, Iter.filter, Iter.take; 5 pipes
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var r = Iter.range(0, 1000) | Iter.filter({ x % 7 == 0 }) | Iter.take(5) | Iter.toArray()
+  Expect.eq(r, [0, 7, 14, 21, 28], "the spec's pipeline")
+  var m = Iter.range(0, 3) | Iter.map({ x * x }) | Iter.toArray()
+  Expect.eq(m, [0, 1, 4], "map")
+  var strs = Iter.range(0, 2) | Iter.map({ `n${x}` }) | Iter.toArray()
+  Expect.eq(strs, ["n0", "n1"], "map may change the element type")
+  var few = Iter.range(0, 1_000_000_000_000) | Iter.take(3) | Iter.toArray()
+  Expect.eq(few, [0, 1, 2], "take stops a huge range")
+  var more = Iter.range(0, 2) | Iter.take(5) | Iter.toArray()
+  Expect.eq(more, [0, 1], "take past the end gives what there is")
+}

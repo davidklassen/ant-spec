@@ -1,0 +1,29 @@
+// run
+// spec: 8 Result; 4 tagged unions; 7 nullability (narrowing)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type EmptyInput = {}
+type BadDigit = { at: int }
+type ParseError = EmptyInput | BadDigit
+
+func parseInt(s: string): Result[int, ParseError] {
+  if String.isEmpty(s) { return Result.err(EmptyInput{}) }
+  var n = String.toInt(s) ?? return Result.err(BadDigit{ at: 0 })
+  Result.ok(n)
+}
+
+func describe(parsed: Result[int, ParseError]): string {
+  if parsed is Ok { `parsed ${parsed.value}` }
+  else {
+    var error = parsed.error                     // parsed: Err[ParseError] here
+    if error is EmptyInput { "nothing to parse" }
+    else { `bad digit at ${error.at}` }          // error: BadDigit here
+  }
+}
+
+func main() {
+  Expect.eq(describe(parseInt("7")), "parsed 7", "Ok branch reads value")
+  Expect.eq(describe(parseInt("")), "nothing to parse", "Err branch, EmptyInput member")
+  Expect.eq(describe(parseInt("x")), "bad digit at 0", "Err branch, BadDigit member after else")
+}

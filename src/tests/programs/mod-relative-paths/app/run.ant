@@ -1,0 +1,11 @@
+// app/run.ant: every path here is relative to this file, not to the entry module.
+import "../../../lib/expect.ant" Expect
+import "../lib/geometry.ant" { distance, Point }
+
+export func origin(): Point { Point{ x: 0.0, y: 0.0 } }
+
+export func run(): float64 {
+  var d = distance(origin(), Point{ x: 3.0, y: 4.0 })
+  Expect.eq(d, 5.0, "a module in a subdirectory reaches ../lib")
+  d
+}

@@ -1,0 +1,25 @@
+// run
+// spec: 4 tagged unions (a union of empty records is an enumeration); 4 records (==); 5 is
+import "../../lib/expect.ant" Expect
+
+type Red = {}
+type Green = {}
+type Blue = {}
+type Color = Red | Green | Blue
+
+func name(c: Color): string {
+  if c is Red { "red" } else if c is Green { "green" } else if c is Blue { "blue" }
+}
+
+func main() {
+  var c: Color = Green{}
+  var g: Color = Green{}
+  var r: Color = Red{}
+  Expect.eq(name(c), "green", "narrowed by is")
+  Expect.isTrue(c == g, "same tag, no fields: equal")
+  Expect.isFalse(c == r, "different tags: unequal")
+  Expect.isTrue(c is Green, "tag test")
+  Expect.isFalse(c is Blue, "other tag")
+  var all: Array[Color] = [Red{}, Green{}, Blue{}]
+  Expect.eq(Array.map(all, name), ["red", "green", "blue"], "each member names itself")
+}

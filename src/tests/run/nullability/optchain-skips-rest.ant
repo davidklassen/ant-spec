@@ -1,0 +1,22 @@
+// run
+// spec: 7 nullability; 12 expressions (a?.b: the rest of the chain is skipped)
+// gap: G50
+import "../../lib/expect.ant" Expect
+
+type Addr = { city: string }
+type User = { name: string, address: Addr }
+
+func main() {
+  var u: User | null = null
+  Expect.isNull(u?.address.city, "the rest of the chain is skipped: no panic")
+
+  var f: (func(int): int) | null = null
+  Expect.isNull(f?.(Expect.markv("arg", 1)), "a skipped call")
+  Expect.eq(Expect.marks(), "", "its argument is not evaluated")
+
+  u = User{ name: "ada", address: Addr{ city: "paris" } }
+  f = func(v: int) { v + 1 }
+  Expect.eq(u?.address.city, "paris", "the whole chain on non-null")
+  Expect.eq(f?.(Expect.markv("arg", 1)), 2, "the call runs on non-null")
+  Expect.eq(Expect.marks(), "arg", "and its argument is evaluated")
+}

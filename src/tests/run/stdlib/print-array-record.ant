@@ -1,0 +1,24 @@
+// run
+// spec: 11 prelude print; 11 String.from; 4 records
+// output:
+//   [1, 2]
+//   []
+//   [[1], [2, 3]]
+//   Point{ x: 1.0, y: 2.0 }
+//   [Point{ x: 1.0, y: 2.0 }]
+//   Empty{}
+//   Box{ items: [1], inner: Empty{} }
+type Point = { x: float64, y: float64 }
+type Empty = {}
+type Box = { items: Array[int], inner: Empty }
+
+func main() {
+  print([1, 2])
+  var none: Array[int] = []
+  print(none)
+  print([[1], [2, 3]])
+  print(Point{ x: 1.0, y: 2.0 })
+  print([Point{ x: 1.0, y: 2.0 }])
+  print(Empty{})
+  print(Box{ items: [1], inner: Empty{} })
+}

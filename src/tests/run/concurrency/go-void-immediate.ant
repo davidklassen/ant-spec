@@ -1,0 +1,22 @@
+// run
+// spec: 9 goroutines; 12 expressions (go); 11 synchronization WaitGroup
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var gate = WaitGroup.new()
+  var finished = WaitGroup.new()
+  var mainStepped = false
+  var sawMainStep = false
+  WaitGroup.add(gate, 1)
+  WaitGroup.add(finished, 1)
+  var v = go {
+    defer { WaitGroup.done(finished) }
+    WaitGroup.wait(gate)              // the body cannot pass here until main opens the gate
+    sawMainStep = mainStepped
+  }
+  Expect.isTrue(v == void, "go yields void")
+  mainStepped = true
+  WaitGroup.done(gate)
+  WaitGroup.wait(finished)
+  Expect.isTrue(sawMainStep, "the body observed main's step, so main continued first")
+}

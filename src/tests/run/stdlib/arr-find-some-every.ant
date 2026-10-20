@@ -1,0 +1,22 @@
+// run
+// spec: 11 Array.find, Array.some, Array.every
+import "../../lib/expect.ant" Expect
+
+type Person = { name: string, age: int }
+
+func main() {
+  var xs = [1, 2, 3, 4]
+  Expect.eq(Array.find(xs, { x % 2 == 0 }) ?? -1, 2, "first match")
+  Expect.isNull(Array.find(xs, { x > 10 }), "no match is null")
+  Expect.isTrue(Array.some(xs, { x > 3 }), "some")
+  Expect.isFalse(Array.some(xs, { x > 4 }), "none match")
+  Expect.isTrue(Array.every(xs, { x > 0 }), "every")
+  Expect.isFalse(Array.every(xs, { x > 1 }), "not every")
+  var none: Array[int] = []
+  Expect.isFalse(Array.some(none, { x > 0 }), "some on empty is false")
+  Expect.isTrue(Array.every(none, { x > 0 }), "every on empty is true")
+  Expect.isNull(Array.find(none, { x > 0 }), "find on empty is null")
+  var people = [Person{ name: "ada", age: 36 }, Person{ name: "linus", age: 54 }]
+  var found = Expect.notNull(Array.find(people, { x.age > 40 }), "found")
+  Expect.same(found, people[1], "find returns the element itself")
+}

@@ -1,0 +1,7 @@
+// check
+// spec: 7 nullability; 4 inference; 5 operators
+// gap: G19
+func main() {
+  var x: int | null = 1
+  var y = x + 1    // ERROR "mismatched operand types"
+}

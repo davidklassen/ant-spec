@@ -1,0 +1,12 @@
+// program
+// spec: 10 modules (a module initializes after everything it imports, so an initializer may read an imported var)
+import "../../lib/expect.ant" Expect
+import "./config.ant" Config
+import "./derived.ant" Derived
+
+var limit = Config.base + Derived.product
+
+func main() {
+  Expect.eq(Derived.product, 30, "an importer's var computed from the exporter's vars")
+  Expect.eq(limit, 40, "the entry module's var computed from two imported vars")
+}

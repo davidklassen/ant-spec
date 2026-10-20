@@ -1,0 +1,10 @@
+// unchecked
+// spec: 3 variables; 12 names and scopes
+// gap: G3
+// panic: unbound name
+// output:
+//   start
+func main() {
+  print("start")
+  print(missing)                 // ERROR "unknown name"
+}

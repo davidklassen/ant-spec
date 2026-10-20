@@ -1,0 +1,15 @@
+// run
+// spec: 11 Array.reduce; 6 anonymous functions
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var add = func(a: int, b: int) { a + b }
+  Expect.eq(Array.reduce([1, 2, 3], 0, add), 6, "sum")
+  Expect.eq(Array.reduce([5], 1, add), 6, "single element")
+  var none: Array[int] = []
+  Expect.eq(Array.reduce(none, 42, add), 42, "empty gives the initial value")
+  var order = Array.reduce(["a", "b", "c"], "", func(acc: string, s: string) { acc + s })
+  Expect.eq(order, "abc", "applied left to right")
+  var digits = Array.reduce([1, 2, 3], "", func(acc: string, n: int) { acc + String.from(n) })
+  Expect.eq(digits, "123", "the accumulator may have another type")
+}

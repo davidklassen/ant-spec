@@ -1,0 +1,16 @@
+// panic
+// spec: 5 loops (sequences); 12 expressions (yield after it returned false panics)
+// panic: yield after done
+// output:
+//   1
+func stubborn(yield: func(int): bool) {
+  var first = yield(1)
+  var second = yield(2)
+}
+
+func main() {
+  for n in stubborn {
+    print(n)
+    break
+  }
+}

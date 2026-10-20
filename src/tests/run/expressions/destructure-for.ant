@@ -1,0 +1,20 @@
+// run
+// spec: 5 destructuring; 5 loops; 11 prelude (Entry, Indexed)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var ages = Map{ ada: 36, linus: 54 }
+  var lines: Array[string] = []
+  for { key, value } in ages { Array.push(lines, `${key}=${value}`) }
+  Expect.eq(Array.sort(lines), ["ada=36", "linus=54"], "map entries destructured")
+
+  var names: Array[string] = []
+  for { key: name } in ages { Array.push(names, name) }
+  Expect.eq(Array.sort(names), ["ada", "linus"], "renamed field")
+
+  var xs = ["a", "b"]
+  var out: Array[string] = []
+  for { index, value } in Array.entries(xs) { Array.push(out, `${index}:${value}`) }
+  Expect.eq(out, ["0:a", "1:b"], "Array.entries destructured")
+}

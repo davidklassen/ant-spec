@@ -1,0 +1,15 @@
+// run
+// spec: 11 prelude print; 11 String.from; 4 arrays and maps
+// gap: G33
+// output:
+//   Map{ "a": 1 }
+//   Map{}
+//   Map{ 7: "seven" }
+//   [Map{ "k": true }]
+func main() {
+  print(Map{ "a": 1 })
+  var empty: Map[string, int] = Map{}
+  print(empty)
+  print(Map{ 7: "seven" })
+  print([Map{ "k": true }])
+}

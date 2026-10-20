@@ -1,0 +1,21 @@
+// run
+// spec: 6 closures and first-class values
+// source: go:test/closure2.go
+import "../../lib/expect.ant" Expect
+
+func adder(k: int): func(int): int { func(v: int) { v + k } }
+
+func counterFrom(start: int): func(): int { func() { start += 1; start } }
+
+func main() {
+  var add1 = adder(1)
+  var add10 = adder(10)
+  Expect.eq(add1(5), 6, "captures k = 1")
+  Expect.eq(add10(5), 15, "captures k = 10")
+
+  var a = counterFrom(0)
+  var b = counterFrom(100)
+  Expect.eq(a(), 1, "a's parameter")
+  Expect.eq(b(), 101, "b's parameter is separate")
+  Expect.eq(a(), 2, "each instance keeps its own state")
+}

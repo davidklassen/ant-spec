@@ -1,0 +1,11 @@
+// program
+// spec: 10 modules (execution starts at func main of the module given to the interpreter)
+// output:
+//   entry main
+//   from helper
+import "./helper.ant" Helper
+
+func main() {
+  print("entry main")
+  print(Helper.greet())
+}

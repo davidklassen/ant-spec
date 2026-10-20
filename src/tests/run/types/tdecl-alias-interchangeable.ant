@@ -1,0 +1,20 @@
+// run
+// spec: 4 type declarations (an alias is interchangeable with its body)
+import "../../lib/expect.ant" Expect
+
+type UserId = int
+type Ids = Array[UserId]
+
+func next(id: UserId): UserId { id + 1 }
+
+func main() {
+  var id: UserId = 7
+  var n: int = id
+  Expect.eq(next(n), 8, "an int where a UserId is expected")
+  Expect.eq(id * 2, 14, "arithmetic on the alias")
+  var ids: Ids = [1, 2]
+  var plain: Array[int] = ids
+  Array.push(plain, id)
+  Expect.eq(Array.length(ids), 3, "Array[UserId] and Array[int] are one type")
+  Expect.eq(Array.sum(ids) ?? 0, 10, "sum through the alias")
+}

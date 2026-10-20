@@ -1,0 +1,18 @@
+// run
+// spec: 4 arrays and maps; 11 Map; 7 nullability (?. and ??)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var outer: Map[string, Map[string, int]] = Map{}
+  outer["a"] = Map{ n: 1 }
+  var inner = Expect.notNull(outer["a"], "inner map present")
+  inner["n"] = (inner["n"] ?? 0) + 1
+  Expect.eq(outer["a"], Map{ n: 2 }, "modified through the alias")
+  var again = outer["a"] ?? panic("missing")
+  again["m"] = 5
+  Expect.eq(outer["a"]?.["m"], 5, "a second entry through another alias")
+  Expect.eq(Map.size(again), 2, "two entries")
+  Expect.isNull(outer["b"]?.["m"], "optional index on a missing inner map")
+  outer["b"] = Map{ k: 0 }
+  Expect.eq(Map.size(outer), 2, "two inner maps")
+}

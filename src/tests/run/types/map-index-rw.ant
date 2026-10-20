@@ -1,0 +1,20 @@
+// run
+// spec: 11 Map (m[k] reads V | null, m[k] = v inserts or replaces); 7 nullability (Map.has)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m: Map[string, int | null] = Map{}
+  Expect.isNull(m["a"], "a missing key reads null")
+  Expect.isFalse(Map.has(m, "a"), "and is absent")
+  m["a"] = 1
+  Expect.eq(m["a"], 1, "insert")
+  m["a"] = 2
+  Expect.eq(m["a"], 2, "replace")
+  Expect.eq(Map.size(m), 1, "replacing keeps one entry")
+  m["a"] = null
+  Expect.isTrue(Map.has(m, "a"), "a stored null is present")
+  Expect.isTrue(m["a"] == null, "and reads null")
+  Map.set(m, "b", 3)
+  Expect.eq(m["b"], 3, "Map.set is m[k] = v")
+  Expect.eq(Map.size(m), 2, "two entries")
+}

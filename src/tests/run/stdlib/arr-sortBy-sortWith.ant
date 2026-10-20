@@ -1,0 +1,19 @@
+// run
+// spec: 11 Array.sortBy, Array.sortWith
+// gap: G35
+import "../../lib/expect.ant" Expect
+
+type Item = { k: int, id: int }
+
+func main() {
+  var items = [Item{ k: 2, id: 0 }, Item{ k: 1, id: 1 }, Item{ k: 2, id: 2 }, Item{ k: 1, id: 3 }]
+  var byK = Array.sortBy(items, { x.k })
+  Expect.eq(Array.map(byK, { x.id }), [1, 3, 0, 2], "sortBy keeps the order of equal keys")
+  Expect.eq(Array.sortBy(["bb", "a", "ccc"], { String.length(x) }), ["a", "bb", "ccc"], "sortBy an int key")
+  Expect.eq(Array.sortBy([1, 2, 3], { -x }), [3, 2, 1], "sortBy a descending key")
+  var desc = Array.sortWith([3, 1, 2], func(a: int, b: int) { b - a })
+  Expect.eq(desc, [3, 2, 1], "sortWith a descending comparator")
+  var withK = Array.sortWith(items, func(a: Item, b: Item) { a.k - b.k })
+  Expect.eq(Array.map(withK, { x.id }), [1, 3, 0, 2], "sortWith keeps the order of equal elements")
+  Expect.eq(Array.map(items, { x.id }), [0, 1, 2, 3], "the input is untouched")
+}

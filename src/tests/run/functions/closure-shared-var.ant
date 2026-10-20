@@ -1,0 +1,23 @@
+// run
+// spec: 6 closures and first-class values; 12 names and scopes
+// source: go:test/closure1.go
+import "../../lib/expect.ant" Expect
+
+type Cell = { inc: func(): void, get: func(): int }
+
+func cell(): Cell {
+  var n = 0
+  Cell{ inc: func() { n += 1 }, get: func() { n } }
+}
+
+func main() {
+  var c = cell()
+  Expect.eq(c.get(), 0, "fresh")
+  c.inc()
+  c.inc()
+  Expect.eq(c.get(), 2, "both closures share one n")
+
+  var d = cell()
+  Expect.eq(d.get(), 0, "another cell starts fresh")
+  Expect.eq(c.get(), 2, "and does not touch the first")
+}

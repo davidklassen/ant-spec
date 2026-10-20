@@ -1,0 +1,10 @@
+// panic
+// spec: 11 synchronization Atomic (add: overflow); 12 runtime panics
+// panic: integer overflow
+// output:
+//   9223372036854775807
+func main() {
+  var a = Atomic.new(9223372036854775806)
+  print(Atomic.add(a, 1))
+  Atomic.add(a, 1)                      // does not fit int64
+}

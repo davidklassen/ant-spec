@@ -1,0 +1,34 @@
+// run
+// spec: 4 records (== compares structure); 12 expressions (equality)
+// gap: G41
+import "../../lib/expect.ant" Expect
+
+type Point = { x: int, y: int }
+
+func main() {
+  var big = 1000000
+  Expect.isTrue(big == 1000000, "ints by value")
+  Expect.isFalse(1 == 2, "different ints")
+  Expect.isTrue(int8(1) == int8(1), "int8 by value")
+  Expect.isTrue("ab" == "a" + "b", "strings by content")
+
+  Expect.isTrue(Point{ x: 1, y: 2 } == Point{ x: 1, y: 2 }, "records by structure")
+  Expect.isFalse(Point{ x: 1, y: 2 } == Point{ x: 2, y: 1 }, "records with different fields")
+  Expect.isTrue([1, 2] == [1, 2], "arrays by elements")
+  Expect.isFalse([1, 2] == [2, 1], "arrays by order")
+  Expect.isTrue(Map{ a: 1 } == Map{ a: 1 }, "maps by entries")
+  Expect.isFalse(Map{ a: 1 } == Map{ a: 2 }, "maps with different values")
+
+  var f = func(): int { 1 }
+  var g = func(): int { 1 }
+  Expect.isTrue(f == f, "a function equals itself")
+  Expect.isFalse(f == g, "functions by identity")
+  var m1 = Mutex.new()
+  var m2 = Mutex.new()
+  Expect.isTrue(m1 == m1, "a sync object equals itself")
+  Expect.isFalse(m1 == m2, "sync objects by identity")
+
+  var x: int | null = 1
+  Expect.isFalse(x == null, "a non-null value is not == null")
+  Expect.isTrue(x != null, "a non-null value is != null")
+}

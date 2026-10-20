@@ -1,0 +1,20 @@
+// run
+// spec: 5 pipes; 12 expressions (pipe)
+import "../../lib/expect.ant" Expect
+
+func add3(a: int, b: int, c: int): int { a * 100 + b * 10 + c }
+func double(n: int): int { n * 2 }
+
+func main() {
+  Expect.eq(1 | add3(2, 3), 123, "a | f(b, c) is f(a, b, c)")
+  Expect.eq(1 | double(), 2, "a | f() is f(a)")
+  Expect.eq(1 | double() | double() | add3(0, 0), 400, "pipes chain left to right")
+
+  var sorted = [3, 1, 2]
+    | Array.sort()
+    | Array.map({ x * 10 })
+  Expect.eq(sorted, [10, 20, 30], "library functions take the piped value first")
+
+  var words = ["a", "b"] | String.join("-")
+  Expect.eq(words, "a-b", "pipe into a function with a second argument")
+}

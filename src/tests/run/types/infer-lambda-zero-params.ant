@@ -1,0 +1,15 @@
+// run
+// spec: 6 anonymous functions (a lambda serves where a zero-parameter function is expected); 4 inference
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var lock = Mutex.new()
+  var counter = 0
+  Mutex.withLock(lock, { counter += 1 })            // T = void: the body ends in an assignment
+  var r: void = Mutex.withLock(lock, { counter += 1 })
+  Expect.eq(counter, 2, "ran twice")
+  Expect.isTrue(r == void, "void result")
+  var n = Mutex.withLock(lock, { counter * 10 })    // T = int
+  Expect.eq(n, 20, "a value from a zero-parameter lambda")
+}

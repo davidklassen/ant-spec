@@ -1,0 +1,10 @@
+// unchecked
+// spec: 6 calling (named arguments only on a direct call); 12 call (a named argument fills the parameter of that name)
+// gap: G14
+func connect(host: string, port: int = 443): string { `${host}:${port}` }
+
+func main() {
+  var f = connect
+  var s = f(host: "x")                 // ERROR "named argument"
+  if s != "x:443" { panic("wrong result") }
+}

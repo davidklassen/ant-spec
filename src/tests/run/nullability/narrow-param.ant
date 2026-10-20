@@ -1,0 +1,18 @@
+// run
+// spec: 7 nullability
+import "../../lib/expect.ant" Expect
+
+func length(name: string | null): int {
+  if name != null { String.length(name) } else { 0 }
+}
+
+func shout(name: string | null): string {
+  if name == null { "" } else { String.toUpper(name) }
+}
+
+func main() {
+  Expect.eq(length("ada"), 3, "the parameter is a string in the then branch")
+  Expect.eq(length(null), 0, "null")
+  Expect.eq(shout("ada"), "ADA", "the parameter is a string in the else branch")
+  Expect.eq(shout(null), "", "null")
+}

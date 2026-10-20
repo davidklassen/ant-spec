@@ -1,0 +1,6 @@
+// panic
+// spec: 11 String.replace; 12 runtime panics
+// panic: empty pattern
+func main() {
+  var s = String.replace("abc", "", "x")
+}

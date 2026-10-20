@@ -1,0 +1,15 @@
+// check
+// spec: 8 try (the error type must accept the error); 4 assignability
+type A = { a: int }
+type B = { b: int }
+
+func fromA(): Result[int, A] { Result.err(A{ a: 1 }) }
+
+func convert(): Result[int, B] {
+  var n = try fromA()                 // ERROR "try"
+  Result.ok(n)
+}
+
+func main() {
+  var r = convert()
+}

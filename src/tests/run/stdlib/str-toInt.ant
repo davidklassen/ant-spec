@@ -1,0 +1,22 @@
+// run
+// spec: 11 String.toInt
+// gap: G36
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.toInt("42") ?? -1, 42, "digits")
+  Expect.eq(String.toInt("-7") ?? -1, -7, "negative")
+  Expect.eq(String.toInt("+7") ?? -1, 7, "explicit plus")
+  Expect.eq(String.toInt("-0") ?? -1, 0, "negative zero")
+  Expect.eq(String.toInt("007") ?? -1, 7, "leading zeros")
+  Expect.eq(String.toInt("9223372036854775807") ?? -1, 9223372036854775807, "the largest int")
+  Expect.isNull(String.toInt(" 42"), "leading space")
+  Expect.isNull(String.toInt("42 "), "trailing space")
+  Expect.isNull(String.toInt(""), "empty")
+  Expect.isNull(String.toInt("4.0"), "fraction")
+  Expect.isNull(String.toInt("0x10"), "hex")
+  Expect.isNull(String.toInt("1_0"), "underscore")
+  Expect.isNull(String.toInt("-"), "sign alone")
+  Expect.isNull(String.toInt("9223372036854775808"), "one past the largest int")
+  Expect.isNull(String.toInt("12345678901234567890"), "twenty digits overflow")
+}

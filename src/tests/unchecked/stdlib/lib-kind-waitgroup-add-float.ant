@@ -1,0 +1,7 @@
+// unchecked
+// spec: 11 WaitGroup.add; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1.0)    // ERROR "not assignable"
+}

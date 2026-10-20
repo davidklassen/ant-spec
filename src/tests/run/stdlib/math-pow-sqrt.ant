@@ -1,0 +1,14 @@
+// run
+// spec: 11 Math.pow, Math.sqrt
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(Math.pow(2.0, 10.0), 1024.0, "integer power")
+  Expect.eq(Math.pow(0.0, 0.0), 1.0, "zero to the zero")
+  Expect.eq(Math.pow(2.0, -1.0), 0.5, "negative exponent")
+  Expect.eq(Math.pow(4.0, 0.5), 2.0, "fractional exponent")
+  Expect.eq(Math.sqrt(16.0), 4.0, "sqrt")
+  Expect.eq(Math.sqrt(0.0), 0.0, "sqrt of zero")
+  var r = Math.sqrt(-1.0)
+  Expect.isTrue(r != r, "sqrt of a negative is NaN")
+}

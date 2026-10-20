@@ -1,0 +1,10 @@
+// check
+// spec: 4 records (no dynamic access); 5 loops (for iterates arrays, maps, strings, sequences)
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  var v = p["x"]           // ERROR "cannot index"
+  for f in p { }           // ERROR "not iterable"
+  var ok = p.x
+}

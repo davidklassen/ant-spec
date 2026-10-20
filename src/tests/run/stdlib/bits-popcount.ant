@@ -1,0 +1,16 @@
+// run
+// spec: 11 Bits.popCount
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(Bits.popCount(0), 0, "zero")
+  Expect.eq(Bits.popCount(7), 3, "int")
+  Expect.eq(Bits.popCount(255), 8, "eight ones")
+  Expect.eq(Bits.popCount(-1), 64, "all 64 bits of an int")
+  Expect.eq(Bits.popCount(int8(-1)), 8, "all bits of an int8")
+  Expect.eq(Bits.popCount(int16(-1)), 16, "all bits of an int16")
+  Expect.eq(Bits.popCount(uint8(255)), 8, "uint8")
+  Expect.eq(Bits.popCount(uint32(0x80000000)), 1, "a single high bit")
+  Expect.eq(Bits.popCount(Bits.not(uint64(0))), 64, "all bits of a uint64")
+  Expect.eq(Bits.popCount(0b1010), 2, "binary literal")
+}

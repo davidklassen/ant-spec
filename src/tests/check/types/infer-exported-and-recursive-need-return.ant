@@ -1,0 +1,10 @@
+// check
+// spec: 4 inference (a return type is inferred unless the function is exported or recursive)
+// Each case sits on one line, so the report lands on it wherever the checker places it.
+export func double(n: int) { n * 2 }                                    // ERROR "needs a return type"
+
+func fact(n: int) { if n <= 1 { 1 } else { n * fact(n - 1) } }          // ERROR "needs a return type"
+
+func ping(n: int) { if n == 0 { "done" } else { pong(n - 1) } }; func pong(n: int) { if n == 0 { "done" } else { ping(n - 1) } }   // ERROR "needs a return type"
+
+func main() {}

@@ -1,0 +1,14 @@
+// run
+// spec: 11 Result and Record (Result.unwrap); 8 Result; 7 nullability
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var r: Result[int, Error] = Result.ok(7)
+  Expect.eq(Result.unwrap(r), 7, "unwrap yields the Ok value")
+
+  var s: Result[string, Error] = Ok{ value: "seven" }
+  Expect.eq(Result.unwrap(s), "seven", "unwrap works on a literal Ok")
+
+  var n: Result[int | null, Error] = Ok{ value: null }
+  Expect.isNull(Result.unwrap(n), "unwrap yields a null value as it is")
+}

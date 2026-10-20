@@ -1,0 +1,4 @@
+export func apply(f: func(): int): int {
+  print("calling")
+  f()
+}

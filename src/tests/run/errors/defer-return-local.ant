@@ -1,0 +1,20 @@
+// run
+// spec: 12 deferred blocks and panics (return inside a deferred block)
+import "../../lib/expect.ant" Expect
+
+func work(flag: bool): int {
+  defer {
+    Expect.mark("deferred")
+    if flag { return }
+    Expect.mark("after return")
+  }
+  Expect.mark("body")
+  1
+}
+
+func main() {
+  Expect.eq(work(true), 1, "the function's value is unaffected")
+  Expect.eq(Expect.marks(), "body,deferred", "return left the deferred block only")
+  Expect.eq(work(false), 1, "the function's value is unaffected")
+  Expect.eq(Expect.marks(), "body,deferred,after return", "without the return the block runs to its end")
+}

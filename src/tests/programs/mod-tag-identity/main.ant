@@ -1,0 +1,13 @@
+// program
+// spec: 10 modules (a type export is its tag, the same under any local name); 4 records (tags compare by identity)
+import "../../lib/expect.ant" Expect
+import "./shapes.ant" Shapes
+import "./round.ant" Round
+import "./factory.ant" Factory
+
+func main() {
+  Expect.isTrue(Round.isRound(Shapes.circle(1.0)), "built in the exporter, tested under an alias")
+  Expect.isTrue(Round.isRound(Factory.make()), "built in one importer, tested in another")
+  Expect.isFalse(Round.isRound(Factory.square()), "a different tag fails the test")
+  Expect.isTrue(Round.isRound(Shapes.Circle{ radius: 3.0 }), "built through the namespace in the entry module")
+}

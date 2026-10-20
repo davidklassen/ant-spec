@@ -1,0 +1,5 @@
+// check
+// spec: 10 modules (prelude names count as imports; two imports binding one local name)
+import "./x.ant" { show: print }    // ERROR "redeclared"
+
+func main() {}

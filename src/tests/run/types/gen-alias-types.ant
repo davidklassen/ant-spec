@@ -1,0 +1,33 @@
+// run
+// spec: 4 function types; 4 type declarations (generic aliases; self-reference through a record)
+// source: go:test/typeparam/tree.go
+import "../../lib/expect.ant" Expect
+
+type Predicate[T] = func(T): bool
+type Opt[T] = T | null
+type Tree[T] = { value: T, children: Array[Tree[T]] }
+
+func leaf[T](v: T): Tree[T] { Tree{ value: v, children: [] } }
+
+func sum(t: Tree[int]): int {
+  var total = t.value
+  for c in t.children { total += sum(c) }
+  total
+}
+
+func findValue[T](t: Tree[T], p: Predicate[T]): Opt[T] {
+  if p(t.value) { return t.value }
+  for c in t.children {
+    var found = findValue(c, p)
+    if found != null { return found }
+  }
+  null
+}
+
+func main() {
+  var t: Tree[int] = Tree{ value: 1, children: [leaf(2), Tree{ value: 3, children: [leaf(4)] }] }
+  Expect.eq(sum(t), 10, "recursive alias")
+  var big: Predicate[int] = { x > 3 }
+  Expect.eq(findValue(t, big) ?? 0, 4, "found through Predicate and Opt")
+  Expect.isNull(findValue(t, { x > 10 }), "nothing matches")
+}

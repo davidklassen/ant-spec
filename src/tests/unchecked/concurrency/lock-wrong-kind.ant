@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 runtime panics (library function: an argument of a kind it does not take); 11 synchronization
+// panic: wrong kind
+func main() {
+  Mutex.lock("not a mutex")             // ERROR "not assignable"
+}

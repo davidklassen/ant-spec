@@ -1,0 +1,6 @@
+// check
+// spec: 3 variables; 4 assignability
+func main() {
+  var n = 1
+  n = "one"                      // ERROR "not assignable"
+}

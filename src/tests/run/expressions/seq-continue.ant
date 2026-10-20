@@ -1,0 +1,20 @@
+// run
+// spec: 5 loops (sequences, continue); 12 expressions (for over a function)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var seq = func(yield: func(int): bool) {
+    var i = 0
+    while i < 4 {
+      Expect.mark(`y${i}=${yield(i)}`)
+      i += 1
+    }
+  }
+  var seen: Array[int] = []
+  for n in seq {
+    if n % 2 == 1 { continue }
+    Array.push(seen, n)
+  }
+  Expect.eq(seen, [0, 2], "continue skips the body's rest")
+  Expect.eq(Expect.marks(), "y0=true,y1=true,y2=true,y3=true", "continue makes yield return true")
+}

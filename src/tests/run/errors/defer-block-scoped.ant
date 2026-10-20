@@ -1,0 +1,14 @@
+// run
+// spec: 8 defer (runs when the enclosing block exits); 12 deferred blocks and panics
+// source: contrast go:test/defer.go
+// output:
+//   b
+//   a
+//   c
+func main() {
+  if true {
+    defer { print("a") }
+    print("b")
+  }
+  print("c")
+}

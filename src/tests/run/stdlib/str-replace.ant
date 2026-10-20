@@ -1,0 +1,13 @@
+// run
+// spec: 11 String.replace
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.replace("a.b.c", ".", "-"), "a-b-c", "every occurrence")
+  Expect.eq(String.replace("aaa", "aa", "b"), "ba", "non-overlapping, left to right")
+  Expect.eq(String.replace("abc", "b", ""), "ac", "empty replacement removes")
+  Expect.eq(String.replace("abc", "z", "y"), "abc", "absent pattern changes nothing")
+  Expect.eq(String.replace("héllo", "é", "e"), "hello", "non-ASCII pattern")
+  Expect.eq(String.replace("ab", "b", "\u{1F600}"), "a\u{1F600}", "non-BMP replacement")
+  Expect.eq(String.replace("aa", "a", "aa"), "aaaa", "replacements are not rescanned")
+}

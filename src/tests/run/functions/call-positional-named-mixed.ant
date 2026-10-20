@@ -1,0 +1,19 @@
+// run
+// spec: 6 calling
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Conn = { host: string, port: int, tls: bool }
+
+func connect(host: string, port: int = 443, tls: bool = true): Conn {
+  Conn{ host, port, tls }
+}
+
+func want(host: string, port: int, tls: bool): Conn { Conn{ host, port, tls } }
+
+func main() {
+  Expect.eq(connect("example.com"), want("example.com", 443, true), "one positional, defaults for the rest")
+  Expect.eq(connect("example.com", 8080), want("example.com", 8080, true), "two positional")
+  Expect.eq(connect("example.com", tls: false), want("example.com", 443, false), "positional then named, port skipped")
+  Expect.eq(connect(port: 80, host: "example.com"), want("example.com", 80, true), "named in any order")
+}

@@ -1,0 +1,28 @@
+// run
+// spec: 11 synchronization RwMutex; 9 synchronization
+// gap: G51
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var rw = RwMutex.new()
+  var acquired = WaitGroup.new()
+  var wg = WaitGroup.new()
+  WaitGroup.add(acquired, 1)
+  WaitGroup.add(wg, 1)
+
+  RwMutex.readLock(rw)
+  go {
+    defer { WaitGroup.done(wg) }
+    RwMutex.readLock(rw)                // admitted while main still holds its read lock
+    WaitGroup.done(acquired)
+    RwMutex.readUnlock(rw)
+  }
+  WaitGroup.wait(acquired)              // both read locks are held at this point
+  RwMutex.readUnlock(rw)
+  WaitGroup.wait(wg)
+
+  RwMutex.writeLock(rw)                 // free once both readers have unlocked
+  RwMutex.writeUnlock(rw)
+  Expect.eq(RwMutex.withRead(rw, { "read" }), "read", "withRead yields the value")
+  Expect.eq(RwMutex.withWrite(rw, { 2 + 3 }), 5, "withWrite yields the value")
+}

@@ -1,0 +1,18 @@
+// io
+// spec: stdlib Os; 8 defer; 9 goroutines
+// gap: G39
+// timeout: 20
+// output:
+//   before
+func main() {
+  defer { print("deferred in main") }
+  print("before")
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  go {
+    defer { WaitGroup.done(wg) }
+    Os.exit(0)
+  }
+  WaitGroup.wait(wg)
+  print("after")
+}

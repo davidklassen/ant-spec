@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Array.slice; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var ys = Array.slice([1], 0.0, 1.0)    // ERROR "not assignable"
+}

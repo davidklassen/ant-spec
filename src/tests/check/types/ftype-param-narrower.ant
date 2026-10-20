@@ -1,0 +1,12 @@
+// check
+// spec: 4 assignability (function types: each parameter of T must be assignable to the parameter of S)
+// source: spec
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func circleArea(c: Circle): float64 { c.radius * c.radius }
+
+func main() {
+  var g: func(Shape): float64 = circleArea          // ERROR "not assignable"
+}

@@ -1,0 +1,36 @@
+// run
+// spec: 6 calling; 12 expressions (call)
+import "../../lib/expect.ant" Expect
+
+var base = 10
+
+func push(v: int, xs: Array[int] = []): Array[int] {
+  Array.push(xs, v)
+  xs
+}
+
+func addBase(v: int, b: int = base): int { v + b }
+
+func effect(v: int = Expect.markv("default", 5)): int { v }
+
+func after(a: int, b: int = Expect.markv("default", 2)): int { a + b }
+
+func main() {
+  var first = push(1)
+  var second = push(2)
+  Expect.eq(first, [1], "the first call's default array")
+  Expect.eq(second, [2], "the default is evaluated again: a fresh array")
+  Expect.isFalse(Array.same(first, second), "two calls, two arrays")
+
+  Expect.eq(addBase(1), 11, "a default reads the module var")
+  base = 20
+  Expect.eq(addBase(1), 21, "and sees its current value")
+
+  Expect.eq(effect(1), 1, "argument given")
+  Expect.eq(Expect.marks(), "", "the default did not run")
+  Expect.eq(effect(), 5, "argument omitted")
+  Expect.eq(Expect.marks(), "default", "the default ran once")
+
+  Expect.eq(after(Expect.markv("arg", 1)), 3, "sum")
+  Expect.eq(Expect.marks(), "arg,default", "defaults evaluate after the arguments")
+}

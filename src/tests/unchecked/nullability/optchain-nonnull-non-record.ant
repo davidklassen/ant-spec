@@ -1,0 +1,7 @@
+// unchecked
+// spec: 12 expressions (a?.b); 12 runtime panics
+// gap: G21
+// panic: not a record
+func main() {
+  var v = (1)?.x    // ERROR
+}

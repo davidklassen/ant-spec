@@ -1,0 +1,9 @@
+// check
+// spec: 5 operators (no truthiness: a condition must be a bool); 5 if; 5 loops
+func main() {
+  if 1 { }                 // ERROR "not a bool"
+  var a = !1               // ERROR "not a bool"
+  var b = 1 && true        // ERROR "not a bool"
+  while "s" { }            // ERROR "not a bool"
+  var ok = !false
+}

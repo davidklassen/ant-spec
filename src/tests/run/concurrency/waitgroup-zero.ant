@@ -1,0 +1,16 @@
+// run
+// spec: 11 synchronization WaitGroup
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var wg = WaitGroup.new()
+  WaitGroup.wait(wg)                    // zero counter: returns at once
+  WaitGroup.add(wg, 0)
+  WaitGroup.wait(wg)
+  WaitGroup.add(wg, 2)
+  WaitGroup.add(wg, -1)                 // 1: fine, the counter stays at or above zero
+  WaitGroup.done(wg)
+  WaitGroup.wait(wg)
+  Expect.mark("end")
+  Expect.eq(Expect.marks(), "end", "every wait returned")
+}

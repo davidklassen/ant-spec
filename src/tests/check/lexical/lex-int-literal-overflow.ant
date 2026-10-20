@@ -1,0 +1,6 @@
+// check
+// spec: 2 literals; 4 primitives
+// gap: G1
+func main() {
+  var n = 9223372036854775808    // ERROR "literal out of range"
+}

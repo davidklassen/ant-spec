@@ -1,0 +1,9 @@
+// check
+// spec: 11 Array (indices are ints); 4 assignability
+func main() {
+  var xs = [1, 2, 3]
+  var a = xs["0"]          // ERROR "not assignable"
+  var b = xs[0.0]          // ERROR "not assignable"
+  xs["1"] = 5              // ERROR "not assignable"
+  var ok = xs[0]
+}

@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 expressions (a destructuring meets an element without the field); 12 runtime panics
+// panic: no field
+type Point = { x: int }
+
+func main() {
+  var p = Point{ x: 1 }
+  for { nope } in [p] { }     // ERROR "unknown field"
+}

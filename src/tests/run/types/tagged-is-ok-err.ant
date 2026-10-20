@@ -1,0 +1,20 @@
+// run
+// spec: 4 tagged unions; 8 Result; 5 is (written without type arguments)
+import "../../lib/expect.ant" Expect
+
+func half(n: int): Result[int, Error] {
+  if n % 2 == 0 { Result.ok(n / 2) } else { Result.err(Error{ message: "odd" }) }
+}
+
+func main() {
+  var r = half(4)
+  Expect.isTrue(r is Ok, "ok tag")
+  Expect.isFalse(r is Err, "not the err tag")
+  if r is Ok { Expect.eq(r.value, 2, "value after narrowing") }
+  else { Expect.fail("expected Ok") }
+  var e = half(3)
+  Expect.isTrue(e is Err, "err tag")
+  Expect.isFalse(e is Ok, "not the ok tag")
+  if e is Err { Expect.eq(e.error.message, "odd", "error after narrowing") }
+  else { Expect.fail("expected Err") }
+}

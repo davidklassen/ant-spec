@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (array literal); 12 runtime panics
+// panic: not an array
+func main() {
+  var xs = [...Map{ "a": 1 }]    // ERROR "not assignable"
+}

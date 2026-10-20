@@ -1,0 +1,11 @@
+// check
+// spec: 4 unions (the members of a union must be distinguishable at run time)
+type Named = { name: string }
+
+type TwoArrays = Array[int] | Array[string]                      // ERROR "indistinguishable"
+type TwoMaps = Map[string, int] | Map[int, int]                  // ERROR "indistinguishable"
+type TwoFuncs = (func(int): int) | (func(string): string)        // ERROR "indistinguishable"
+type AnonAndNamed = { name: string } | Named                     // ERROR "indistinguishable"
+type TwoAnon = { a: int } | { b: int }                           // ERROR "indistinguishable"
+
+func main() {}

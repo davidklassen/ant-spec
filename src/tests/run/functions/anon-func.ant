@@ -1,0 +1,17 @@
+// run
+// spec: 6 anonymous functions
+import "../../lib/expect.ant" Expect
+
+func apply(f: func(int, int): int, a: int, b: int): int { f(a, b) }
+
+func main() {
+  var add = func(a: int, b: int) { a + b }
+  Expect.eq(add(2, 3), 5, "inferred return type")
+
+  var typed = func(a: int): int { a * 2 }
+  Expect.eq(typed(21), 42, "declared return type")
+
+  Expect.eq(apply(func(a: int, b: int) { a - b }, 10, 3), 7, "passed as an argument")
+  Expect.eq(Array.reduce([1, 2, 3], 0, func(acc: int, v: int) { acc + v }), 6, "two-parameter reducer")
+  Expect.eq(Array.sortWith([3, 1, 2], func(a: int, b: int) { a - b }), [1, 2, 3], "comparator")
+}

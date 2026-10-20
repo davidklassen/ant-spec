@@ -1,0 +1,17 @@
+// run
+// spec: 2 identifiers and keywords; 3 variables
+// gap: G47
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var foo = 1
+  var Foo = 2
+  var FOO = 3
+  Expect.eq(foo, 1, "foo")
+  Expect.eq(Foo, 2, "Foo")
+  Expect.eq(FOO, 3, "FOO")
+  foo = 10
+  Expect.eq(foo, 10, "foo reassigned")
+  Expect.eq(Foo, 2, "Foo is a different binding from foo")
+  Expect.eq(FOO, 3, "FOO is a different binding from foo")
+}

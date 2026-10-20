@@ -1,0 +1,27 @@
+// run
+// spec: stdlib Time (sleep blocks the calling goroutine); 9 goroutines; 11 synchronization
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var lock = Mutex.new()
+  var order: Array[string] = []
+  var record = func(who: string) { Mutex.withLock(lock, { Array.push(order, who) }) }
+  var all = WaitGroup.new()
+  var quick = WaitGroup.new()
+  WaitGroup.add(all, 2)
+  WaitGroup.add(quick, 1)
+  go {
+    defer { WaitGroup.done(all) }
+    Time.sleep(500)
+    record("sleeper")
+  }
+  go {
+    defer { WaitGroup.done(all) }
+    record("worker")
+    WaitGroup.done(quick)
+  }
+  WaitGroup.wait(quick)                 // the worker is not held up by the sleeper
+  record("main")
+  WaitGroup.wait(all)
+  Expect.eq(order, ["worker", "main", "sleeper"], "the sleeper finished last")
+}

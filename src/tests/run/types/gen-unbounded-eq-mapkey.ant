@@ -1,0 +1,26 @@
+// run
+// spec: 4 generics (without a bound, == and Map keys still work on every type)
+import "../../lib/expect.ant" Expect
+
+type Point = { x: int, y: int }
+
+func eq[T](a: T, b: T): bool { a == b }
+
+func count[T](m: Map[T, int], k: T): int { m[k] ?? 0 }
+
+func bump[T](m: Map[T, int], k: T): void { m[k] = count(m, k) + 1 }
+
+func main() {
+  Expect.isTrue(eq(1, 1), "ints")
+  Expect.isFalse(eq("a", "b"), "strings")
+  Expect.isTrue(eq(Point{ x: 1, y: 2 }, Point{ x: 1, y: 2 }), "records compare structurally")
+  Expect.isTrue(eq([1, 2], [1, 2]), "arrays")
+  var byPoint: Map[Point, int] = Map{}
+  bump(byPoint, Point{ x: 0, y: 0 })
+  bump(byPoint, Point{ x: 0, y: 0 })
+  Expect.eq(count(byPoint, Point{ x: 0, y: 0 }), 2, "record key found by ==")
+  Expect.eq(count(byPoint, Point{ x: 1, y: 0 }), 0, "absent key")
+  var byName: Map[string, int] = Map{}
+  bump(byName, "k")
+  Expect.eq(count(byName, "k"), 1, "string key")
+}

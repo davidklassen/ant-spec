@@ -1,0 +1,8 @@
+// unchecked
+// spec: 12 expressions (a is T: any other path must evaluate to a tag); 12 runtime panics
+// panic: not a tag
+func main() {
+  var y = 5
+  var x: int | string = 1
+  var t = x is y              // ERROR "not a type name"
+}

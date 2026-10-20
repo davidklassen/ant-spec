@@ -1,0 +1,7 @@
+// unchecked
+// spec: 12 expressions (call); 12 runtime panics
+// panic: not a function
+func main() {
+  var n = 1
+  n()    // ERROR "not callable"
+}

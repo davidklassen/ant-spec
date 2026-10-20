@@ -1,0 +1,35 @@
+// run
+// spec: 8 Result (flat unions compose); 8 try; 4 assignability
+import "../../lib/expect.ant" Expect
+
+type Config = { port: int }
+type EmptyInput = {}
+type BadDigit = { at: int }
+type ParseError = EmptyInput | BadDigit
+
+func readText(readable: bool, text: string): Result[string, Error] {
+  if readable { Result.ok(text) } else { Result.err(Error{ message: "unreadable" }) }
+}
+
+func parsePort(s: string): Result[int, ParseError] {
+  if String.isEmpty(s) { return Result.err(EmptyInput{}) }
+  var n = String.toInt(s) ?? return Result.err(BadDigit{ at: 0 })
+  Result.ok(n)
+}
+
+func load(readable: bool, text: string): Result[Config, ParseError | Error] {
+  var raw = try readText(readable, text)
+  var port = try parsePort(raw)
+  Result.ok(Config{ port })
+}
+
+func failure(e: ParseError | Error): Result[Config, ParseError | Error] { Result.err(e) }
+
+func main() {
+  var good = load(true, "80")
+  Expect.isTrue(good is Ok, "both calls succeeded")
+  Expect.eq(Result.unwrap(good), Config{ port: 80 }, "the parsed config")
+  Expect.eq(load(false, "80"), failure(Error{ message: "unreadable" }), "try widens Result[string, Error]")
+  Expect.eq(load(true, ""), failure(EmptyInput{}), "try widens Result[int, ParseError]")
+  Expect.eq(load(true, "x"), failure(BadDigit{ at: 0 }), "every ParseError member passes through")
+}

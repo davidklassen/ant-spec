@@ -1,0 +1,26 @@
+// run
+// spec: 5 return, break, continue (type never, usable anywhere an expression is expected); 7 nullability (??)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var seen: Array[int] = []
+  for i in [1, 2, 3, 4, 5] {
+    var done = i > 3
+    var v = if done { break } else { i }
+    var w = if v % 2 == 0 { continue } else { v * 10 }
+    Array.push(seen, w)
+  }
+  Expect.eq(seen, [10, 30], "break and continue as if branches")
+
+  var items: Array[int | null] = [1, null, 3]
+  var sum = 0
+  for item in items {
+    var v = item ?? break
+    sum += v
+  }
+  Expect.eq(sum, 1, "break as the right side of ??")
+
+  var kept = 0
+  for item in items { kept += item ?? continue }
+  Expect.eq(kept, 4, "continue as the right side of ??")
+}

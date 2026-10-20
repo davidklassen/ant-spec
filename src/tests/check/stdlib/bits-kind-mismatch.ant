@@ -1,0 +1,6 @@
+// check
+// spec: 11 Bits.and; 4 generics
+// gap: G22
+func main() {
+  var b = Bits.and(int8(1), 1)    // ERROR "not assignable"
+}

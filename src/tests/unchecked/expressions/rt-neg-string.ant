@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (unary - needs a number); 12 runtime panics
+// panic: not a number
+func main() {
+  var n = -"a"                // ERROR "not a number"
+}

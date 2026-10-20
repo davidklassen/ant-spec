@@ -1,0 +1,21 @@
+// run
+// spec: 5 operators (precedence table)
+import "../../lib/expect.ant" Expect
+
+type Point = { x: int }
+
+func five(): int { 5 }
+
+func main() {
+  Expect.eq(1 + 2 * 3, 7, "* binds tighter than +")
+  Expect.eq(7 / 2 * 2, 6, "/ and * are left associative")
+  Expect.eq(-2 * 3, -6, "prefix - binds tighter than *")
+  Expect.eq(2 - -3, 5, "binary - followed by prefix -")
+  Expect.eq(10 - 4 - 3, 3, "- is left associative")
+  Expect.eq(10 % 4 * 2, 4, "% and * are left associative")
+
+  var p = Point{ x: 4 }
+  Expect.eq(-p.x, -4, "-p.x is -(p.x)")
+  Expect.eq(-five(), -5, "-f() is -(f())")
+  Expect.eq(-p.x * 2, -8, "postfix, then prefix, then *")
+}

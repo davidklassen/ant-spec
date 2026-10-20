@@ -1,0 +1,7 @@
+// panic
+// spec: 11 Math.abs; 12 runtime panics
+// panic: integer overflow
+func main() {
+  var min = -9223372036854775807 - 1
+  var a = Math.abs(min)
+}

@@ -1,0 +1,27 @@
+// program
+// spec: 11 String (chars, concat, length); 2 literals (\u escapes); 11 Array (reverse)
+// source: go:test/utf.go
+// output:
+//   olleh
+//   c😀ba
+//   3
+//   3
+import "../../lib/expect.ant" Expect
+
+func reverse(s: string): string {
+  String.concat(Array.reverse(String.chars(s)))
+}
+
+func main() {
+  print(reverse("hello"))
+  print(reverse("ab\u{1F600}c"))
+  var combined = "e\u{301}x"            // e, combining acute accent, x: three code points
+  var r = reverse(combined)
+  print(String.length(combined))
+  print(String.length(r))
+  var parts = String.chars(r)
+  Expect.eq(parts[0], "x", "x comes first")
+  Expect.eq(parts[1], "\u{301}", "the combining mark is a code point of its own")
+  Expect.eq(parts[2], "e", "e comes last, separated from its accent")
+  Expect.eq(reverse(r), combined, "reversing twice restores the string")
+}

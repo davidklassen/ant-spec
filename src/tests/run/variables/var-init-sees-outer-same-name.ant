@@ -1,0 +1,22 @@
+// run
+// spec: 3 variables; 12 names and scopes
+// gap: G3
+import "../../lib/expect.ant" Expect
+
+var depth = 1
+
+func deeper(): int {
+  var depth = depth + 1      // reads the module var: the local starts after its initializer
+  depth
+}
+
+func main() {
+  var x = 1
+  if true {
+    var x = x + 1            // reads the outer x
+    Expect.eq(x, 2, "the initializer sees the outer binding")
+  }
+  Expect.eq(x, 1, "the outer x is unchanged")
+  Expect.eq(deeper(), 2, "a function local's initializer sees the module var")
+  Expect.eq(depth, 1, "the module var is unchanged")
+}

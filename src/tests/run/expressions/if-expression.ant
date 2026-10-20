@@ -1,0 +1,30 @@
+// run
+// spec: 5 if; 2 line endings (else may start a line)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func describe(n: int): string {
+  var label = if n < 0 { "negative" } else if n == 0 { "zero" } else { "positive" }
+  label
+}
+
+func main() {
+  Expect.eq(describe(-5), "negative", "first branch")
+  Expect.eq(describe(0), "zero", "else if branch")
+  Expect.eq(describe(3), "positive", "final else")
+
+  var outer = true
+  var inner = false
+  var v = if outer { if inner { 1 } else { 2 } } else { 3 }
+  Expect.eq(v, 2, "nested if")
+
+  var n = 0
+  if n == 0 { n = 10 }
+  Expect.eq(n, 10, "if without else as a statement runs its branch")
+  if n == 0 { n = 20 }
+  Expect.eq(n, 10, "if without else skips its branch")
+
+  var w = if n > 0 { "pos" }
+    else { "nonpos" }
+  Expect.eq(w, "pos", "else may start a line")
+}

@@ -1,0 +1,23 @@
+// run
+// spec: 5 operators (precedence table); 5 pipes; 8 try
+import "../../lib/expect.ant" Expect
+
+func double(n: int): int { n * 2 }
+
+func half(n: int): Result[int, Error] {
+  if n % 2 == 0 { Result.ok(n / 2) } else { Result.err(Error{ message: "odd" }) }
+}
+
+func run(n: int): Result[int, Error] {
+  var h = try half(n) | double()
+  Result.ok(h)
+}
+
+func main() {
+  Expect.eq(1 + 2 | double(), 6, "1 + 2 | f() is f(3)")
+  var a: int | null = null
+  var b = 5
+  Expect.eq(a ?? b | double(), 10, "a ?? b | f() is f(a ?? b)")
+  Expect.eq(Result.unwrap(run(4)), 4, "try f(x) | g() is g(try f(x))")
+  Expect.isFalse(Result.isOk(run(3)), "try returned the Err before the pipe")
+}

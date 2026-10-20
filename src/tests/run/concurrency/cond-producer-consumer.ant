@@ -1,0 +1,35 @@
+// run
+// spec: 11 synchronization Cond (wait releases m, waits, reacquires); 9 synchronization
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var lock = Mutex.new()
+  var notEmpty = Cond.new(lock)
+  var notFull = Cond.new(lock)
+  var buffer: Array[int] = []
+  var taken: Array[int] = []
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 2)
+  go {
+    defer { WaitGroup.done(wg) }
+    for i in Array.range(0, 10) {
+      Mutex.lock(lock)
+      while Array.length(buffer) == 2 { Cond.wait(notFull) }
+      Array.push(buffer, i)
+      Cond.signal(notEmpty)
+      Mutex.unlock(lock)
+    }
+  }
+  go {
+    defer { WaitGroup.done(wg) }
+    for i in Array.range(0, 10) {
+      Mutex.lock(lock)
+      while Array.isEmpty(buffer) { Cond.wait(notEmpty) }
+      Array.push(taken, Array.pop(buffer) ?? -1)
+      Cond.broadcast(notFull)
+      Mutex.unlock(lock)
+    }
+  }
+  WaitGroup.wait(wg)
+  Expect.eq(Array.sort(taken), Array.range(0, 10), "every item was consumed exactly once")
+}

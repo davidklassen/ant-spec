@@ -1,0 +1,10 @@
+// check
+// spec: 4 assignability (a union is assignable only when every member is)
+func takeInt(n: int): int { n }
+
+func main() {
+  var x: int | string = 1
+  var c: int = x                      // ERROR "not assignable"
+  takeInt(x)                          // ERROR "not assignable"
+  if x is int { takeInt(x) }
+}

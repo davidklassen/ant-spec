@@ -1,0 +1,31 @@
+// run
+// spec: 5 blocks (braces); 6 anonymous functions; 8 defer; 9 goroutines
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var origin = Point{ x: 0.0, y: 0.0 }
+  var c = true
+  var p = if c { Point{ x: 1.0, y: 0.0 } } else { origin }
+  Expect.eq(p.x, 1.0, "a record literal inside an if block")
+  c = false
+  var q = if c { Point{ x: 1.0, y: 0.0 } } else { origin }
+  Expect.same(q, origin, "the else block yields the variable")
+
+  var run = func(): int { defer { Expect.mark("deferred") }; Expect.mark("body"); 1 }
+  Expect.eq(run(), 1, "function body is a block")
+  Expect.eq(Expect.marks(), "body,deferred", "defer {} is a block that ran")
+
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  go { WaitGroup.done(wg) }
+  WaitGroup.wait(wg)
+  defer {}
+  go {}
+
+  var f: func(): void = {}
+  Expect.isTrue(f() == void, "{} elsewhere is a lambda returning void")
+  var g: func(int): int = { x + 1 }
+  Expect.eq(g(1), 2, "a lambda after = takes x")
+}

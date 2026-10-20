@@ -1,0 +1,6 @@
+// panic
+// spec: 11 Array.sum; 12 runtime panics
+// panic: integer overflow
+func main() {
+  var s = Array.sum([int8(100), int8(100)])
+}

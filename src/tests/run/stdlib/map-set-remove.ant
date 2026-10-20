@@ -1,0 +1,19 @@
+// run
+// spec: 11 Map.set, Map.remove
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m = Map{ "a": 1 }
+  Map.set(m, "b", 2)
+  Expect.eq(Map.size(m), 2, "set inserts")
+  Map.set(m, "b", 20)
+  Expect.eq(Map.size(m), 2, "set replaces without growing")
+  Expect.eq(Map.get(m, "b") ?? 0, 20, "replaced value")
+  m["c"] = 3
+  Expect.eq(Map.get(m, "c") ?? 0, 3, "m[k] = v is Map.set")
+  Expect.eq(Map.remove(m, "a") ?? 0, 1, "remove returns the value")
+  Expect.isFalse(Map.has(m, "a"), "removed key is gone")
+  Expect.eq(Map.size(m), 2, "size after remove")
+  Expect.isNull(Map.remove(m, "zz"), "remove of a missing key is null")
+  Expect.eq(Map.size(m), 2, "size unchanged by a missing remove")
+}

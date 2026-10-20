@@ -1,0 +1,18 @@
+// run
+// spec: 2 line endings; 5 return; 6 functions
+// gap: G46
+import "../../lib/expect.ant" Expect
+
+func early(): void {
+  Expect.mark("before")
+  return
+  Expect.markv("after", 1)
+  Expect.mark("tail")
+}
+
+func main() {
+  Expect.mark("a"); Expect.mark("b")
+  Expect.eq(Expect.marks(), "a,b", "a semicolon separates two statements on one line")
+  early()
+  Expect.eq(Expect.marks(), "before", "return at the end of a line returns void; the next line never runs")
+}

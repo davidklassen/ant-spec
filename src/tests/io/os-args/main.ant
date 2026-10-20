@@ -1,0 +1,13 @@
+// io
+// spec: stdlib Os; 10 main
+// gap: G39
+// args: one two
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var args = Os.args()
+  Expect.eq(Array.length(args), 3, "the temporary directory plus two arguments")
+  Expect.isFalse(String.isEmpty(args[0]), "the first argument is the directory")
+  Expect.eq(args[1], "one", "first argument after the directory")
+  Expect.eq(args[2], "two", "second argument after the directory")
+}

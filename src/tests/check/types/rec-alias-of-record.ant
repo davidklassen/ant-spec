@@ -1,0 +1,9 @@
+// check
+// spec: 4 records (type B = A is a compile error for a record type); 4 type declarations
+type A = { n: int }
+type B = A               // ERROR "alias of a record type"
+type C = int | A
+
+func main() {
+  var a = A{ n: 1 }
+}

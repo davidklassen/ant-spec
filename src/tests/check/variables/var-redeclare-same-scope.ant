@@ -1,0 +1,6 @@
+// check
+// spec: 3 variables
+func main() {
+  var count = 1
+  var count = 2                  // ERROR "redeclared"
+}

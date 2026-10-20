@@ -1,0 +1,9 @@
+// check
+// spec: 4 primitives (numeric types never mix); 5 operators (no + between different types)
+func main() {
+  var a = 1 + 1.0          // ERROR "mismatched operand types"
+  var b = int8(1) + 1      // ERROR "mismatched operand types"
+  var c = 1 < 1.0          // ERROR "mismatched operand types"
+  var d = "a" + 1          // ERROR "mismatched operand types"
+  var ok = 1 + 1
+}

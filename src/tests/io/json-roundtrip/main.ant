@@ -1,0 +1,14 @@
+// io
+// spec: stdlib Json; 12 equality
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var inner: Map[string, Json] = Map{ k: 1.5, flag: false }
+  var items: Array[Json] = ["a", 2.0, null, inner]
+  var v: Map[string, Json] = Map{ name: "ant", items: items }
+  var j: Json = v
+  var text = Json.stringify(j)
+  var back = Result.unwrap(Json.parse(text))
+  Expect.eq(back, j, "parse(stringify(v)) == v")
+  Expect.isTrue(Result.isOk(Json.parse(Json.stringify(back))), "the text parses again")
+}

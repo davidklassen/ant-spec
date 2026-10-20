@@ -1,0 +1,20 @@
+// run
+// spec: 8 try (binds like a prefix operator); 5 operators; 5 pipes
+import "../../lib/expect.ant" Expect
+
+func f(n: int): Result[int, Error] { Result.ok(n) }
+func g(n: int): int { n * 2 }
+
+func piped(n: int): Result[int, Error] {
+  Result.ok(try f(n) | g())
+}
+
+func added(r: Result[int, Error]): Result[int, Error] {
+  Result.ok(try r + 1)
+}
+
+func main() {
+  Expect.eq(Result.unwrap(piped(5)), 10, "try f(x) | g() is g(try f(x))")
+  Expect.eq(Result.unwrap(added(Result.ok(2))), 3, "try a + 1 is (try a) + 1")
+  Expect.isTrue(added(Result.err(Error{ message: "e" })) is Err, "an Err still propagates")
+}

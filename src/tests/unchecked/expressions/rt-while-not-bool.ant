@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (while condition must be a bool); 12 runtime panics
+// panic: not a bool
+func main() {
+  while 1 { break }           // ERROR "not a bool"
+}

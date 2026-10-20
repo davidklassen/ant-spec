@@ -1,0 +1,8 @@
+// panic
+// spec: 5 operators (division by zero panics for integers); 12 runtime panics
+// panic: division by zero
+func rem(a: int, b: int): int { a % b }
+
+func main() {
+  rem(1, 0)
+}

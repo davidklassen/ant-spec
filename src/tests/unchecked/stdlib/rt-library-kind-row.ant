@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Result.unwrap; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var v = Result.unwrap(1)    // ERROR "not assignable"
+}

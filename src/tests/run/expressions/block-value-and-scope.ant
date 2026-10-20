@@ -1,0 +1,19 @@
+// run
+// spec: 5 blocks; 3 variables (scope); 12 expressions (block)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var yes = true
+  var v = if yes { var t = 2; t * 3 } else { 0 }
+  Expect.eq(v, 6, "a block's value is its last expression")
+
+  Expect.isTrue((if yes { var t = 1 } else { }) == void, "a block ending in var is void")
+  var n = 0
+  Expect.isTrue((if yes { n = 5 } else { }) == void, "a block ending in an assignment is void")
+  Expect.eq(n, 5, "the assignment ran")
+  Expect.isTrue((if yes { } else { }) == void, "{} after if is an empty block, void")
+
+  var x = 1
+  if yes { var x = 2; x += 1 }
+  Expect.eq(x, 1, "an inner declaration shadows and does not leak")
+}

@@ -1,0 +1,9 @@
+// panic
+// spec: 5 operators (unsigned subtraction below zero panics); 12 expressions (arithmetic)
+// source: zig:behavior/math.zig
+// panic: integer overflow
+func dec(n: uint8): uint8 { n - uint8(1) }
+
+func main() {
+  dec(uint8(0))
+}

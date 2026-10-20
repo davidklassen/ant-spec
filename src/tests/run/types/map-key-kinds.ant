@@ -1,0 +1,32 @@
+// run
+// spec: 4 arrays and maps (keys compare the way == does); 11 Map
+// source: go:test/map.go
+// gap: G12, G13
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var byPoint: Map[Point, string] = Map{}
+  byPoint[Point{ x: 1.0, y: 2.0 }] = "a"
+  Expect.eq(byPoint[Point{ x: 1.0, y: 2.0 }], "a", "a record key is found by ==")
+  Expect.isNull(byPoint[Point{ x: 2.0, y: 1.0 }], "a different record is a different key")
+
+  var byArray: Map[Array[int], string] = Map{}
+  byArray[[1, 2]] = "pair"
+  Expect.eq(byArray[[1, 2]], "pair", "an array key is found by ==")
+  Expect.eq(Map.size(byArray), 1, "one entry")
+
+  var byBool = Map{ true: "yes", false: "no" }
+  Expect.eq(byBool[true], "yes", "a bool key")
+
+  var mixed: Map[int | string, int] = Map{ 1: 10, "1": 11 }
+  Expect.eq(mixed[1], 10, "the int key")
+  Expect.eq(mixed["1"], 11, "the string key")
+  Expect.eq(Map.size(mixed), 2, "1 and \"1\" are distinct keys")
+
+  var nullable: Map[int | null, string] = Map{}
+  nullable[null] = "none"
+  Expect.eq(nullable[null], "none", "null is an ordinary key")
+  Expect.isTrue(Map.has(nullable, null), "and is present")
+}

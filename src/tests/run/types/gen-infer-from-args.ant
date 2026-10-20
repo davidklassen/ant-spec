@@ -1,0 +1,18 @@
+// run
+// spec: 4 generics; 4 inference (type parameters solved from the arguments, lambdas last)
+// source: go:test/typeparam/min.go
+import "../../lib/expect.ant" Expect
+
+func max[T: Ordered](a: T, b: T): T { if a > b { a } else { b } }
+
+func main() {
+  var m = max(1, 2)                          // T = int from the arguments
+  Expect.eq(m, 2, "max of ints")
+  var n: int = max(7, 3)
+  Expect.eq(n, 7, "max in a typed slot")
+  var s = max("a", "b")                      // T = string
+  Expect.eq(s, "b", "max of strings")
+  Expect.eq(max(1.5, 0.5), 1.5, "max of floats")
+  var lens = Array.map(["x", "yy"], { String.length(x) })   // T = string, U = int from the body
+  Expect.eq(lens, [1, 2], "U solved from the lambda body")
+}

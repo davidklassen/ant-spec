@@ -1,0 +1,22 @@
+// run
+// spec: 12 expressions (for over an array iterates by index below the current length)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [1, 2]
+  var seen: Array[int] = []
+  for x in xs {
+    Array.push(seen, x)
+    if x == 1 { Array.push(xs, 3) }
+  }
+  Expect.eq(seen, [1, 2, 3], "an element appended during the loop is visited")
+
+  var ys = [1, 2, 3, 4]
+  var visits = 0
+  for y in ys {
+    visits += 1
+    Array.pop(ys)
+  }
+  Expect.eq(visits, 2, "popping during the loop shortens it")
+  Expect.eq(ys, [1, 2], "two elements were popped")
+}

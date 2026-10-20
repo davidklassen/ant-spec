@@ -1,0 +1,20 @@
+// run
+// spec: 5 loops (while); 6 closures (capture by reference); 12 names and scopes (a block opens a scope)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var fs: Array[func(): int] = []
+  var gs: Array[func(): int] = []
+  var i = 0
+  while i < 3 {
+    var j = i
+    Array.push(fs, func(): int { i })
+    Array.push(gs, func(): int { j })
+    i += 1
+  }
+  Expect.eq(fs[0](), 3, "closures over the while counter see its final value")
+  Expect.eq(fs[2](), 3, "all of them")
+  Expect.eq(gs[0](), 0, "a var inside the body is fresh per iteration")
+  Expect.eq(gs[1](), 1, "second iteration's var")
+  Expect.eq(gs[2](), 2, "third iteration's var")
+}

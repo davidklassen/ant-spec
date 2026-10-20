@@ -1,0 +1,17 @@
+// run
+// spec: 5 pipes; 6 calling (named arguments)
+import "../../lib/expect.ant" Expect
+
+func clamp(value: int, low: int, high: int): int {
+  if value < low { return low }
+  if value > high { return high }
+  value
+}
+
+func main() {
+  var xs = [10, 20, 30, 40]
+  Expect.eq(xs | Array.slice(to: 2, from: 0), [10, 20], "named arguments after the piped value")
+  Expect.eq(xs | Array.slice(1, to: 3), [20, 30], "positional then named after the piped value")
+  Expect.eq(15 | clamp(high: 12, low: 0), 12, "named arguments to a user function")
+  Expect.eq(-3 | clamp(0, high: 12), 0, "mixed positional and named")
+}

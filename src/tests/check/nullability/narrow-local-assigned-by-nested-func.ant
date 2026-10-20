@@ -1,0 +1,9 @@
+// check
+// spec: 7 nullability
+type User = { name: string }
+
+func main() {
+  var u: User | null = User{ name: "ada" }
+  var clear = func() { u = null }
+  if u != null { clear(); print(u.name) }    // ERROR "does not narrow"
+}

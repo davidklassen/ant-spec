@@ -1,0 +1,21 @@
+// run
+// spec: 4 records (arrays compare by length and elements); 12 equality; 11 Array.same
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  Expect.isTrue([1, 2, 3] == [1, 2, 3], "equal elements in order")
+  Expect.isFalse([1, 2, 3] == [1, 2], "different lengths")
+  Expect.isFalse([1, 2, 3] == [3, 2, 1], "order matters")
+  var a: Array[int] = []
+  var b: Array[int] = []
+  Expect.isTrue(a == b, "two empty arrays are equal")
+  Expect.isTrue([[1], [2, 3]] == [[1], [2, 3]], "nested arrays recurse")
+  Expect.isTrue([Point{ x: 1.0, y: 2.0 }] == [Point{ x: 1.0, y: 2.0 }], "records inside recurse")
+  var xs = [1, 2]
+  var ys = [1, 2]
+  Expect.isTrue(xs == ys, "equal")
+  Expect.isFalse(Array.same(xs, ys), "but not the same array")
+  Expect.isTrue(Array.same(xs, xs), "same as itself")
+}

@@ -1,0 +1,18 @@
+// run
+// spec: 7 nullability
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type User = { id: int, name: string }
+
+func find(users: Array[User], id: int): User | null {
+  Array.find(users, { x.id == id })
+}
+
+func main() {
+  var users = [User{ id: 7, name: "ada" }, User{ id: 9, name: "linus" }]
+  var found = Expect.notNull(find(users, 7), "id 7 is present")
+  Expect.eq(found.name, "ada", "the found user")
+  Expect.isNull(find(users, 99), "id 99 is absent")
+  Expect.isNull(find([], 7), "nothing to find")
+}

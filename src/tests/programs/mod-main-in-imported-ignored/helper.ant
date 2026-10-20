@@ -1,0 +1,4 @@
+// helper.ant: has a main of its own, which is an ordinary private function here.
+export func greet(): string { "from helper" }
+
+func main() { panic("the imported module's main must not run") }

@@ -1,0 +1,4 @@
+// check
+// spec: 10 modules (execution starts at func main in the module given to the interpreter)
+// gap: G32, G53
+func helper(): int { 1 }    // ERROR "main"

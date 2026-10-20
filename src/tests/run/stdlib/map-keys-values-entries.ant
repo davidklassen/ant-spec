@@ -1,0 +1,17 @@
+// run
+// spec: 11 Map.keys, Map.values, Map.entries; 11 prelude Entry; 5 loops
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m = Map{ "b": 2, "a": 1 }
+  Expect.eq(Array.sort(Map.keys(m)), ["a", "b"], "keys")
+  Expect.eq(Array.sort(Map.values(m)), [1, 2], "values")
+  var es = Array.sortBy(Map.entries(m), { x.key })
+  Expect.eq(es, [Entry{ key: "a", value: 1 }, Entry{ key: "b", value: 2 }], "entries are Entry records")
+  var seen: Array[string] = []
+  for { key, value } in m { Array.push(seen, `${key}=${value}`) }
+  Expect.eq(Array.sort(seen), ["a=1", "b=2"], "for yields each entry once")
+  var e: Map[string, int] = Map{}
+  Expect.isTrue(Array.isEmpty(Map.keys(e)), "no keys")
+  Expect.isTrue(Array.isEmpty(Map.entries(e)), "no entries")
+}

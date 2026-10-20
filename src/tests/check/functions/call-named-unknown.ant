@@ -1,0 +1,7 @@
+// check
+// spec: 6 calling
+func f(a: int): int { a }
+
+func main() {
+  f(b: 1)    // ERROR "unknown parameter"
+}

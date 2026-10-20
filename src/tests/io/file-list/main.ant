@@ -1,0 +1,12 @@
+// io
+// spec: stdlib File; 11 Array.sort
+// gap: G39, G43
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var dir = Os.args()[0]
+  Expect.isTrue(Result.isOk(File.write(dir + "/b.txt", "b")), "write b")
+  Expect.isTrue(Result.isOk(File.write(dir + "/a.txt", "a")), "write a")
+  var names = Array.sort(Result.unwrap(File.list(dir)))
+  Expect.eq(names, ["a.txt", "b.txt"], "list gives both names and nothing else")
+}

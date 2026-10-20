@@ -1,0 +1,15 @@
+// run
+// spec: 5 return, break, continue (return takes the whole expression to its right)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func orElse(x: int | null, y: int): int { x ?? return y + 1 }
+
+func plusOne(x: int | null): int { (x ?? return 0) + 1 }
+
+func main() {
+  Expect.eq(orElse(null, 5), 6, "return takes y + 1")
+  Expect.eq(orElse(3, 5), 3, "no return when x is present")
+  Expect.eq(plusOne(null), 0, "a parenthesized return ends earlier")
+  Expect.eq(plusOne(3), 4, "the expression continues after the parentheses")
+}

@@ -1,0 +1,14 @@
+// run
+// spec: 5 expressions (evaluation order); 5 pipes; 12 expressions (pipe)
+import "../../lib/expect.ant" Expect
+
+type Ops = { add: func(int, int): int }
+
+func main() {
+  var ops = Ops{ add: func(a: int, b: int): int { a + b } }
+  var getOps = func(): Ops { Expect.markv("f", ops) }
+
+  var r = Expect.markv("a", 1) | getOps().add(Expect.markv("b", 2))
+  Expect.eq(r, 3, "a | f(b) is f(a, b)")
+  Expect.eq(Expect.marks(), "a,f,b", "a, then f, then b")
+}

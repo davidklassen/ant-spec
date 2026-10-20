@@ -1,0 +1,12 @@
+// check
+// spec: 4 types (the checker allows a literal head only on a record type); 4 type declarations
+type UserId = int
+type Circle = { radius: float64 }
+type Rect = { width: float64 }
+type Shape = Circle | Rect
+
+func main() {
+  var a = UserId{ }                   // ERROR "not a record type"
+  var b = Shape{ radius: 1.0 }        // ERROR "not a record type"
+  var c = Circle{ radius: 1.0 }
+}

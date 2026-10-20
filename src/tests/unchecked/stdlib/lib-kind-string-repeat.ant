@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 String.repeat; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var s = String.repeat("a", 1.0)    // ERROR "not assignable"
+}

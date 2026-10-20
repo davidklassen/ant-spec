@@ -1,0 +1,13 @@
+// run
+// spec: 6 closures and first-class values; 12 names and scopes
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var f = func() { 0 }
+  if true {
+    var local = 41
+    f = func() { local += 1; local }
+  }
+  Expect.eq(f(), 42, "the block's variable is still alive")
+  Expect.eq(f(), 43, "and keeps its state between calls")
+}

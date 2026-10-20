@@ -1,0 +1,33 @@
+// io
+// spec: stdlib File; 8 try; 8 defer
+// gap: G39, G44
+// output:
+//   first
+//   second
+import "../../lib/expect.ant" Expect
+
+func writeLines(path: string): Result[void, Error] {
+  var f = try File.create(path)
+  defer { File.close(f) }
+  try File.writeLine(f, "first")
+  try File.writeLine(f, "second")
+  Result.ok(void)
+}
+
+func readLines(path: string): Result[Array[string], Error] {
+  var f = try File.open(path)
+  defer { File.close(f) }
+  var lines: Array[string] = []
+  while true {
+    var line = try File.readLine(f) ?? break
+    Array.push(lines, line)
+  }
+  Result.ok(lines)
+}
+
+func main() {
+  var path = Os.args()[0] + "/lines.txt"
+  Result.unwrap(writeLines(path))
+  Expect.eq(Result.unwrap(File.read(path)), "first\nsecond\n", "each line ends in a newline")
+  for line in Result.unwrap(readLines(path)) { print(line) }
+}

@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (for x in e: e must be an array, a map, a string, or a function); 12 runtime panics
+// panic: not iterable
+func main() {
+  for x in 1 { }              // ERROR "not iterable"
+}

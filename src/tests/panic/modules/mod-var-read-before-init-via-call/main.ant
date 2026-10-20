@@ -1,0 +1,15 @@
+// panic
+// spec: 10 modules (reaching a later var through a call before it is initialized is a runtime panic); 12 runtime panics table
+// panic: not initialized
+// output:
+//   calling
+import "./apply.ant" { apply }
+
+var early = apply(readLate)
+var late = 1
+
+func readLate(): int { late }
+
+func main() {
+  print("unreachable")
+}

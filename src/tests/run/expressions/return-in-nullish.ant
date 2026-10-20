@@ -1,0 +1,20 @@
+// run
+// spec: 5 return, break, continue; 7 nullability (??); 8 Result
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func nameOf(users: Map[int, User], id: int): Result[string, Error] {
+  var user = Map.get(users, id) ?? return Result.err(Error{ message: "no such user" })
+  Result.ok(user.name)
+}
+
+func main() {
+  var users: Map[int, User] = Map{}
+  users[1] = User{ name: "ada" }
+  Expect.eq(Result.unwrap(nameOf(users, 1)), "ada", "found")
+  var missing = nameOf(users, 2)
+  Expect.isFalse(Result.isOk(missing), "returned the Err")
+  if missing is Err { Expect.eq(missing.error.message, "no such user", "the Err built in the return") }
+}

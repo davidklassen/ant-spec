@@ -1,0 +1,76 @@
+// program
+// spec: 4 tagged unions; 6 functions (mutual recursion); 11 String; 11 Array (get); 5 loops (while)
+// gap: G41
+// output:
+//   11
+type Lit = { value: int }
+type Bin = { op: string, left: Expr, right: Expr }
+type Expr = Lit | Bin
+
+type Parser = { tokens: Array[string], pos: int }
+
+func tokenize(src: string): Array[string] {
+  var tokens: Array[string] = []
+  var digits = ""
+  for c in src {
+    if c >= "0" && c <= "9" { digits = digits + c; continue }
+    if digits != "" { Array.push(tokens, digits); digits = "" }
+    if c != " " { Array.push(tokens, c) }
+  }
+  if digits != "" { Array.push(tokens, digits) }
+  tokens
+}
+
+func peek(p: Parser): string | null { Array.get(p.tokens, p.pos) }
+
+func next(p: Parser): string {
+  var t = p.tokens[p.pos]
+  p.pos += 1
+  t
+}
+
+// expr = term { ("+" | "-") term }
+func parseExpr(p: Parser): Expr {
+  var left = parseTerm(p)
+  while peek(p) == "+" || peek(p) == "-" {
+    var op = next(p)
+    left = Bin{ op, left, right: parseTerm(p) }
+  }
+  left
+}
+
+// term = factor { ("*" | "/") factor }
+func parseTerm(p: Parser): Expr {
+  var left = parseFactor(p)
+  while peek(p) == "*" || peek(p) == "/" {
+    var op = next(p)
+    left = Bin{ op, left, right: parseFactor(p) }
+  }
+  left
+}
+
+// factor = number | "(" expr ")"
+func parseFactor(p: Parser): Expr {
+  var t = next(p)
+  if t == "(" {
+    var inner = parseExpr(p)
+    next(p)                        // the closing parenthesis
+    inner
+  } else {
+    Lit{ value: String.toInt(t) ?? panic(`bad token ${t}`) }
+  }
+}
+
+func eval(e: Expr): int {
+  if e is Lit { e.value }
+  else {
+    var l = eval(e.left)
+    var r = eval(e.right)
+    if e.op == "+" { l + r } else if e.op == "-" { l - r } else if e.op == "*" { l * r } else { l / r }
+  }
+}
+
+func main() {
+  var p = Parser{ tokens: tokenize("2 + 3 * (4 - 1)"), pos: 0 }
+  print(eval(parseExpr(p)))
+}

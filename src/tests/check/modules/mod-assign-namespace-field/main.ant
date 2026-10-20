@@ -1,0 +1,7 @@
+// check
+// spec: 10 modules (a field of a namespace cannot be assigned from outside the module)
+import "./geometry.ant" Geometry
+
+func main() {
+  Geometry.counter = 1    // ERROR "cannot assign"
+}

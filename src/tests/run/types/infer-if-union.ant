@@ -1,0 +1,16 @@
+// run
+// spec: 4 inference (an if without an expected type has the union of its branch types); 5 if
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var n = 3
+  var label = if n > 0 { "positive" } else { null }     // string | null
+  Expect.isTrue(label is string, "string branch")
+  Expect.eq(label ?? "none", "positive", "unwrapped")
+  n = -1
+  var other = if n > 0 { "positive" } else { null }
+  Expect.isNull(other, "null branch")
+  var mixed = if n > 0 { 1 } else if n == 0 { "zero" } else { false }   // int | string | bool
+  Expect.isTrue(mixed is bool, "three-way union")
+}

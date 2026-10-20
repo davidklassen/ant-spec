@@ -1,0 +1,11 @@
+// panic
+// spec: 4 primitives (conversions that lose information panic); 12 conversion; 12 runtime panics
+// source: spec
+// panic: conversion out of range
+// output:
+//   before
+func main() {
+  print("before")
+  var bad = int8(300)
+  print(bad)
+}

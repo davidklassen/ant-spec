@@ -1,0 +1,7 @@
+// unchecked
+// spec: 12 expressions (field read); 12 runtime panics
+// panic: not a record
+func main() {
+  var f = func() { 1 }
+  var v = f.x    // ERROR "unknown field"
+}

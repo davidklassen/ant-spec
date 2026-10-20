@@ -1,0 +1,8 @@
+// check
+// spec: 4 records (a literal lists exactly the fields of its named type)
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1.0 }  // ERROR "missing field"
+  var ok = Point{ x: 1.0, y: 2.0 }
+}

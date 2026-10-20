@@ -1,0 +1,23 @@
+// run
+// spec: 3 variables; 12 names and scopes
+import "../../lib/expect.ant" Expect
+
+var level = "module"
+
+func local(): string {
+  var level = "function"               // shadows the module var
+  level
+}
+
+func main() {
+  var x = 1
+  if true {
+    var x = 2                          // shadows the outer x
+    Expect.eq(x, 2, "inner binding")
+    x = 3
+    Expect.eq(x, 3, "assigning the inner binding")
+  }
+  Expect.eq(x, 1, "the outer x is unchanged")
+  Expect.eq(local(), "function", "a function local shadows a module var")
+  Expect.eq(level, "module", "the module var is unchanged")
+}

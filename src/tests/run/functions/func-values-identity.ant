@@ -1,0 +1,25 @@
+// run
+// spec: 4 records (equality); 12 expressions (equality); 6 closures and first-class values
+import "../../lib/expect.ant" Expect
+
+type IntFn = func(int): int
+
+func inc(n: int): int { n + 1 }
+
+func main() {
+  Expect.isTrue(inc == inc, "a function equals itself")
+  var a: IntFn = { x * 2 }
+  var b: IntFn = { x * 2 }
+  Expect.isTrue(a == a, "a lambda equals itself")
+  Expect.isTrue(a != b, "two lambdas with the same text are distinct values")
+
+  var names: Map[IntFn, string] = Map{}
+  names[inc] = "inc"
+  names[a] = "a"
+  Expect.eq(names[inc], "inc", "a function as a map key")
+  Expect.eq(names[a], "a", "a lambda as a map key")
+  Expect.isFalse(Map.has(names, b), "b is not a's key")
+
+  Expect.isTrue(Array.contains([inc, a], inc), "contains by identity")
+  Expect.isFalse(Array.contains([a], b), "equal text is not equality")
+}

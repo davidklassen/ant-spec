@@ -1,0 +1,41 @@
+// program
+// spec: 9 synchronization (Cond, Mutex, WaitGroup); 9 goroutines
+// gap: G64
+// output:
+//   1
+//   2
+//   3
+//   4
+//   5
+type Buffer = { items: Array[int], capacity: int, lock: Mutex, notEmpty: Cond, notFull: Cond }
+
+func put(b: Buffer, v: int): void {
+  Mutex.lock(b.lock)
+  while Array.length(b.items) >= b.capacity { Cond.wait(b.notFull) }
+  Array.push(b.items, v)
+  Cond.signal(b.notEmpty)
+  Mutex.unlock(b.lock)
+}
+
+func take(b: Buffer): int {
+  Mutex.lock(b.lock)
+  while Array.isEmpty(b.items) { Cond.wait(b.notEmpty) }
+  var v = b.items[0]
+  b.items = Array.slice(b.items, 1, Array.length(b.items))
+  Cond.signal(b.notFull)
+  Mutex.unlock(b.lock)
+  v
+}
+
+func main() {
+  var lock = Mutex.new()
+  var b = Buffer{ items: [], capacity: 2, lock, notEmpty: Cond.new(lock), notFull: Cond.new(lock) }
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  go {
+    defer { WaitGroup.done(wg) }
+    for i in Iter.range(1, 6) { put(b, i) }
+  }
+  for i in Iter.range(1, 6) { print(take(b)) }
+  WaitGroup.wait(wg)
+}

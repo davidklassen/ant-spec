@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Mutex.lock; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  Mutex.lock(1)    // ERROR "not assignable"
+}

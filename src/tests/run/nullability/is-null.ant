@@ -1,0 +1,16 @@
+// run
+// spec: 5 is; 7 nullability
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var x: int | null = null
+  Expect.isTrue(x is null, "null is null")
+  x = 3
+  Expect.isFalse(x is null, "an int is not null")
+  var r = if x is null { 0 } else { x + 1 }
+  Expect.eq(r, 4, "is null narrows the else branch")
+
+  x = null
+  var s = if x is null { -1 } else { x }
+  Expect.eq(s, -1, "the then branch")
+}

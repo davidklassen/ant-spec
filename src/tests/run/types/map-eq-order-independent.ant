@@ -1,0 +1,17 @@
+// run
+// spec: 4 records (maps compare by key set and values); 12 equality; 11 Map.same
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isTrue(Map{ a: 1, b: 2 } == Map{ b: 2, a: 1 }, "entry order does not matter")
+  Expect.isFalse(Map{ a: 1, b: 2 } == Map{ a: 1 }, "different key sets")
+  Expect.isFalse(Map{ a: 1 } == Map{ b: 1 }, "different keys")
+  Expect.isFalse(Map{ a: 1 } == Map{ a: 2 }, "different values")
+  var m = Map{ a: 1 }
+  var n = Map{ a: 1 }
+  Expect.isTrue(m == n, "equal maps")
+  Expect.isFalse(Map.same(m, n), "but not the same map")
+  var e: Map[string, int] = Map{}
+  var f: Map[string, int] = Map{}
+  Expect.isTrue(e == f, "empty maps are equal")
+}

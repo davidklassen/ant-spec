@@ -1,0 +1,14 @@
+// run
+// spec: 5 loops; 12 expressions (for x in e)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var n = 0
+  var xs: Array[int] = []
+  for x in xs { n += 1 }
+  var m: Map[string, int] = Map{}
+  for { key, value } in m { n += 1 }
+  for c in "" { n += 1 }
+  for i in Iter.range(3, 3) { n += 1 }
+  Expect.eq(n, 0, "empty array, map, string, and sequence give no iterations")
+}

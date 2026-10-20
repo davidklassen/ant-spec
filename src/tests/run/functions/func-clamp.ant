@@ -1,0 +1,18 @@
+// run
+// spec: 6 functions
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func clamp(value: int, low: int, high: int): int {
+  if value < low { return low }
+  if value > high { return high }
+  value
+}
+
+func main() {
+  Expect.eq(clamp(5, 0, 10), 5, "inside the range: the last expression")
+  Expect.eq(clamp(-3, 0, 10), 0, "below: early return of low")
+  Expect.eq(clamp(42, 0, 10), 10, "above: early return of high")
+  Expect.eq(clamp(0, 0, 10), 0, "at the low bound")
+  Expect.eq(clamp(10, 0, 10), 10, "at the high bound")
+}

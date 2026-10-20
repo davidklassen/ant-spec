@@ -1,0 +1,7 @@
+// unchecked
+// spec: 12 expressions (try: any other value is yielded unchanged); 8 try
+// gap: G28
+func main() {
+  var n = try 1                       // ERROR "try"
+  if n != 1 { panic("try on a plain value must yield it unchanged") }
+}

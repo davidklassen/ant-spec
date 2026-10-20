@@ -1,0 +1,12 @@
+// panic
+// spec: 4 generics (a union solution is assignable to Ordered); 12 comparison (operands differ in kind)
+// gap: G15
+// panic: kind mismatch
+// output:
+//   checked
+func main() {
+  var xs: Array[int | string] = [1, "a"]
+  print("checked")
+  var sorted = Array.sort(xs)          // T = int | string satisfies Ordered; 1 < "a" panics
+  print(Array.length(sorted))
+}

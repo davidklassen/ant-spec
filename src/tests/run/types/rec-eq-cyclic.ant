@@ -1,0 +1,25 @@
+// run
+// spec: 4 records (a pair already under comparison counts as equal); 12 equality
+import "../../lib/expect.ant" Expect
+
+type Node = { value: int, next: Node | null }
+
+func main() {
+  var a = Node{ value: 1, next: null }
+  a.next = a
+  var b = Node{ value: 1, next: null }
+  b.next = b
+  Expect.isTrue(a == b, "self-referential nodes compare equal")
+  Expect.isTrue(a == a, "a node equals itself")
+
+  var c = Node{ value: 1, next: null }
+  var d = Node{ value: 1, next: null }
+  c.next = d
+  d.next = c
+  Expect.isTrue(c == d, "mutually referential nodes compare equal")
+  Expect.isTrue(a == c, "a one-cycle equals a two-cycle of equal nodes")
+
+  var e = Node{ value: 2, next: null }
+  e.next = e
+  Expect.isFalse(a == e, "a differing field is found before the cycle closes")
+}

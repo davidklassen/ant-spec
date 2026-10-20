@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (if condition must be a bool); 12 runtime panics
+// panic: not a bool
+func main() {
+  if null { }                 // ERROR "not a bool"
+}

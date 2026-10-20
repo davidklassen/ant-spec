@@ -1,0 +1,13 @@
+// check
+// spec: 4 inference (an unannotated var takes exactly the type of its initializer)
+// source: spec
+type Active = {}
+type Suspended = { reason: string }
+type Status = Active | Suspended
+
+func main() {
+  var s = Active{}
+  s = Suspended{ reason: "x" }        // ERROR "not assignable"
+  var t: Status = Active{}
+  t = Suspended{ reason: "x" }
+}

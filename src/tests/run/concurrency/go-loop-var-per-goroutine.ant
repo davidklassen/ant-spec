@@ -1,0 +1,19 @@
+// run
+// spec: 5 loops (each iteration binds a fresh variable); 9 goroutines; 12 names and scopes
+// source: go:test/closure3.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var wg = WaitGroup.new()
+  var lock = Mutex.new()
+  var hits = Array.filled(5, 0)
+  for i in Array.range(0, 5) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      Mutex.withLock(lock, { hits[i] += 1 })
+    }
+  }
+  WaitGroup.wait(wg)
+  Expect.eq(hits, [1, 1, 1, 1, 1], "each goroutine saw its own i")
+}

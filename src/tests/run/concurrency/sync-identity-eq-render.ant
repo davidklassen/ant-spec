@@ -1,0 +1,21 @@
+// run
+// spec: 4 records (sync objects compare by identity); 11 synchronization; 11 String.from
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var a = Mutex.new()
+  var b = a
+  Expect.isFalse(Mutex.new() == Mutex.new(), "distinct mutexes are not equal")
+  Expect.isTrue(a == b, "the same mutex under two names is equal")
+  Expect.isTrue(a != Mutex.new(), "!= mirrors ==")
+  Expect.isFalse(WaitGroup.new() == WaitGroup.new(), "distinct wait groups are not equal")
+  Expect.isFalse(Atomic.new(1) == Atomic.new(1), "atomics compare by identity, not contents")
+
+  Expect.eq(String.from(Mutex.new()), "Mutex", "a mutex renders as its namespace name")
+  Expect.eq(String.from(RwMutex.new()), "RwMutex", "RwMutex renders")
+  Expect.eq(String.from(WaitGroup.new()), "WaitGroup", "WaitGroup renders")
+  Expect.eq(String.from(Once.new()), "Once", "Once renders")
+  Expect.eq(String.from(Cond.new(a)), "Cond", "Cond renders")
+  Expect.eq(String.from(Atomic.new(1)), "Atomic", "Atomic renders without its value")
+  Expect.eq(`${a}`, "Mutex", "template strings render through String.from")
+}

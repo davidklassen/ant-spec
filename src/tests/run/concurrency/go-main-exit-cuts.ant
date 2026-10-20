@@ -1,0 +1,8 @@
+// run
+// spec: 9 goroutines (the program exits when main returns); 12 goroutines; stdlib Time
+func main() {
+  go {
+    Time.sleep(500)
+    print("late")
+  }
+}

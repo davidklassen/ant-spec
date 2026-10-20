@@ -1,0 +1,20 @@
+// program
+// spec: 9 synchronization (a data race is memory safe, its result unspecified); 12 goroutines
+func main() {
+  var wg = WaitGroup.new()
+  var shared: Array[int] = []
+  for g in Array.range(0, 16) {
+    WaitGroup.add(wg, 2)
+    go {
+      defer { WaitGroup.done(wg) }
+      for i in Array.range(0, 500) { Array.push(shared, i) }    // unsynchronized writers
+    }
+    go {
+      defer { WaitGroup.done(wg) }
+      for i in Array.range(0, 500) {
+        var seen = Array.get(shared, i)                           // never panics, whatever it observes
+      }
+    }
+  }
+  WaitGroup.wait(wg)
+}

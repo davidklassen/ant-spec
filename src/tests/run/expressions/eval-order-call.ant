@@ -1,0 +1,21 @@
+// run
+// spec: 5 expressions (evaluation order); 12 expressions (call)
+// source: go:test/reorder.go
+import "../../lib/expect.ant" Expect
+
+func add3(a: int, b: int, c: int): int { a * 100 + b * 10 + c }
+
+func pick(): func(int, int, int): int {
+  Expect.mark("callee")
+  add3
+}
+
+func main() {
+  var r = pick()(Expect.markv("a", 1), Expect.markv("b", 2), Expect.markv("c", 3))
+  Expect.eq(r, 123, "value")
+  Expect.eq(Expect.marks(), "callee,a,b,c", "callee first, then arguments left to right")
+
+  var s = add3(c: Expect.markv("c", 3), a: Expect.markv("a", 1), b: Expect.markv("b", 2))
+  Expect.eq(s, 123, "named arguments fill their parameters")
+  Expect.eq(Expect.marks(), "c,a,b", "named arguments evaluate in written order")
+}

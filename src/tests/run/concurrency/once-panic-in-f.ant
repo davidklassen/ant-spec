@@ -1,0 +1,20 @@
+// run
+// spec: 11 synchronization Once; 9 panics in goroutines
+// gap: G30
+// stderr: panic: init failed
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var once = Once.new()
+  var wg = WaitGroup.new()
+  var calls = 0
+  WaitGroup.add(wg, 1)
+  go {
+    defer { WaitGroup.done(wg) }
+    Once.do(once, { calls += 1; panic("init failed") })
+  }
+  WaitGroup.wait(wg)
+  Once.do(once, { calls += 1 })         // counts as done: returns at once, f does not run
+  Once.do(once, { calls += 1 })
+  Expect.eq(calls, 1, "f ran only in the call that panicked")
+}

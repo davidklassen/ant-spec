@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 expressions (call); 12 runtime panics
+// panic: too many arguments
+func f(a: int): int { a }
+
+func main() {
+  if f(1) != 1 { panic("call") }
+  f(1, 2)    // ERROR "too many arguments"
+}

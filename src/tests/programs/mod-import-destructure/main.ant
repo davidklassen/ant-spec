@@ -1,0 +1,15 @@
+// program
+// spec: 10 modules (import destructures the module record)
+// source: spec
+import "../../lib/expect.ant" Expect
+import "./geometry.ant" { distance, Point }
+
+func origin(): Point { Point{ x: 0.0, y: 0.0 } }
+
+func main() {
+  var q = Point{ x: 3.0, y: 4.0 }
+  Expect.eq(distance(origin(), q), 5.0, "an imported function")
+  Expect.eq(q.x, 3.0, "a record built from an imported type")
+  var v: Point | null = q
+  Expect.isTrue(v is Point, "is against the imported name")
+}

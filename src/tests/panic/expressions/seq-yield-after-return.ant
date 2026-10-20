@@ -1,0 +1,17 @@
+// panic
+// spec: 5 loops (sequences); 12 expressions (yield after the sequence returned panics)
+// panic: yield after done
+// output:
+//   1
+var stash: (func(int): bool) | null = null
+
+func leak(yield: func(int): bool) {
+  stash = yield
+  if !yield(1) { return }
+}
+
+func main() {
+  for n in leak { print(n) }
+  var y = stash ?? panic("the sequence did not run")
+  y(2)
+}

@@ -1,0 +1,6 @@
+// check
+// spec: 10 modules (two imports binding the same local name)
+import "./a.ant" { value }
+import "./b.ant" { value }    // ERROR "redeclared"
+
+func main() {}

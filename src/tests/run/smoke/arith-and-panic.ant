@@ -1,0 +1,7 @@
+// run
+// spec: 5 operators; 8 panic
+func main() {
+  if 1 + 2 * 3 != 7 { panic("arithmetic") }
+  var s = "a" + "b"
+  if s != "ab" { panic("concat") }
+}

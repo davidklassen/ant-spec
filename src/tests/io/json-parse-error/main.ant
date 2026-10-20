@@ -1,0 +1,10 @@
+// io
+// spec: stdlib Json; 8 Result
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var r = Json.parse("{bad")
+  if r is Ok { Expect.fail("malformed text parsed") }
+  else { Expect.isFalse(String.isEmpty(r.error.message), "the error has a message") }
+  Expect.isFalse(Result.isOk(Json.parse("[1, 2")), "an unclosed array is an Err")
+}

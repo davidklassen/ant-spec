@@ -1,0 +1,11 @@
+// panic
+// spec: 12 conversion; 12 runtime panics (the value is outside the target's range)
+// gap: G7
+// panic: conversion out of range
+// output:
+//   before
+func main() {
+  print("before")
+  var bad = float32(1e300)
+  print(bad)
+}

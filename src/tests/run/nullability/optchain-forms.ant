@@ -1,0 +1,22 @@
+// run
+// spec: 7 nullability; 12 expressions (a?.b, a?.[i], f?.(x))
+// source: zig:behavior/optional.zig
+import "../../lib/expect.ant" Expect
+
+type Box = { items: Array[int] }
+
+func main() {
+  var b: Box | null = null
+  var xs: Array[int] | null = null
+  var f: (func(int): int) | null = null
+  Expect.isNull(b?.items, "field through null")
+  Expect.isNull(xs?.[0], "index through null")
+  Expect.isNull(f?.(1), "call through null")
+
+  b = Box{ items: [7] }
+  xs = [5, 6]
+  f = func(v: int) { v * 2 }
+  Expect.eq(Expect.notNull(b?.items, "items"), [7], "field on non-null")
+  Expect.eq(xs?.[1], 6, "index on non-null")
+  Expect.eq(f?.(4), 8, "call on non-null")
+}

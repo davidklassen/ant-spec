@@ -1,0 +1,16 @@
+// run
+// spec: 7 nullability; 11 array
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs: Array[int | null] = [null]
+  Expect.isTrue(Array.get(xs, 0) == null, "a stored null reads as null")
+  Expect.isTrue(Array.get(xs, 99) == null, "out of range reads as null too")
+  Expect.eq(Array.length(xs), 1, "the length tells them apart")
+  Expect.isTrue(xs[0] == null, "indexing reads the stored null")
+
+  var ys: Array[int | null] = [1, null, 3]
+  Expect.eq(Array.get(ys, 0), 1, "a stored int")
+  Expect.isNull(Array.get(ys, 1), "a stored null")
+  Expect.isNull(Array.get(ys, 3), "past the end")
+}

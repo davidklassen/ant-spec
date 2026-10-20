@@ -1,0 +1,11 @@
+// run
+// spec: 11 String.repeat
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.repeat("ab", 0), "", "zero gives empty")
+  Expect.eq(String.repeat("ab", 1), "ab", "once")
+  Expect.eq(String.repeat("ab", 3), "ababab", "three times")
+  Expect.eq(String.repeat("é\u{1F600}", 2), "é\u{1F600}é\u{1F600}", "multi-code-point string")
+  Expect.eq(String.repeat("", 5), "", "repeating empty")
+}

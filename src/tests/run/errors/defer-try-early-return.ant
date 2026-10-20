@@ -1,0 +1,31 @@
+// run
+// spec: 8 defer; 8 try; 12 deferred blocks and panics
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Handle = { name: string }
+
+func open(name: string): Result[Handle, Error] { Result.ok(Handle{ name }) }
+
+func create(name: string): Result[Handle, Error] {
+  if String.isEmpty(name) { return Result.err(Error{ message: "cannot create" }) }
+  Result.ok(Handle{ name })
+}
+
+func close(h: Handle): void { Expect.mark(`close ${h.name}`) }
+
+func copy(src: string, dst: string): Result[void, Error] {
+  var input = try open(src)
+  defer { close(input) }
+  var output = try create(dst)
+  defer { close(output) }
+  Expect.mark("pipe")
+  Result.ok(void)
+}
+
+func main() {
+  Expect.isTrue(copy("in", "") is Err, "the second try propagated the Err")
+  Expect.eq(Expect.marks(), "close in", "only the first defer had been registered, and it ran")
+  Expect.isTrue(copy("in", "out") is Ok, "both handles opened")
+  Expect.eq(Expect.marks(), "pipe,close out,close in", "both defers ran in reverse order")
+}

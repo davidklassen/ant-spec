@@ -1,0 +1,14 @@
+// run
+// spec: 6 anonymous functions
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var inner: func(int): func(int): int = { { x * 10 } }
+  Expect.eq(inner(1)(2), 20, "the inner lambda's x shadows the outer")
+
+  var both: func(int): func(int): int = { func(y: int) { x * 10 + y } }
+  Expect.eq(both(1)(2), 12, "func reaches the outer x")
+
+  var pairs = Array.map([1, 2], { Array.map([10, 20], { x }) })
+  Expect.eq(pairs, [[10, 20], [10, 20]], "nested map: x is the inner element")
+}

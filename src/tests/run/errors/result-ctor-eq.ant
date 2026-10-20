@@ -1,0 +1,19 @@
+// run
+// spec: 8 Result; 4 records (equality); 5 is
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var ok: Result[int, Error] = Result.ok(1)
+  var okLit: Result[int, Error] = Ok{ value: 1 }
+  Expect.isTrue(ok == okLit, "Result.ok(1) is the value Ok{ value: 1 }")
+
+  var err: Result[int, Error] = Result.err(Error{ message: "bad" })
+  var errLit: Result[int, Error] = Err{ error: Error{ message: "bad" } }
+  Expect.isTrue(err == errLit, "Result.err(e) is the value Err{ error: e }")
+  Expect.ne(ok, err, "an Ok and an Err carry different tags")
+
+  Expect.isTrue(ok is Ok, "ok is Ok")
+  Expect.isFalse(ok is Err, "ok is not Err")
+  Expect.isTrue(err is Err, "err is Err")
+  Expect.isFalse(err is Ok, "err is not Ok")
+}

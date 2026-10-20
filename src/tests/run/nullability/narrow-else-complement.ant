@@ -1,0 +1,15 @@
+// run
+// spec: 7 nullability
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func main() {
+  var u: User | null = User{ name: "ada" }
+  var a = if u == null { "nobody" } else { u.name }
+  Expect.eq(a, "ada", "the else branch gets the complement: u is a User")
+
+  u = null
+  var b = if u == null { "nobody" } else { u.name }
+  Expect.eq(b, "nobody", "the null branch")
+}

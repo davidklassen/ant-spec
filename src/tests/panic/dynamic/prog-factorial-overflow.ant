@@ -1,0 +1,15 @@
+// panic
+// spec: 5 operators (integer overflow); 12 runtime panics
+// panic: integer overflow
+// output:
+//   2432902008176640000
+func factorial(n: int): int {
+  var acc = 1
+  for i in Iter.range(1, n + 1) { acc *= i }
+  acc
+}
+
+func main() {
+  print(factorial(20))
+  print(factorial(21))
+}

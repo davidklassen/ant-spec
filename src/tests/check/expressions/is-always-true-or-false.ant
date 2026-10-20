@@ -1,0 +1,8 @@
+// check
+// spec: 5 is (the static type must be a union with T as a member)
+func main() {
+  var x: int = 1
+  var y: int | string = 2
+  var a = x is int            // ERROR "always"
+  var b = y is bool           // ERROR "always"
+}

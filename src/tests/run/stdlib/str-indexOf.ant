@@ -1,0 +1,15 @@
+// run
+// spec: 11 String.indexOf
+// gap: G36
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.indexOf("héllo", "l") ?? -1, 2, "code point index")
+  Expect.eq(String.indexOf("héllo", "é") ?? -1, 1, "non-ASCII needle")
+  Expect.eq(String.indexOf("\u{1F600}x", "x") ?? -1, 1, "after a non-BMP character")
+  Expect.eq(String.indexOf("abab", "ab") ?? -1, 0, "first occurrence")
+  Expect.eq(String.indexOf("abab", "ba") ?? -1, 1, "later occurrence")
+  Expect.isNull(String.indexOf("héllo", "z"), "absent is null")
+  Expect.eq(String.indexOf("héllo", "") ?? -1, 0, "empty needle is 0")
+  Expect.eq(String.indexOf("", "") ?? -1, 0, "empty in empty is 0")
+}

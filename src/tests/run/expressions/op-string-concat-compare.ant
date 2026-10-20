@@ -1,0 +1,20 @@
+// run
+// spec: 5 operators (+ concatenates; strings compare by code point); 12 expressions (comparison)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq("a" + "b", "ab", "+ concatenates")
+  Expect.eq("" + "x" + "", "x", "empty strings concatenate")
+  var s = "ab"
+  s += "c"
+  Expect.eq(s, "abc", "+= concatenates")
+
+  Expect.isTrue("a" < "b", "a < b")
+  Expect.isTrue("abc" < "abd", "abc < abd")
+  Expect.isTrue("ab" < "abc", "a prefix sorts first")
+  Expect.isTrue("" < "a", "the empty string sorts first")
+  Expect.isTrue("Z" < "a", "code point order, not alphabetical")
+  Expect.isTrue("é" > "z", "é (U+00E9) is above z (U+007A)")
+  Expect.isFalse("b" < "a", "b < a")
+  Expect.isTrue("a" <= "a" && "a" >= "a", "<= and >= on equal strings")
+}

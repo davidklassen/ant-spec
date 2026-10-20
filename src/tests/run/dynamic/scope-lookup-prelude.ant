@@ -1,0 +1,27 @@
+// run
+// spec: 12 names and scopes; 3 variables (shadowing); 10 modules (prelude names)
+import "../../lib/expect.ant" Expect
+
+var depth = "module"
+
+func fromModule(): string { depth }
+
+func main() {
+  var depth = "local"
+  Expect.eq(depth, "local", "a local shadows the module var")
+  Expect.eq(fromModule(), "module", "a function body sees the module scope, not its caller's")
+
+  if true {
+    var print = func(s: string) { Expect.mark(s) }
+    print("shadowed")
+    Expect.eq(Expect.marks(), "shadowed", "a local shadows a prelude name")
+  }
+
+  var a = 1
+  var f = func() {
+    var b = 10
+    var g = func() { a + b + String.length(depth) }
+    g()
+  }
+  Expect.eq(f(), 16, "lookup walks outward through every enclosing scope")
+}

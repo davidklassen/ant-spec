@@ -1,0 +1,12 @@
+// panic
+// spec: 10 modules (the exit status is non-zero when main panics); 8 panic
+// panic: boom from the imported module
+// output:
+//   before
+import "./boom.ant" Boom
+
+func main() {
+  print("before")
+  Boom.explode()
+  print("after")
+}

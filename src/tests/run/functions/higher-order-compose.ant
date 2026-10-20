@@ -1,0 +1,22 @@
+// run
+// spec: 6 closures and first-class values; 4 function types
+import "../../lib/expect.ant" Expect
+
+func compose(f: func(int): int, g: func(int): int): func(int): int {
+  func(v: int) { f(g(v)) }
+}
+
+func curry(f: func(int, int): int): func(int): func(int): int {
+  func(a: int) { func(b: int) { f(a, b) } }
+}
+
+func main() {
+  var incThenDouble = compose({ x * 2 }, { x + 1 })
+  Expect.eq(incThenDouble(5), 12, "g runs first, then f")
+  Expect.eq(compose({ x + 1 }, { x * 2 })(5), 11, "called straight from the result")
+
+  var sub = curry(func(a: int, b: int) { a - b })
+  var from10 = sub(10)
+  Expect.eq(from10(3), 7, "partial application")
+  Expect.eq(sub(10)(4), 6, "chained calls")
+}

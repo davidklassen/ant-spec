@@ -1,0 +1,17 @@
+// run
+// spec: 5 expressions (short-circuit); 12 expressions (logical, ??)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isFalse(false && panic("&& evaluated its right side"), "false &&")
+  Expect.isTrue(true || panic("|| evaluated its right side"), "true ||")
+
+  var some: int | null = 1
+  Expect.eq(some ?? panic("?? evaluated its right side"), 1, "non-null ??")
+  var none: int | null = null
+  Expect.eq(none ?? 2, 2, "null ?? takes the right side")
+
+  Expect.isTrue(true && Expect.markv("r", true), "true && evaluates the right side")
+  Expect.isFalse(false || Expect.markv("s", false), "false || evaluates the right side")
+  Expect.eq(Expect.marks(), "r,s", "right sides that had to run")
+}

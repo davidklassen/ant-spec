@@ -1,0 +1,24 @@
+// run
+// spec: 4 records (== compares structure); 12 equality
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+type Vec = { x: float64, y: float64 }
+type Line = { from: Point, to: Point, tags: Array[string] }
+
+func main() {
+  var a = Line{ from: Point{ x: 0.0, y: 0.0 }, to: Point{ x: 1.0, y: 1.0 }, tags: ["a", "b"] }
+  var b = Line{ from: Point{ x: 0.0, y: 0.0 }, to: Point{ x: 1.0, y: 1.0 }, tags: ["a", "b"] }
+  Expect.isTrue(a == b, "equal structure, distinct records")
+  Expect.isFalse(Record.same(a, b), "not the same record")
+  b.to.x = 2.0
+  Expect.isTrue(a != b, "a nested field differs")
+  b.to.x = 1.0
+  Array.push(b.tags, "c")
+  Expect.isTrue(a != b, "an array field differs")
+  Array.push(a.tags, "c")
+  Expect.isTrue(a == b, "equal again")
+  var p: Point | Vec = Point{ x: 1.0, y: 1.0 }
+  var v: Point | Vec = Vec{ x: 1.0, y: 1.0 }
+  Expect.isFalse(p == v, "different tags are unequal whatever the fields")
+}

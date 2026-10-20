@@ -1,0 +1,18 @@
+// run
+// spec: 4 records (reference values, Record.same); 11 Record
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  var q = p
+  q.x = 5.0
+  Expect.eq(p.x, 5.0, "one record under two names")
+  Expect.isTrue(p == Point{ x: 5.0, y: 2.0 }, "structural equality")
+  Expect.isTrue(Record.same(p, q), "p and q are one record")
+  Expect.isFalse(Record.same(p, Point{ ...p }), "a spread copy is another record")
+  Expect.isFalse(Record.same(p, Point{ x: 5.0, y: 2.0 }), "equal is not same")
+  Expect.same(p, q, "the helper agrees")
+}

@@ -1,0 +1,17 @@
+// run
+// spec: 8 panic (type never); 7 nullability (?? with panic); 4 inference (if branches, never dropped); 4 assignability (never)
+import "../../lib/expect.ant" Expect
+
+func pick(m: int | null, flag: bool): int {
+  var n: int = m ?? panic("m was null")
+  var k = if flag { n } else { panic("flag was false") }
+  k + 1
+}
+
+func main() {
+  Expect.eq(pick(41, true), 42, "?? panic unwraps a non-null value; a never branch leaves k an int")
+  var m: int | null = 5
+  var n: int = m ?? panic("unreachable")
+  var s: string = if n > 0 { "positive" } else { panic("not positive") }
+  Expect.eq(s, "positive", "never is assignable to the expected branch type")
+}

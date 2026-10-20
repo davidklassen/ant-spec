@@ -1,0 +1,23 @@
+// run
+// spec: 5 operators (floats follow IEEE 754); 12 expressions (arithmetic, equality)
+// gap: G6
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var inf = 1.0 / 0.0
+  Expect.isTrue(inf > 1e308, "1.0 / 0.0 is positive infinity")
+  Expect.eq(inf, 1e308 * 10.0, "float overflow is the same infinity")
+  Expect.isTrue(-1.0 / 0.0 < -1e308, "-1.0 / 0.0 is negative infinity")
+
+  var nan = 0.0 / 0.0
+  Expect.isTrue(nan != nan, "0.0 / 0.0 is NaN and NaN != NaN")
+  Expect.isFalse(nan == nan, "NaN == NaN is false")
+  Expect.isFalse(nan < 1.0, "NaN compares false")
+
+  Expect.isTrue(-0.0 == 0.0, "-0.0 == 0.0")
+
+  Expect.eq(5.5 % 2.0, 1.5, "float %")
+  Expect.eq(-5.5 % 2.0, -1.5, "float % takes the sign of the dividend")
+  var r = 1.0 % 0.0
+  Expect.isTrue(r != r, "float % by zero is NaN, not a panic")
+}

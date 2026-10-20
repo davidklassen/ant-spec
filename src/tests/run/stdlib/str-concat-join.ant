@@ -1,0 +1,16 @@
+// run
+// spec: 11 String.concat, String.join
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var none: Array[string] = []
+  Expect.eq(String.concat(none), "", "concat of nothing")
+  Expect.eq(String.concat(["a"]), "a", "one part")
+  Expect.eq(String.concat(["a", "b", "c"]), "abc", "many parts")
+  Expect.eq(String.concat(["é", "\u{1F600}"]), "é\u{1F600}", "non-ASCII parts")
+  Expect.eq(String.join(["a", "b", "c"], ""), "abc", "join with an empty separator")
+  Expect.eq(String.join(["a", "b", "c"], ", "), "a, b, c", "join with a separator")
+  Expect.eq(String.join(["a"], ", "), "a", "one part has no separator")
+  Expect.eq(String.join(none, ", "), "", "join of nothing")
+  Expect.eq(String.join(["", ""], "-"), "-", "empty parts still separated")
+}

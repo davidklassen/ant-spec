@@ -1,0 +1,22 @@
+// run
+// spec: 4 function types (parameter names only document intent); 6 calling
+import "../../lib/expect.ant" Expect
+
+type WithNames = func(a: int): int
+type Positional = func(int): int
+
+func inc(n: int): int { n + 1 }
+
+func apply(f: Positional, v: int): int { f(v) }
+
+func main() {
+  var f: WithNames = inc
+  var g: Positional = f                  // the same type
+  var h: WithNames = g
+  Expect.eq(apply(f, 1), 2, "WithNames where Positional is expected")
+  Expect.eq(h(41), 42, "call through the value")
+  var lam: func(value: int): int = { x * 2 }
+  var plain: func(int): int = lam
+  Expect.eq(plain(4), 8, "lambda under a named parameter type")
+  Expect.eq(apply(lam, 5), 10, "lambda passed through")
+}

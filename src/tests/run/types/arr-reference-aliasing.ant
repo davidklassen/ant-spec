@@ -1,0 +1,20 @@
+// run
+// spec: 4 records (reference values); 12 values; 11 Array.same
+import "../../lib/expect.ant" Expect
+
+func append(xs: Array[int]) { Array.push(xs, 99) }
+
+func main() {
+  var xs = [1]
+  var ys = xs
+  Array.push(ys, 2)
+  Expect.eq(xs, [1, 2], "a push through one name is visible through the other")
+  ys[0] = 7
+  Expect.eq(xs[0], 7, "an element write too")
+  append(xs)
+  Expect.eq(ys, [7, 2, 99], "a push through a parameter")
+  Expect.isTrue(Array.same(xs, ys), "one array under two names")
+  var zs = [...xs]
+  Array.push(zs, 100)
+  Expect.eq(Array.length(xs), 3, "a copy does not alias")
+}

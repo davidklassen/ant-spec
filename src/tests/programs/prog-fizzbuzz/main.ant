@@ -1,0 +1,29 @@
+// program
+// spec: 5 if; 5 operators (%); 11 Iter (range)
+// source: go:test/ken
+// output:
+//   1
+//   2
+//   Fizz
+//   4
+//   Buzz
+//   Fizz
+//   7
+//   8
+//   Fizz
+//   Buzz
+//   11
+//   Fizz
+//   13
+//   14
+//   FizzBuzz
+func label(n: int): string {
+  if n % 15 == 0 { "FizzBuzz" }
+  else if n % 3 == 0 { "Fizz" }
+  else if n % 5 == 0 { "Buzz" }
+  else { String.from(n) }
+}
+
+func main() {
+  for n in Iter.range(1, 16) { print(label(n)) }
+}

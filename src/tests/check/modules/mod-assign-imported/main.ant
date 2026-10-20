@@ -1,0 +1,8 @@
+// check
+// spec: 10 modules (imports are read-only)
+import "./counter.ant" { count }
+
+func main() {
+  count = 5      // ERROR "cannot assign"
+  count += 1     // ERROR "cannot assign"
+}

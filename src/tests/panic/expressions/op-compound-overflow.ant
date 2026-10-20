@@ -1,0 +1,13 @@
+// panic
+// spec: 3 variables (compound assignment); 12 expressions (assignment); 12 runtime panics
+// source: zig:behavior/math.zig
+// panic: integer overflow
+func bump(n: int): int {
+  var x = n
+  x += 1
+  x
+}
+
+func main() {
+  bump(9223372036854775807)
+}

@@ -1,0 +1,21 @@
+// run
+// spec: 5 blocks (header); 4 records (== compares structure)
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func main() {
+  var u = User{ name: "ada" }
+  var hit = if u == (User{ name: "ada" }) { true } else { false }
+  Expect.isTrue(hit, "a parenthesized record literal in an if header")
+  var miss = if u == (User{ name: "bob" }) { true } else { false }
+  Expect.isFalse(miss, "a different record")
+
+  var n = 0
+  while n < 2 && u == (User{ name: "ada" }) { n += 1 }
+  Expect.eq(n, 2, "a parenthesized literal in a while header")
+
+  var m: Map[string, int] = Map{ a: 1 }
+  var same = if m == (Map{ a: 1 }) { "same" } else { "different" }
+  Expect.eq(same, "same", "a parenthesized map literal in a header")
+}

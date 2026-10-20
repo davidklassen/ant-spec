@@ -1,0 +1,9 @@
+// check
+// spec: 7 nullability
+// gap: G19
+type User = { name: string }
+
+func main() {
+  var u: User | null = User{ name: "ada" }
+  if u != null { u = null; print(u.name) }    // ERROR "unknown field"
+}

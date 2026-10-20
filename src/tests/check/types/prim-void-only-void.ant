@@ -1,0 +1,7 @@
+// check
+// spec: 4 primitives (void); 4 assignability (void is assignable only to void)
+func main() {
+  var v: int = print("x")  // ERROR "not assignable"
+  var w: void = 1          // ERROR "not assignable"
+  var ok: void = print("y")
+}

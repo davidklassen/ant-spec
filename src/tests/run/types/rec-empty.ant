@@ -1,0 +1,13 @@
+// run
+// spec: 4 records; 4 tagged unions (empty records); 12 equality
+import "../../lib/expect.ant" Expect
+
+type Empty = {}
+
+func main() {
+  Expect.isTrue(Empty{} == Empty{}, "empty records with one tag are equal")
+  Expect.isFalse(Record.same(Empty{}, Empty{}), "each literal is a new record")
+  var e = Empty{}
+  var f = e
+  Expect.isTrue(Record.same(e, f), "one record under two names")
+}

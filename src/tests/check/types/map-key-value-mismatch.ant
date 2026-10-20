@@ -1,0 +1,7 @@
+// check
+// spec: 4 arrays and maps; 4 assignability; 4 inference (element types of an expected map)
+func main() {
+  var m: Map[string, int] = Map{ a: "x" }  // ERROR "not assignable"
+  var n: Map[string, int] = Map{ 1: 2 }    // ERROR "not assignable"
+  var ok: Map[string, int] = Map{ a: 1 }
+}

@@ -1,0 +1,9 @@
+// unchecked
+// spec: 10 modules (export is a checker rule); 12 names and scopes (every field of a module record is readable at run time)
+// output:
+//   42
+import "./geometry.ant" Geometry
+
+func main() {
+  print(Geometry.secret)    // ERROR "not exported"
+}

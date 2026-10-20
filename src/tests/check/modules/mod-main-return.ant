@@ -1,0 +1,3 @@
+// check
+// spec: 10 modules (main returns void)
+func main(): int { 1 }    // ERROR "main"

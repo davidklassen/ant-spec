@@ -1,0 +1,9 @@
+// panic
+// spec: 8 panic; 12 deferred blocks and panics
+// panic: smoke
+// output:
+//   before
+func main() {
+  print("before")
+  panic("smoke")
+}

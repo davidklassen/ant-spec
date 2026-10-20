@@ -1,0 +1,12 @@
+// run
+// spec: 6 anonymous functions; 12 expressions (call)
+// gap: G23
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var f: func(): void = { x }
+  Expect.isTrue(f() == void, "x is void when no argument is passed")
+
+  var g: func(): bool = { x == void }
+  Expect.isTrue(g(), "x compares equal to void")
+}

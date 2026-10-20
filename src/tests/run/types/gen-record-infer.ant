@@ -1,0 +1,21 @@
+// run
+// spec: 4 generics; 4 inference (expected types come from the field types of a record literal)
+// gap: G49
+import "../../lib/expect.ant" Expect
+
+type Pair[A, B] = { first: A, second: B }
+
+func first[A, B](p: Pair[A, B]): A { p.first }
+
+func main() {
+  var p = Pair{ first: 1, second: "a" }              // Pair[int, string]
+  var n: int = first(p)
+  Expect.eq(n, 1, "A = int from the field")
+  var s: string = p.second
+  Expect.eq(s, "a", "B = string from the field")
+  var w: Pair[int | string, string] = Pair{ first: 1, second: "a" }
+  var f: int | string = first(w)
+  Expect.isTrue(f is int, "the field widened to the expected A")
+  w.first = "one"
+  Expect.isTrue(w.first is string, "a string fits the widened field")
+}

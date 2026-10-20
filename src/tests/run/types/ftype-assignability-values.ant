@@ -1,0 +1,28 @@
+// run
+// spec: 4 assignability (function types); 6 calling (defaults)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func area(s: Shape): float64 {
+  if s is Circle { 3.0 * s.radius * s.radius } else { s.width * s.height }
+}
+func unit(): Circle { Circle{ radius: 1.0 } }
+func connect(host: string, port: int = 443, tls: bool = true): string {
+  `${host}:${port}:${tls}`
+}
+
+func main() {
+  var f: func(Circle): float64 = area              // parameters: Circle is assignable to Shape
+  Expect.eq(f(Circle{ radius: 2.0 }), 12.0, "area through the narrower type")
+  var make: func(): Shape = unit                   // results: Circle is assignable to Shape
+  var s = make()
+  Expect.isTrue(s is Circle, "a Circle came back as a Shape")
+  var one: func(string): string = connect          // the required parameters only
+  var two: func(string, int): string = connect     // plus a prefix of the optional ones
+  Expect.eq(one("h"), "h:443:true", "defaults fill the omitted parameters")
+  Expect.eq(two("h", 80), "h:80:true", "the prefix is passed, the rest defaults")
+}

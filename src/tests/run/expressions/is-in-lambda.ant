@@ -1,0 +1,18 @@
+// run
+// spec: 5 is; 6 anonymous functions
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func main() {
+  var shapes: Array[Shape] = [Circle{ radius: 1.0 }, Rect{ width: 1.0, height: 2.0 }, Circle{ radius: 3.0 }]
+  var circles = Array.filter(shapes, { x is Circle })
+  Expect.eq(Array.length(circles), 2, "filter by is")
+  Expect.isTrue(circles[0] is Circle && circles[1] is Circle, "only circles kept")
+  Expect.isTrue(Array.some(shapes, { x is Rect }), "some rect")
+  Expect.isFalse(Array.every(shapes, { x is Circle }), "not every circle")
+  Expect.eq(Array.length(Array.filter(shapes, { !(x is Circle) })), 1, "negated is in a lambda")
+}

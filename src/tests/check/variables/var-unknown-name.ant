@@ -1,0 +1,5 @@
+// check
+// spec: 3 variables; 12 names and scopes
+func main() {
+  var total = cnt + 1            // ERROR "unknown name"
+}

@@ -1,0 +1,24 @@
+// run
+// spec: 8 Result (mapErr widens); 11 Result and Record; 4 inference
+import "../../lib/expect.ant" Expect
+
+type EmptyInput = {}
+type BadDigit = { at: int }
+type ParseError = EmptyInput | BadDigit
+
+func parse(ok: bool): Result[int, ParseError] {
+  if ok { Result.ok(1) } else { Result.err(BadDigit{ at: 2 }) }
+}
+
+func widened(ok: bool): Result[int, ParseError | Error] {
+  Result.mapErr(parse(ok), { x })
+}
+
+func failure(e: ParseError | Error): Result[int, ParseError | Error] { Result.err(e) }
+
+func main() {
+  var ok = widened(true)
+  Expect.isTrue(ok is Ok, "an Ok passes through mapErr")
+  Expect.eq(Result.unwrap(ok), 1, "the Ok value is unchanged")
+  Expect.eq(widened(false), failure(BadDigit{ at: 2 }), "the identity lambda widens the error type")
+}

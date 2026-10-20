@@ -1,0 +1,12 @@
+// run
+// spec: 5 operators; 12 expressions (arithmetic)
+// gap: G5
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var min = -9223372036854775807 - 1
+  var d = -1
+  Expect.eq(min % d, 0, "INT_MIN % -1 is 0, not an overflow")
+  Expect.eq(min % 2, 0, "INT_MIN % 2")
+  Expect.eq(min / 2, -4611686018427387904, "INT_MIN / 2")
+}

@@ -1,0 +1,9 @@
+// check
+// spec: 4 primitives (an integer literal is always an int); 4 inference (literals get no help from context)
+func main() {
+  var b: byte = 0          // ERROR "not assignable"
+  var f: float64 = 1       // ERROR "not assignable"
+  var x = int8(1)
+  x += 1                   // ERROR "mismatched operand types"
+  var ok: byte = byte(0)
+}

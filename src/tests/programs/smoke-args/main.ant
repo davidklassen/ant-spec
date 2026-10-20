@@ -1,0 +1,12 @@
+// program
+// spec: 10 main; stdlib Os
+// gap: G39
+// args: one two
+// output:
+//   2
+//   one
+func main() {
+  var args = Os.args()
+  print(Array.length(args))
+  print(args[0])
+}

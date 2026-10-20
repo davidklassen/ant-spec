@@ -1,0 +1,24 @@
+// run
+// spec: 7 nullability; 5 if
+// gap: G19
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func greet(u: User | null) {
+  if u == null { return }
+  Expect.mark(u.name)
+}
+
+func label(u: User | null): string {
+  if u == null { return "nobody" }
+  u.name
+}
+
+func main() {
+  greet(null)
+  greet(User{ name: "ada" })
+  Expect.eq(Expect.marks(), "ada", "u is a User after the early return")
+  Expect.eq(label(null), "nobody", "the early return")
+  Expect.eq(label(User{ name: "bob" }), "bob", "narrowed after the if")
+}

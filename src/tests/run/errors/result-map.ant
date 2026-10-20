@@ -1,0 +1,20 @@
+// run
+// spec: 11 Result and Record (Result.map); 8 Result
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var ok: Result[int, Error] = Result.ok(3)
+  var err: Result[int, Error] = Result.err(Error{ message: "no" })
+
+  var doubled = Result.map(ok, { Expect.markv("f", x * 2) })
+  Expect.eq(Result.unwrap(doubled), 6, "f is applied to the Ok value")
+  Expect.eq(Expect.marks(), "f", "f ran once")
+
+  var rendered = Result.map(ok, { String.from(x) })
+  Expect.eq(Result.unwrap(rendered), "3", "map may change the value type")
+
+  var skipped = Result.map(err, { Expect.markv("f", x * 2) })
+  Expect.eq(Expect.marks(), "", "f is not applied to an Err")
+  if skipped is Err { Expect.eq(skipped.error, Error{ message: "no" }, "the error is carried through") }
+  else { Expect.fail("map on an Err yields an Err") }
+}

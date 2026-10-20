@@ -1,0 +1,8 @@
+// check
+// spec: 4 inference (expected types come from annotations); 4 arrays and maps
+// gap: G12
+func main() {
+  var xs = [1, "a"]        // ERROR "cannot infer"
+  var m = Map{ a: 1, b: "x" }   // ERROR "cannot infer"
+  var ok: Array[int | string] = [1, "a"]
+}

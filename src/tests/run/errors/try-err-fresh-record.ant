@@ -1,0 +1,19 @@
+// run
+// spec: 8 try (a fresh Err carrying the same error); 12 expressions (try); 4 records (identity)
+import "../../lib/expect.ant" Expect
+
+func pass(r: Result[int, Error]): Result[int, Error] {
+  var v = try r
+  Result.ok(v)
+}
+
+func main() {
+  var e = Error{ message: "boom" }
+  var original: Result[int, Error] = Result.err(e)
+  var propagated = pass(original)
+  Expect.eq(propagated, original, "the propagated Err is structurally equal to the original")
+  if propagated is Err && original is Err {
+    Expect.notSame(propagated, original, "try returns a fresh Err record")
+    Expect.same(propagated.error, e, "the fresh Err carries the same error record")
+  } else { Expect.fail("pass must propagate the Err") }
+}

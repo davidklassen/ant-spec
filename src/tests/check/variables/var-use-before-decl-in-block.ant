@@ -1,0 +1,8 @@
+// check
+// spec: 3 variables; 12 names and scopes
+func main() {
+  if true {
+    print(later)                 // ERROR "unknown name"
+    var later = 1
+  }
+}

@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 runtime panics
+// panic: not a number
+func main() {
+  var n = true + false    // ERROR "not a number"
+}

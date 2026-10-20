@@ -1,0 +1,16 @@
+// run
+// spec: 6 closures and first-class values; 12 names and scopes
+// source: go:test/closure.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var n = 1
+  var f = func() { n }
+  Expect.eq(f(), 1, "before the assignment")
+  n = 2
+  Expect.eq(f(), 2, "the closure sees the later assignment")
+
+  var g = func() { n += 10 }
+  g()
+  Expect.eq(n, 12, "and the outer scope sees the closure's write")
+}

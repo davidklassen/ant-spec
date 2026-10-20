@@ -1,0 +1,4 @@
+// d.ant: imported by both b.ant and c.ant; initialized once.
+export func announce(name: string): bool { print(name); true }
+
+var started = announce("D")

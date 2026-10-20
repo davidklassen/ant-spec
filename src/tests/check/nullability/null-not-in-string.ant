@@ -1,0 +1,5 @@
+// check
+// spec: 7 nullability; 4 assignability
+func main() {
+  var s: string = null    // ERROR "not assignable"
+}

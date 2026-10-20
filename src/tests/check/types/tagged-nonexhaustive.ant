@@ -1,0 +1,15 @@
+// check
+// spec: 4 tagged unions (exhaustiveness); 5 if (the implicit else branch has type void)
+// source: spec
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Empty = {}
+type Shape = Circle | Rect | Empty
+
+func area(s: Shape): float64 {
+  if s is Circle { s.radius * s.radius } else if s is Rect { s.width * s.height }   // ERROR "not assignable"
+}
+
+func main() {
+  area(Empty{})
+}

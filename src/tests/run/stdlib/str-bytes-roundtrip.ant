@@ -1,0 +1,15 @@
+// run
+// spec: 11 String.toBytes, String.fromBytes; 4 primitives string
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.toBytes("A"), [byte(65)], "ASCII is one byte")
+  Expect.eq(String.toBytes("é"), [byte(195), byte(169)], "two-byte UTF-8")
+  Expect.eq(Array.length(String.toBytes("\u{1F600}")), 4, "an emoji is four bytes")
+  Expect.isTrue(Array.isEmpty(String.toBytes("")), "empty has no bytes")
+  Expect.eq(String.fromBytes([byte(104), byte(105)]) ?? "", "hi", "fromBytes decodes")
+  var s = "héllo \u{1F600}"
+  Expect.eq(String.fromBytes(String.toBytes(s)) ?? "", s, "round trip")
+  var none: Array[byte] = []
+  Expect.eq(String.fromBytes(none) ?? "x", "", "no bytes is the empty string")
+}

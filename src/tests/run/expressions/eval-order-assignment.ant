@@ -1,0 +1,22 @@
+// run
+// spec: 5 expressions (evaluation order); 12 expressions (assignment)
+// gap: G42
+import "../../lib/expect.ant" Expect
+
+type Point = { x: int }
+
+func main() {
+  var xs = [0, 0, 0]
+  var i = func(): int { Expect.markv("i", 1) }
+  var f = func(): int { Expect.markv("f", 7) }
+  xs[i()] = f()
+  Expect.eq(xs, [0, 7, 0], "stored at the index")
+  Expect.eq(Expect.marks(), "i,f", "index before right-hand side")
+
+  var pt = Point{ x: 0 }
+  var p = func(): Point { Expect.markv("p", pt) }
+  var v = func(): int { Expect.markv("v", 3) }
+  p().x = v()
+  Expect.eq(pt.x, 3, "stored in the field")
+  Expect.eq(Expect.marks(), "p,v", "target before right-hand side")
+}

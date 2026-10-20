@@ -1,0 +1,7 @@
+// check
+// spec: 5 loops (for iterates an array, a map, a string, or a sequence)
+func main() {
+  var maybe: Array[int] | null = [1]
+  for x in 5 { }              // ERROR "not iterable"
+  for x in maybe { }          // ERROR "not iterable"
+}

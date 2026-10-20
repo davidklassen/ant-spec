@@ -1,0 +1,15 @@
+// run
+// spec: 11 String.toUpper, String.toLower
+// gap: G36
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.toUpper("abc"), "ABC", "ASCII upper")
+  Expect.eq(String.toLower("ABC"), "abc", "ASCII lower")
+  Expect.eq(String.toUpper("a1 b"), "A1 B", "digits and spaces untouched")
+  Expect.eq(String.toUpper("é"), "É", "non-ASCII upper")
+  Expect.eq(String.toLower("É"), "é", "non-ASCII lower")
+  Expect.eq(String.toUpper("ß"), "ß", "no one-to-one uppercase for sharp s")
+  Expect.eq(String.toLower(String.toUpper("héllo")), "héllo", "round trip")
+  Expect.eq(String.toUpper(""), "", "empty")
+}

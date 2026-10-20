@@ -1,0 +1,5 @@
+// check
+// spec: 10 modules (only exported declarations are visible to other modules)
+import "./secrets.ant" { hidden }    // ERROR "not exported"
+
+func main() {}

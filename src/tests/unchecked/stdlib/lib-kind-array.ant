@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Array.length; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var n = Array.length("s")    // ERROR "not assignable"
+}

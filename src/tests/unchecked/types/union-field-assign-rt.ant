@@ -1,0 +1,10 @@
+// unchecked
+// spec: 4 tagged unions (no assignment through a union); 12 assignment (a field target must be a record with that field)
+type A = { name: string }
+type B = { name: string, n: int }
+
+func main() {
+  var v: A | B = A{ name: "a" }
+  v.name = "x"                         // ERROR "cannot assign"
+  if v.name != "x" { panic("field not updated") }
+}

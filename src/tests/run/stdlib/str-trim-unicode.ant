@@ -1,0 +1,13 @@
+// run
+// spec: 11 String.trim
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.trim("  a b  "), "a b", "interior whitespace kept")
+  Expect.eq(String.trim("\n\tx\r\n"), "x", "ASCII control whitespace")
+  Expect.eq(String.trim("\u{A0}x\u{3000}"), "x", "NBSP and ideographic space are white space")
+  Expect.eq(String.trim("\u{200B}x\u{200B}"), "\u{200B}x\u{200B}", "zero-width space is not white space")
+  Expect.eq(String.trim("x"), "x", "nothing to trim")
+  Expect.eq(String.trim(""), "", "empty")
+  Expect.eq(String.trim("   "), "", "only whitespace")
+}

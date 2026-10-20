@@ -1,0 +1,5 @@
+// check
+// spec: 11 Math.min; 4 generics bounds
+func main() {
+  var m = Math.min(1, 2.0)    // ERROR "not assignable"
+}

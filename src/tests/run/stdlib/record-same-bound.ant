@@ -1,0 +1,22 @@
+// run
+// spec: 11 Record.same; 4 records; 4 generics bounds
+// gap: G66
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+type Vec = { x: float64, y: float64 }
+type Named = { name: string }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  var q = p
+  Expect.isTrue(Record.same(p, q), "one record under two names")
+  Expect.isFalse(Record.same(p, Point{ ...p }), "a copy is a different record")
+  Expect.isTrue(p == Point{ ...p }, "the copy is still equal")
+  var n = Named{ name: "ada" }
+  Expect.isTrue(Record.same(n, n), "any record type satisfies the {} bound")
+  var a: { x: float64, y: float64 } = p
+  var b: { x: float64, y: float64 } = Vec{ ...p }
+  Expect.isFalse(Record.same(a, b), "different tags with equal fields are not the same")
+  Expect.isTrue(Record.same(a, p), "the same record seen through a wider type")
+}

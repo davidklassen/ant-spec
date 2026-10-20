@@ -1,0 +1,1 @@
+export func distance(a: float64, b: float64): float64 { Math.abs(a - b) }

@@ -1,0 +1,6 @@
+// check
+// spec: 3 variables; 6 functions
+// gap: G27
+func main() {
+  var f = func(n: int): int { if n == 0 { 0 } else { f(n - 1) } }    // ERROR "unknown name"
+}

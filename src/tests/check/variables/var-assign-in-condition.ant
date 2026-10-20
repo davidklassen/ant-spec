@@ -1,0 +1,7 @@
+// check
+// spec: 3 variables; 5 if
+// source: spec
+func main() {
+  var count = 0
+  if count = 5 { }               // ERROR "not a bool"
+}

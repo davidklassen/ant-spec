@@ -1,0 +1,25 @@
+// run
+// spec: 4 tagged unions (each member is also a type of its own); 7 narrowing
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func circleArea(c: Circle): float64 { 3.0 * c.radius * c.radius }
+func rectArea(r: Rect): float64 { r.width * r.height }
+
+func area(s: Shape): float64 {
+  if s is Circle { circleArea(s) } else { rectArea(s) }
+}
+
+func main() {
+  var s: Shape = Circle{ radius: 1.0 }
+  Expect.eq(area(s), 3.0, "Circle passed after narrowing")
+  s = Rect{ width: 2.0, height: 2.0 }
+  Expect.eq(area(s), 4.0, "Rect passed from the else complement")
+  var c = Circle{ radius: 2.0 }
+  Expect.eq(circleArea(c), 12.0, "direct call with a Circle")
+  var widened: Shape = c
+  Expect.isTrue(widened is Circle, "a member is assignable to the union")
+}

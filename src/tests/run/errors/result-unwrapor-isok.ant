@@ -1,0 +1,14 @@
+// run
+// spec: 11 Result and Record (Result.unwrapOr, Result.isOk); 8 Result
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var ok: Result[int, Error] = Result.ok(7)
+  var err: Result[int, Error] = Result.err(Error{ message: "no" })
+
+  Expect.isTrue(Result.isOk(ok), "isOk on an Ok")
+  Expect.isFalse(Result.isOk(err), "isOk on an Err")
+
+  Expect.eq(Result.unwrapOr(ok, 0), 7, "unwrapOr yields the Ok value")
+  Expect.eq(Result.unwrapOr(err, 0), 0, "unwrapOr yields the fallback on an Err")
+}

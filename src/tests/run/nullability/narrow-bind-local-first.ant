@@ -1,0 +1,17 @@
+// run
+// spec: 7 nullability
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Addr = { city: string }
+type User = { name: string, address: Addr | null }
+
+func city(user: User): string {
+  var address = user.address
+  if address != null { address.city } else { "unknown" }
+}
+
+func main() {
+  Expect.eq(city(User{ name: "ada", address: Addr{ city: "paris" } }), "paris", "the local narrows")
+  Expect.eq(city(User{ name: "bob", address: null }), "unknown", "a null address")
+}

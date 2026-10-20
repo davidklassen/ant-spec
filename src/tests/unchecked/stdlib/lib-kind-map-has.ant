@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Map.has; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var b = Map.has(1, 1)    // ERROR "not assignable"
+}

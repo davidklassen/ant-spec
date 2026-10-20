@@ -1,0 +1,21 @@
+// run
+// spec: 9 synchronization; 11 synchronization Mutex; 6 anonymous functions
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var lock = Mutex.new()
+  var wg = WaitGroup.new()
+  var counter = 0
+  for g in Array.range(0, 100) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      for i in Array.range(0, 100) {
+        Mutex.withLock(lock, { counter += 1 })
+      }
+    }
+  }
+  WaitGroup.wait(wg)
+  Expect.eq(counter, 10000, "every increment counted")
+}

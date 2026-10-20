@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 expressions (call); 12 runtime panics
+// panic: missing argument
+func f(a: int, b: int): int { a + b }
+
+func main() {
+  if f(1, 2) != 3 { panic("call") }
+  f(1)    // ERROR "missing argument"
+}

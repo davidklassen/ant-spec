@@ -1,0 +1,8 @@
+// order.ant: initializers run top to bottom and may call a function declared below them.
+import "../../lib/expect.ant" Expect
+
+export var first = Expect.markv("first", 1)
+export var second = Expect.markv("second", twice(first))
+export var third = Expect.markv("third", twice(second))
+
+func twice(n: int): int { n * 2 }

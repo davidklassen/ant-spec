@@ -1,0 +1,21 @@
+// run
+// spec: 4 inference (an annotated var takes the annotation)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Active = {}
+type Suspended = { reason: string }
+type Status = Active | Suspended
+
+func describe(s: Status): string {
+  if s is Active { "active" } else { `suspended: ${s.reason}` }
+}
+
+func main() {
+  var s: Status = Active{}
+  Expect.eq(describe(s), "active", "initial")
+  s = Suspended{ reason: "audit" }
+  Expect.eq(describe(s), "suspended: audit", "reassigned to another member")
+  s = Active{}
+  Expect.isTrue(s is Active, "and back")
+}

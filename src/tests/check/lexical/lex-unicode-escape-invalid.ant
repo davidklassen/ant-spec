@@ -1,0 +1,9 @@
+// check
+// spec: 2 literals
+// gap: G2
+func main() {
+  var surrogate = "\u{D800}"        // ERROR "invalid escape"
+  var tooLarge = "\u{110000}"       // ERROR "invalid escape"
+  var fine = "\u{E9}"
+  print(fine)
+}

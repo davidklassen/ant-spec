@@ -1,0 +1,16 @@
+// run
+// spec: 4 records (shorthand entry); 12 record literal
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var x = 1.0
+  var y = 2.0
+  var p = Point{ x, y }
+  Expect.eq(p, Point{ x: 1.0, y: 2.0 }, "Point{ x, y } is Point{ x: x, y: y }")
+  var q = Point{ x, y: 5.0 }
+  Expect.eq(q, Point{ x: 1.0, y: 5.0 }, "shorthand mixes with explicit entries")
+  x = 9.0
+  Expect.eq(p.x, 1.0, "the literal took the value, not the variable")
+}

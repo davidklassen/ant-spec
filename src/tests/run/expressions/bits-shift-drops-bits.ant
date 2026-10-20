@@ -1,0 +1,13 @@
+// run
+// spec: 11 Math and Bits; 5 operators (shift count)
+// gap: G22
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var min = -9223372036854775807 - 1
+  Expect.eq(Bits.shiftLeft(1, 63), min, "shifting into the sign bit is not an overflow")
+  Expect.eq(Bits.shiftLeft(3, 63), min, "bits shifted out are dropped")
+  Expect.eq(Bits.shiftLeft(uint8(255), 1), uint8(254), "uint8 drops the high bit")
+  Expect.eq(Bits.shiftLeft(int8(64), 1), int8(-128), "int8 shifts into the sign bit")
+  Expect.eq(Bits.shiftLeft(uint8(1), 7), uint8(128), "the last bit of the width")
+}

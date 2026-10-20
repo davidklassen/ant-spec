@@ -1,0 +1,18 @@
+// run
+// spec: 3 variables; 5 blocks; 12 assignment
+import "../../lib/expect.ant" Expect
+
+func assignOnly(): void {
+  var n = 1
+  n = 2
+}
+
+func main() {
+  var x = 0
+  Expect.isTrue((x = 1) == void, "an assignment is a void expression")
+  Expect.eq(x, 1, "and it still assigns")
+  var r = if x > 0 { x = 2 } else { x = 3 }
+  Expect.isTrue(r == void, "a block ending in an assignment has value void")
+  Expect.eq(x, 2, "the branch ran")
+  Expect.isTrue(assignOnly() == void, "a function body ending in an assignment returns void")
+}

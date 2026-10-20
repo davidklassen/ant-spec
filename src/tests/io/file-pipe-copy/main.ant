@@ -1,0 +1,23 @@
+// io
+// spec: stdlib File; 8 defer; 8 try
+// source: spec
+// gap: G39
+import "../../lib/expect.ant" Expect
+
+func copy(src: string, dst: string): Result[void, Error] {
+  var input = try File.open(src)
+  defer { File.close(input) }
+  var output = try File.create(dst)
+  defer { File.close(output) }
+  File.pipe(input, output)
+}
+
+func main() {
+  var dir = Os.args()[0]
+  var src = dir + "/src.txt"
+  var dst = dir + "/dst.txt"
+  Expect.isTrue(Result.isOk(File.write(src, "copy me\nline two\n")), "write source")
+  Expect.isTrue(Result.isOk(copy(src, dst)), "copy")
+  Expect.eq(Result.unwrap(File.read(dst)), "copy me\nline two\n", "destination matches source")
+  Expect.isFalse(Result.isOk(copy(dir + "/absent.txt", dst)), "copy of a missing source is an Err")
+}

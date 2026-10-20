@@ -1,0 +1,3 @@
+import "./config.ant" { base, scale }
+
+export var product = base * scale

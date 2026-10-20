@@ -1,0 +1,11 @@
+// check
+// spec: 4 records (a named record type accepts only its own tag); 4 assignability
+// source: spec
+type Named = { name: string }
+type Person = { name: string, age: int }
+
+func main() {
+  var user = Person{ name: "ada", age: 36 }
+  var n: Named = user      // ERROR "not assignable"
+  var anon: { name: string } = user
+}

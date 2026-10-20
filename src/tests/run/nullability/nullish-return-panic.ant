@@ -1,0 +1,16 @@
+// run
+// spec: 7 nullability; 5 return, break, continue
+import "../../lib/expect.ant" Expect
+
+func unwrap(v: int | null): int { v ?? panic("unreachable") }
+
+func bump(v: int | null): int | null {
+  var n = v ?? return null
+  n + 1
+}
+
+func main() {
+  Expect.eq(unwrap(5), 5, "a non-null value passes through ?? panic")
+  Expect.isNull(bump(null), "?? return null leaves the helper")
+  Expect.eq(bump(1), 2, "non-null continues after the ??")
+}

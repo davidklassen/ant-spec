@@ -1,0 +1,21 @@
+// run
+// spec: 11 synchronization Mutex (with forms release even if f panics); 9 panics in goroutines
+// stderr: panic: inside withLock
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var lock = Mutex.new()
+  var wg = WaitGroup.new()
+  Expect.eq(Mutex.withLock(lock, { 6 * 7 }), 42, "withLock yields the lambda's value")
+
+  WaitGroup.add(wg, 1)
+  go {
+    defer { WaitGroup.done(wg) }
+    Mutex.withLock(lock, { panic("inside withLock") })
+  }
+  WaitGroup.wait(wg)                    // the panic ended only that goroutine
+
+  Mutex.lock(lock)                      // would block forever had withLock kept the lock
+  Mutex.unlock(lock)
+  Expect.eq(Mutex.withLock(lock, { "free again" }), "free again", "released after the panic")
+}

@@ -1,0 +1,5 @@
+// factory.ant: a second importer that builds the records.
+import "./shapes.ant" { Circle, Square, Shape }
+
+export func make(): Shape { Circle{ radius: 2.0 } }
+export func square(): Shape { Square{ side: 1.0 } }

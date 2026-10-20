@@ -1,0 +1,20 @@
+// run
+// spec: 11 Array (xs[i] reads and writes); 12 index read; 12 assignment
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [10, 20, 30]
+  Expect.eq(xs[0], 10, "first")
+  Expect.eq(xs[2], 30, "last")
+  xs[1] = 25
+  Expect.eq(xs[1], 25, "write")
+  xs[1] += 1
+  Expect.eq(xs, [10, 26, 30], "compound assignment to an element")
+  var i = 2
+  xs[i] = xs[i] * 2
+  Expect.eq(xs[2], 60, "index by a variable")
+  Expect.isNull(Array.get(xs, 3), "Array.get out of range is null")
+  Expect.eq(Array.get(xs, 0), 10, "Array.get in range")
+  Array.push(xs, 70)
+  Expect.eq(xs[3], 70, "a pushed element is indexable")
+}

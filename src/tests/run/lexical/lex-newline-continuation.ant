@@ -1,0 +1,29 @@
+// run
+// spec: 2 line endings; 5 pipes; 5 if
+import "../../lib/expect.ant" Expect
+
+type Inner = { n: int }
+type Box = { inner: Inner | null }
+
+func main() {
+  var evens = [1, 2, 3, 4]             // a trailing comment changes nothing
+    | Array.filter({ x % 2 == 0 })     // a leading | continues the expression
+    | Array.map({ x * 10 })
+  Expect.eq(evens, [20, 40], "pipeline across lines")
+
+  var sum = 1 +                        // a line ending in an operator continues
+    2
+  Expect.eq(sum, 3, "trailing operator")
+
+  var box = Box{ inner: Inner{ n: 7 } }
+  var inner = box
+    .inner
+  var n = inner
+    ?.n
+  Expect.eq(n, 7, "leading . and ?. continue")
+
+  var label = if n == 7 { "seven" }    // else may start the next line
+  else if n == 8 { "eight" }
+  else { "other" }
+  Expect.eq(label, "seven", "else on its own line")
+}

@@ -1,0 +1,17 @@
+// run
+// spec: 4 primitives; 12 conversion; 11 Bits
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(int64(int8(-1)), -1, "widening keeps the sign")
+  Expect.eq(int(int16(-300)), -300, "int16 to int")
+  Expect.eq(uint8(int8(5)), uint8(5), "signed to unsigned, in range")
+  Expect.eq(int8(uint8(127)), int8(127), "unsigned to signed, in range")
+  Expect.eq(int(uint64(5)), 5, "uint64 to int, in range")
+  Expect.eq(uint32(4294967295), uint32(4294967295.0), "uint32 max from an int and from a float")
+
+  var max = Bits.not(uint64(0))
+  Expect.isTrue(max > uint64(0), "uint64 max is above zero")
+  Expect.isTrue(max > uint64(9223372036854775807), "and above int64 max")
+  Expect.isTrue(float64(max) > 1.8e19, "it widens to a float64 near 2^64")
+}

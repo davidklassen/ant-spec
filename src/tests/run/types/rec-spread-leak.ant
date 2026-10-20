@@ -1,0 +1,17 @@
+// run
+// spec: 4 records (spread, width subtyping); 12 record literal; 11 String.from
+// gap: G10, G33, G52
+// output:
+//   Named{ name: "ada", age: 36 }
+import "../../lib/expect.ant" Expect
+
+type Named = { name: string }
+type Person = { name: string, age: int }
+
+func main() {
+  var n: { name: string } = Person{ name: "ada", age: 36 }
+  var copy = Named{ ...n }
+  Expect.eq(copy.name, "ada", "the declared field is copied")
+  Expect.ne(copy, Named{ name: "ada" }, "the run-time field age makes it unequal")
+  print(copy)
+}

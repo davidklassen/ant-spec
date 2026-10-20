@@ -1,0 +1,54 @@
+// program
+// spec: 4 tagged unions; 11 String (chars, toInt); 6 closures; 5 if (exhaustive is chain)
+// output:
+//   word let
+//   word x
+//   symbol =
+//   number 42
+//   symbol +
+//   word y1
+type Word = { text: string }
+type Digits = { value: int }
+type Symbol = { text: string }
+type Token = Word | Digits | Symbol
+
+func isLetter(c: string): bool { (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") }
+func isDigit(c: string): bool { c >= "0" && c <= "9" }
+
+func tokenize(src: string): Array[Token] {
+  var tokens: Array[Token] = []
+  var state = "space"             // "space", "word", or "number"
+  var current = ""
+  var flush = func() {
+    if state == "word" { Array.push(tokens, Word{ text: current }) }
+    else if state == "number" { Array.push(tokens, Digits{ value: String.toInt(current) ?? 0 }) }
+    state = "space"
+    current = ""
+  }
+  for c in String.chars(src) {
+    if isLetter(c) || (state == "word" && isDigit(c)) {
+      if state != "word" { flush() }
+      state = "word"
+      current = current + c
+    } else if isDigit(c) {
+      if state != "number" { flush() }
+      state = "number"
+      current = current + c
+    } else {
+      flush()
+      if c != " " { Array.push(tokens, Symbol{ text: c }) }
+    }
+  }
+  flush()
+  tokens
+}
+
+func show(t: Token): string {
+  if t is Word { `word ${t.text}` }
+  else if t is Digits { `number ${t.value}` }
+  else if t is Symbol { `symbol ${t.text}` }
+}
+
+func main() {
+  for t in tokenize("let x = 42 + y1") { print(show(t)) }
+}

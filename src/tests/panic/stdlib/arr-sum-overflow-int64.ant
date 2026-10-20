@@ -1,0 +1,6 @@
+// panic
+// spec: 11 Array.sum; 12 runtime panics
+// panic: integer overflow
+func main() {
+  var s = Array.sum([9223372036854775807, 1])
+}

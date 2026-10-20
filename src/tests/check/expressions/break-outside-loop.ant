@@ -1,0 +1,11 @@
+// check
+// spec: 5 return, break, continue; 6 closures
+// gap: G24
+var top: int = return 1       // ERROR "outside a function"
+
+func main() {
+  for i in [1] {
+    var f: func(): void = { break }   // ERROR "outside a loop"
+  }
+  break                       // ERROR "outside a loop"
+}

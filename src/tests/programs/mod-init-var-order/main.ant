@@ -1,0 +1,9 @@
+// program
+// spec: 10 modules (func and type are hoisted; top-level var initializers run in source order)
+import "../../lib/expect.ant" Expect
+import "./order.ant" Order
+
+func main() {
+  Expect.eq(Expect.marks(), "first,second,third", "top-level vars initialize in source order")
+  Expect.eq(Order.third, 4, "a hoisted function is callable from an initializer")
+}

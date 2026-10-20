@@ -1,0 +1,16 @@
+// check
+// spec: 5 is (T is a named record type, a primitive, null, Array, Map, or func); 4 type declarations
+// gap: G17
+type UserId = int
+type Circle = { radius: float64 }
+type Rect = { width: float64 }
+type Shape = Circle | Rect
+type Empty = {}
+
+func main() {
+  var x: int | string = 1
+  var a = x is UserId                 // ERROR "not a record type"
+  var s: Shape | Empty = Empty{}
+  var b = s is Shape                  // ERROR "not a record type"
+  var c = s is Circle
+}

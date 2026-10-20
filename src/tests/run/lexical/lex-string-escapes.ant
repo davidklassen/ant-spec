@@ -1,0 +1,19 @@
+// run
+// spec: 2 literals; 11 String
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.toBytes("\n"), [byte(10)], "newline")
+  Expect.eq(String.toBytes("\t"), [byte(9)], "tab")
+  Expect.eq(String.toBytes("\r"), [byte(13)], "carriage return")
+  Expect.eq(String.toBytes("\\"), [byte(92)], "backslash")
+  Expect.eq(String.toBytes("\""), [byte(34)], "double quote")
+  Expect.eq(String.toBytes("\`"), [byte(96)], "backtick")
+  Expect.eq(String.toBytes("\$"), [byte(36)], "dollar")
+  Expect.eq("\u{41}", "A", "unicode escape")
+  Expect.eq(String.toBytes("\u{e9}"), [byte(195), byte(169)], "lowercase hex digits, stored as UTF-8")
+  Expect.eq(String.length("\u{1F600}"), 1, "an astral code point has length 1")
+  Expect.eq(String.toBytes("\u{1F600}"), [byte(240), byte(159), byte(152), byte(128)], "four UTF-8 bytes")
+  Expect.eq(String.chars("a\nb"), ["a", "\n", "b"], "an escape is one code point")
+  Expect.eq(String.length("\\n"), 2, "an escaped backslash followed by n is two code points")
+}

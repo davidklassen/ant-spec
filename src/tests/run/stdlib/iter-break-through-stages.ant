@@ -1,0 +1,24 @@
+// run
+// spec: 11 Iter; 5 loops sequences; 12 for
+import "../../lib/expect.ant" Expect
+
+var produced = 0
+
+func source(yield: func(int): bool): void {
+  var i = 0
+  while i < 100 {
+    produced += 1
+    if !yield(i) { return }
+    i += 1
+  }
+}
+
+func main() {
+  var seen: Array[int] = []
+  for n in source | Iter.map({ x * 2 }) | Iter.filter({ x % 4 == 0 }) | Iter.take(10) {
+    Array.push(seen, n)
+    if n >= 8 { break }
+  }
+  Expect.eq(seen, [0, 4, 8], "elements that reached the body")
+  Expect.eq(produced, 5, "break stopped the source through every stage")
+}

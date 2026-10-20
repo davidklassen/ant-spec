@@ -1,0 +1,5 @@
+// check
+// spec: 10 modules; 4 inference (an exported function states its return type)
+export func f(x: int) { x }    // ERROR "needs a return type"
+
+func main() {}

@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 String.length; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var n = String.length(5)    // ERROR "not assignable"
+}

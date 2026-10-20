@@ -1,0 +1,8 @@
+// panic
+// spec: 11 Iter.take; 12 runtime panics
+// gap: G65
+// panic: negative count
+func main() {
+  var s = Iter.take(Iter.range(0, 3), -1)
+  var xs = Iter.toArray(s)
+}

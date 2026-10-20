@@ -1,0 +1,13 @@
+// check
+// spec: 4 assignability (function types: same parameter count; defaults as a prefix only); 6 calling
+// source: spec
+func connect(host: string, port: int = 443, tls: bool = true): string { host }
+func add(a: int, b: int): int { a + b }
+
+func main() {
+  var one: func(int): int = add                     // ERROR "not assignable"
+  var three: func(int, int, int): int = add         // ERROR "not assignable"
+  var skip: func(string, bool): string = connect    // ERROR "not assignable"
+  var full: func(string, int, bool): string = connect
+  var required: func(string): string = connect
+}

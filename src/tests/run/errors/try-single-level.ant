@@ -1,0 +1,20 @@
+// run
+// spec: 8 try; 12 expressions (try)
+import "../../lib/expect.ant" Expect
+
+func peel(r: Result[Result[int, Error], Error]): Result[int, Error] {
+  var inner = try r
+  Expect.mark("continued")
+  inner
+}
+
+func main() {
+  var e = Error{ message: "inner" }
+  var innerErr: Result[int, Error] = Result.err(e)
+  var outer: Result[Result[int, Error], Error] = Result.ok(innerErr)
+  var got = peel(outer)
+  Expect.eq(Expect.marks(), "continued", "try unwrapped the outer Ok and went on")
+  if got is Err && innerErr is Err {
+    Expect.same(got, innerErr, "the inner Err is yielded as it is, neither unwrapped nor copied")
+  } else { Expect.fail("the inner Err must come back as an Err") }
+}

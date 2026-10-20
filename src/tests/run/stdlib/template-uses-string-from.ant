@@ -1,0 +1,16 @@
+// run
+// spec: 2 literals template strings; 11 String.from; 12 literals
+import "../../lib/expect.ant" Expect
+
+type Pair = { a: int, b: int }
+
+func main() {
+  var p = Pair{ a: 1, b: 2 }
+  Expect.eq(`${p}`, String.from(p), "a template renders with String.from")
+  Expect.eq(`${p}`, "Pair{ a: 1, b: 2 }", "record literal syntax")
+  Expect.eq(`<${[1, 2]}>`, "<" + String.from([1, 2]) + ">", "array inside text")
+  var ps = [p]
+  Expect.eq(`${ps}`, String.from(ps), "record inside an array")
+  Expect.eq(`${1} ${true} ${null}`, "1 true null", "primitives")
+  Expect.eq(`${"s"}`, "s", "a string is bare")
+}

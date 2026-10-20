@@ -1,0 +1,10 @@
+// panic
+// spec: 12 expressions (an integer result that does not fit the kind panics)
+// gap: G5
+// panic: integer overflow
+func div(a: int, b: int): int { a / b }
+
+func main() {
+  var min = -9223372036854775807 - 1
+  div(min, -1)
+}

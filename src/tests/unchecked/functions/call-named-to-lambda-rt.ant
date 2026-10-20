@@ -1,0 +1,8 @@
+// unchecked
+// spec: 12 expressions (call); 12 runtime panics
+// panic: named argument to lambda
+func main() {
+  var f: func(int): int = { x }
+  if f(1) != 1 { panic("positional call") }
+  f(x: 1)    // ERROR "named argument"
+}

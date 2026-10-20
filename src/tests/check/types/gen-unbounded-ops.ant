@@ -1,0 +1,11 @@
+// check
+// spec: 4 generics (without a bound, T is opaque)
+func add[T](a: T, b: T): T {
+  a + b                          // ERROR "mismatched operand types"
+}
+
+func name[T](a: T): string {
+  a.name                         // ERROR "unknown field"
+}
+
+func main() {}

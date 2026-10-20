@@ -1,0 +1,19 @@
+// run
+// spec: 6 closures and first-class values
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func counter(): func(): int {
+  var n = 0
+  func() { n += 1; n }
+}
+
+func main() {
+  var next = counter()
+  Expect.eq(next(), 1, "first call")
+  Expect.eq(next(), 2, "second call sees the updated n")
+
+  var other = counter()
+  Expect.eq(other(), 1, "a second counter has its own n")
+  Expect.eq(next(), 3, "the first is unaffected")
+}

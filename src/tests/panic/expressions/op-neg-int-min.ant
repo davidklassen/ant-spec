@@ -1,0 +1,10 @@
+// panic
+// spec: 12 expressions (unary -); 12 runtime panics
+// gap: G5
+// panic: integer overflow
+func neg(n: int): int { -n }
+
+func main() {
+  var min = -9223372036854775807 - 1
+  neg(min)
+}

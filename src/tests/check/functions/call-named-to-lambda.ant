@@ -1,0 +1,8 @@
+// check
+// spec: 6 calling; 6 anonymous functions
+func apply(g: func(int): int): int { g(a: 1) }    // ERROR "named argument"
+
+func main() {
+  var f: func(int): int = { x }
+  f(x: 1)    // ERROR "named argument"
+}

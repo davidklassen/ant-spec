@@ -1,0 +1,3 @@
+// check
+// spec: 10 modules (main takes no parameters)
+func main(x: int) {}    // ERROR "main"

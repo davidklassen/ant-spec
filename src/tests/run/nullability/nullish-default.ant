@@ -1,0 +1,19 @@
+// run
+// spec: 7 nullability; 12 expressions (a ?? b)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func main() {
+  var user: User | null = null
+  Expect.eq(user?.name ?? "anonymous", "anonymous", "null takes the right side")
+  user = User{ name: "ada" }
+  Expect.eq(user?.name ?? "anonymous", "ada", "non-null keeps the left side")
+
+  var n: int | null = null
+  Expect.eq(n ?? 0, 0, "a plain nullable")
+  n = 5
+  Expect.eq(n ?? Expect.markv("rhs", 0), 5, "the left side when present")
+  Expect.eq(Expect.marks(), "", "the right side is not evaluated")
+}

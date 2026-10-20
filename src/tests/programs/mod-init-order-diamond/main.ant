@@ -1,0 +1,17 @@
+// program
+// spec: 10 modules (imports resolve depth first in source order; each module initializes once, after its imports)
+// output:
+//   D
+//   B
+//   C
+//   A
+import "./b.ant" B
+import "./c.ant" C
+
+func announce(name: string): bool { print(name); true }
+
+var started = announce("A")
+
+func main() {
+  if !(B.started && C.started) { panic("imports were not initialized before main") }
+}

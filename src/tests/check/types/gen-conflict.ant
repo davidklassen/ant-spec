@@ -1,0 +1,8 @@
+// check
+// spec: 4 generics (int and float64 are different T)
+// source: spec
+func max[T: Ordered](a: T, b: T): T { if a > b { a } else { b } }
+
+func main() {
+  var m = max(1, 2.0)            // ERROR "not assignable"
+}

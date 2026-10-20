@@ -1,0 +1,27 @@
+// run
+// spec: 12 values; 4 primitives; 5 is
+import "../../lib/expect.ant" Expect
+
+type Num = int8 | int64
+type Box = { n: Num }
+
+func pass(v: Num): Num { v }
+
+func main() {
+  var a: Num = int8(1)
+  Expect.isTrue(a is int8, "a conversion creates an int8")
+  Expect.isFalse(a is int64, "an int8 is not an int64")
+  var b: Num = a
+  Expect.isTrue(b is int8, "assignment keeps the kind")
+  var xs: Array[Num] = [a, 1]
+  Expect.isTrue(xs[0] is int8, "an array element keeps the kind")
+  Expect.isTrue(xs[1] is int64, "an integer literal is an int")
+  Expect.isTrue(pass(a) is int8, "a call keeps the kind")
+  var box = Box{ n: a }
+  Expect.isTrue(box.n is int8, "a record field keeps the kind")
+  var sum: Num = int8(1) + int8(2)
+  Expect.isTrue(sum is int8, "arithmetic keeps the kind of its operands")
+  var widened: Num = int64(a)
+  Expect.isTrue(widened is int64, "only a conversion makes a value of another kind")
+  Expect.isTrue(a is int8, "the original is untouched by the conversion")
+}

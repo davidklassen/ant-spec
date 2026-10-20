@@ -1,0 +1,28 @@
+// run
+// spec: 11 Math and Bits
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(Bits.and(12, 10), 8, "and")
+  Expect.eq(Bits.or(12, 10), 14, "or")
+  Expect.eq(Bits.xor(12, 10), 6, "xor")
+  Expect.eq(Bits.and(-1, 5), 5, "and with all bits set")
+  Expect.eq(Bits.or(-2, 1), -1, "or into a negative")
+  Expect.eq(Bits.xor(-1, 0), -1, "xor with zero")
+
+  Expect.eq(Bits.and(uint8(12), uint8(10)), uint8(8), "unsigned and")
+  Expect.eq(Bits.or(uint8(12), uint8(10)), uint8(14), "unsigned or")
+  Expect.eq(Bits.xor(uint8(255), uint8(15)), uint8(240), "unsigned xor")
+  Expect.eq(Bits.or(int8(-128), int8(1)), int8(-127), "int8 or")
+
+  Expect.eq(Bits.not(0), -1, "not 0 is -1")
+  Expect.eq(Bits.not(-1), 0, "not -1 is 0")
+  Expect.eq(Bits.not(uint8(0)), uint8(255), "unsigned not")
+  Expect.eq(Bits.not(int8(0)), int8(-1), "int8 not")
+
+  Expect.eq(Bits.popCount(-1), 64, "all 64 bits set")
+  Expect.eq(Bits.popCount(0), 0, "no bits set")
+  Expect.eq(Bits.popCount(7), 3, "three bits set")
+  Expect.eq(Bits.popCount(uint8(255)), 8, "all 8 bits set")
+  Expect.eq(Bits.popCount(int8(-1)), 8, "all 8 bits of a negative int8")
+}

@@ -1,0 +1,22 @@
+// check
+// spec: 4 assignability (type arguments are invariant); 8 Result (try widens, assignment does not)
+// source: spec
+type Config = { name: string }
+type EmptyInput = {}
+type BadDigit = { at: int }
+type ParseError = EmptyInput | BadDigit
+
+func parse(s: string): Result[Config, ParseError] { Result.ok(Config{ name: s }) }
+
+func bad(s: string): Result[Config, ParseError | Error] { parse(s) }   // ERROR "not assignable"
+
+func load(s: string): Result[Config, ParseError | Error] {
+  var narrow = parse(s)
+  var r: Result[Config, ParseError | Error] = narrow     // ERROR "not assignable"
+  var c = try parse(s)
+  Result.ok(c)
+}
+
+func main() {
+  load("x")
+}

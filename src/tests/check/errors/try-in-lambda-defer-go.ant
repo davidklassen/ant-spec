@@ -1,0 +1,25 @@
+// check
+// spec: 8 try; 8 defer; 9 goroutines; 6 anonymous functions
+// gap: G28
+func half(): Result[int, Error] { Result.ok(1) }
+
+func inDefer(): Result[int, Error] {
+  defer { var n = try half() }        // ERROR "try"
+  Result.ok(2)
+}
+
+func inGo(): Result[int, Error] {
+  go { var n = try half() }           // ERROR "try"
+  Result.ok(2)
+}
+
+func inLambda(): Result[int, Error] {
+  var f: func(): Result[int, Error] = { Result.ok(try half()) }   // fine: the lambda returns a Result
+  f()
+}
+
+func main() {
+  var a = inDefer()
+  var b = inGo()
+  var c = inLambda()
+}

@@ -1,0 +1,7 @@
+// check
+// spec: 4 assignability; 6 functions
+func g(): void { 1 }    // ERROR "not assignable"
+
+func main() {
+  g()
+}

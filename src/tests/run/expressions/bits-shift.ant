@@ -1,0 +1,19 @@
+// run
+// spec: 11 Math and Bits (shiftRight is arithmetic for signed, logical for unsigned)
+// source: go:test/shift1.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(Bits.shiftLeft(1, 3), 8, "1 << 3")
+  Expect.eq(Bits.shiftLeft(5, 0), 5, "shift by zero")
+  Expect.eq(Bits.shiftLeft(uint8(1), 7), uint8(128), "uint8 1 << 7")
+  Expect.eq(Bits.shiftLeft(int8(1), 6), int8(64), "int8 1 << 6")
+
+  Expect.eq(Bits.shiftRight(16, 2), 4, "16 >> 2")
+  Expect.eq(Bits.shiftRight(-8, 1), -4, "arithmetic shift keeps the sign")
+  Expect.eq(Bits.shiftRight(-1, 63), -1, "arithmetic shift of -1 stays -1")
+  Expect.eq(Bits.shiftRight(uint8(128), 1), uint8(64), "logical shift on unsigned")
+  Expect.eq(Bits.shiftRight(uint8(255), 7), uint8(1), "uint8 255 >> 7")
+  Expect.eq(Bits.shiftRight(int8(-128), 7), int8(-1), "int8 arithmetic shift")
+  Expect.eq(Bits.shiftRight(7, 1), 3, "7 >> 1 drops the low bit")
+}

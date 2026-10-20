@@ -1,0 +1,19 @@
+// run
+// spec: 11 Array.reverse, Array.entries, Array.range; 11 prelude Indexed
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [1, 2, 3]
+  var r = Array.reverse(xs)
+  Expect.eq(r, [3, 2, 1], "reverse")
+  Expect.eq(xs, [1, 2, 3], "the input is untouched")
+  Expect.isFalse(Array.same(r, xs), "reverse returns a new array")
+  Expect.eq(Array.entries(["a", "b"]), [Indexed{ index: 0, value: "a" }, Indexed{ index: 1, value: "b" }], "entries")
+  var seen: Array[string] = []
+  for { index, value } in Array.entries(["a", "b"]) { Array.push(seen, `${index}:${value}`) }
+  Expect.eq(seen, ["0:a", "1:b"], "entries destructure")
+  Expect.eq(Array.range(0, 3), [0, 1, 2], "range is half-open")
+  Expect.isTrue(Array.isEmpty(Array.range(3, 3)), "empty when to == from")
+  Expect.isTrue(Array.isEmpty(Array.range(5, 2)), "empty when to < from")
+  Expect.eq(Array.range(-2, 1), [-2, -1, 0], "negative from")
+}

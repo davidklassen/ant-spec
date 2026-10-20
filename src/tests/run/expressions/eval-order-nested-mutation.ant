@@ -1,0 +1,16 @@
+// run
+// spec: 5 expressions (evaluation order); 6 closures
+// source: go:test/reorder2.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var n = 0
+  var g = func(): int { n = 10; 1 }
+  var h = func(): int { n }
+  var f = func(a: int, b: int): int { a * 100 + b }
+
+  Expect.eq(f(g(), h()), 110, "g runs before h, so h sees the assignment")
+  n = 0
+  Expect.eq(f(h(), g()), 1, "h runs before g, so h sees the old value")
+  Expect.eq(n, 10, "g ran")
+}

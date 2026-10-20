@@ -1,0 +1,16 @@
+// run
+// spec: 4 primitives (a conversion is a value in its own right); 11 prelude; 6 first-class values
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var bytes = Array.map([72, 105], byte)
+  Expect.eq(bytes, [byte(72), byte(105)], "map with byte")
+  Expect.eq(String.fromBytes(bytes), "Hi", "the result is an Array[byte]")
+
+  var f: func(int): float64 = float64
+  Expect.eq(f(1), 1.0, "conversion through a variable")
+
+  var halves = Array.map([1, 2, 3], float64) | Array.map({ x / 2.0 })
+  Expect.eq(halves, [0.5, 1.0, 1.5], "conversion in a pipeline")
+}

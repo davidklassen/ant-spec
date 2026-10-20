@@ -1,0 +1,29 @@
+// run
+// spec: 5 loops (for over an array, a map, a string); 12 expressions (for x in e)
+// source: go:test/range.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var sum = 0
+  for x in [1, 2, 3] { sum += x }
+  Expect.eq(sum, 6, "array elements in order")
+
+  var m = Map{ a: 1, b: 2 }
+  var keys: Array[string] = []
+  var total = 0
+  for { key, value } in m { Array.push(keys, key); total += value }
+  Expect.eq(Array.sort(keys), ["a", "b"], "each map entry once")
+  Expect.eq(total, 3, "map values")
+
+  var chars: Array[string] = []
+  for c in "h\u{E9}llo" { Array.push(chars, c) }
+  Expect.eq(Array.length(chars), 5, "a string yields code points, not bytes")
+  Expect.eq(chars[1], "\u{E9}", "each iteration is a one-character string")
+
+  var n = 0
+  for c in "\u{1F600}" { n += 1 }
+  Expect.eq(n, 1, "one emoji is one code point")
+  n = 0
+  for c in "e\u{301}" { n += 1 }
+  Expect.eq(n, 2, "a base letter and a combining mark are two code points")
+}

@@ -1,0 +1,17 @@
+// io
+// spec: stdlib Json; 4 primitives conversion; 12 conversion
+// gap: G38
+import "../../lib/expect.ant" Expect
+
+func number(text: string): float64 {
+  var j = Result.unwrap(Json.parse(text))
+  if j is float64 { j } else { Expect.fail(`not a number: ${text}`) }
+}
+
+func main() {
+  Expect.eq(number("3"), 3.0, "a JSON number parses as float64")
+  Expect.eq(int(number("3")), 3, "a whole number converts")
+  Expect.eq(int(number("3.0")), 3, "3.0 converts to 3")
+  Expect.eq(int(number("1.5")), 1, "1.5 truncates to 1")
+  Expect.eq(int(number("-1.5")), -1, "-1.5 truncates toward zero")
+}

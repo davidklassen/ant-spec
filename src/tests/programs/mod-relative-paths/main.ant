@@ -1,0 +1,11 @@
+// program
+// spec: 10 modules (an import path is relative to the importing file, extension included; each file is one module)
+import "../../lib/expect.ant" Expect
+import "./app/run.ant" App
+import "./lib/geometry.ant" Geometry
+
+func main() {
+  Expect.eq(App.run(), 5.0, "the subdirectory module ran its own imports")
+  var p: Geometry.Point | null = App.origin()
+  Expect.isTrue(p is Geometry.Point, "one file is one module whichever path reaches it")
+}

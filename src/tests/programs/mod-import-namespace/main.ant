@@ -1,0 +1,20 @@
+// program
+// spec: 10 modules (a bare name binds the whole module record as a namespace)
+// source: spec
+import "../../lib/expect.ant" Expect
+import "./geometry.ant" Geometry
+
+func midpoint(a: Geometry.Point, b: Geometry.Point): Geometry.Point {
+  Geometry.Point{ x: (a.x + b.x) / 2.0, y: (a.y + b.y) / 2.0 }
+}
+
+func main() {
+  var p = Geometry.Point{ x: 0.0, y: 0.0 }
+  var q = Geometry.Point{ x: 6.0, y: 8.0 }
+  Expect.eq(Geometry.distance(p, q), 10.0, "a call through the namespace")
+  var m = midpoint(p, q)
+  Expect.eq(m.x, 3.0, "midpoint x")
+  Expect.eq(m.y, 4.0, "midpoint y")
+  var v: Geometry.Point | null = m
+  Expect.isTrue(v is Geometry.Point, "is against a namespace path")
+}

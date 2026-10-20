@@ -1,0 +1,18 @@
+// run
+// spec: 11 Iter.take; 5 loops sequences
+// gap: G37
+import "../../lib/expect.ant" Expect
+
+var ran = false
+
+func source(yield: func(int): bool): void {
+  ran = true
+  if !yield(1) { return }
+}
+
+func main() {
+  Expect.isTrue(Array.isEmpty(Iter.toArray(Iter.take(source, 0))), "take 0 is empty")
+  Expect.isFalse(ran, "the source never ran")
+  for n in Iter.take(source, 0) { Expect.fail("the body ran") }
+  Expect.isFalse(ran, "still never ran")
+}

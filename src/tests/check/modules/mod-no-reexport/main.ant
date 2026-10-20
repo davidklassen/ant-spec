@@ -1,0 +1,5 @@
+// check
+// spec: 10 modules (there is no re-export)
+import "./b.ant" { value }    // ERROR "not exported"
+
+func main() {}

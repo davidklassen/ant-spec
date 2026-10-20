@@ -1,0 +1,10 @@
+// check
+// spec: 4 inference (a type parameter that nothing fixes is a compile error)
+// source: spec
+// gap: G16
+func main() {
+  var zs = []                    // ERROR "cannot infer"
+  var r = Result.ok(1)           // ERROR "cannot infer"
+  var ys: Array[string] = []
+  var ok: Result[int, Error] = Result.ok(1)
+}

@@ -1,0 +1,10 @@
+// check
+// spec: 4 generics (a solution for T must be assignable to the bound)
+// source: spec
+func max[T: Ordered](a: T, b: T): T { if a > b { a } else { b } }
+func names[T: { name: string }](xs: Array[T]): Array[string] { Array.map(xs, { x.name }) }
+
+func main() {
+  var b = max(true, false)       // ERROR "does not satisfy bound"
+  var n = names([1])             // ERROR "does not satisfy bound"
+}

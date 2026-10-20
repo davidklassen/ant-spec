@@ -1,0 +1,12 @@
+// panic
+// spec: 5 operators (integer overflow panics); 12 runtime panics
+// source: zig:behavior/math.zig
+// panic: integer overflow
+// output:
+//   before
+func inc(n: int): int { n + 1 }
+
+func main() {
+  print("before")
+  inc(9223372036854775807)
+}

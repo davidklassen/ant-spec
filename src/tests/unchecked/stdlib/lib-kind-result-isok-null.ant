@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Result.isOk; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var b = Result.isOk(null)    // ERROR
+}

@@ -1,0 +1,21 @@
+// run
+// spec: 11 prelude print; 11 String.from; 4 records; 9 synchronization
+// gap: G54
+// output:
+//   func
+//   func
+//   Point
+//   Mutex
+//   WaitGroup
+type Point = { x: float64, y: float64 }
+
+func double(n: int): int { n * 2 }
+
+func main() {
+  print(double)
+  var inc: func(int): int = { x + 1 }
+  print(inc)
+  print(Point)
+  print(Mutex.new())
+  print(WaitGroup.new())
+}

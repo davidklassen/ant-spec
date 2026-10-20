@@ -1,0 +1,15 @@
+// run
+// spec: 2 literals; 4 primitives; 5 is
+import "../../lib/expect.ant" Expect
+
+func isFloat(v: float64 | string): bool { v is float64 }
+
+func main() {
+  Expect.eq(1e9, 1000000000.0, "exponent without a fraction")
+  Expect.eq(2.5e-3, 0.0025, "negative exponent")
+  Expect.eq(1_0.5_0E+2, 1050.0, "underscores, fraction, uppercase E, signed exponent")
+  Expect.eq(1_000.5, 1000.5, "underscores before the point")
+  Expect.isTrue(isFloat(3.14), "a literal with a point is a float64")
+  Expect.isTrue(isFloat(1e9), "a literal with an exponent is a float64")
+  Expect.isTrue(isFloat(1.0), "1.0 is a float64, not an int")
+}

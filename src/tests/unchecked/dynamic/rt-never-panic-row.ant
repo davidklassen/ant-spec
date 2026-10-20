@@ -1,0 +1,16 @@
+// unchecked
+// spec: 12 runtime panics (never row); 12 expressions (??, try, equality)
+// gap: G20, G41
+// output:
+//   1
+//   1
+//   false
+//   false
+//   true
+func main() {
+  print(1 ?? 2)            // ERROR "always"
+  print(try 1)             // ERROR "try"
+  print(1 == "a")          // ERROR "not assignable"
+  print(int8(1) == 1)      // ERROR "not assignable"
+  print(null != void)      // ERROR "not assignable"
+}

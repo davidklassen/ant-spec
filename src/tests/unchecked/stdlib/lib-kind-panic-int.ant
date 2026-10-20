@@ -1,0 +1,7 @@
+// unchecked
+// spec: 11 prelude panic; 12 runtime panics library function
+// gap: G67
+// panic: wrong kind
+func main() {
+  panic(1)    // ERROR "not assignable"
+}

@@ -1,0 +1,22 @@
+// run
+// spec: 4 tagged unions (a field can be read through a union when every member has it); 5 is
+import "../../lib/expect.ant" Expect
+
+type A = { name: string, n: int }
+type B = { name: string, n: string }
+
+func label(v: A | B): string {
+  var n = v.n                            // int | string
+  var suffix = if n is int { `#${n}` } else { n }
+  v.name + suffix
+}
+
+func main() {
+  Expect.eq(label(A{ name: "a", n: 1 }), "a#1", "int field")
+  Expect.eq(label(B{ name: "b", n: "x" }), "bx", "string field")
+  var v: A | B = A{ name: "c", n: 2 }
+  var name: string = v.name              // every member has name: string
+  Expect.eq(name, "c", "common field is a string")
+  var n: int | string = v.n              // the union of the members' field types
+  Expect.isTrue(n is int, "n is int here")
+}

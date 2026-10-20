@@ -1,0 +1,6 @@
+// check
+// spec: 10 modules (an initializer that refers directly to a later var); 3 variables (top-level var is not hoisted)
+var a = b    // ERROR "unknown name"
+var b = 1
+
+func main() {}

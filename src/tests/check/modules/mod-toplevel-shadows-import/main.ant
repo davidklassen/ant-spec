@@ -1,0 +1,7 @@
+// check
+// spec: 10 modules (a top-level declaration cannot shadow an imported name)
+import "./geometry.ant" { distance }
+
+func distance(): int { 1 }    // ERROR "redeclared"
+
+func main() {}

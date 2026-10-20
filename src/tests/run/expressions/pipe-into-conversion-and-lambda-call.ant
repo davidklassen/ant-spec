@@ -1,0 +1,11 @@
+// run
+// spec: 5 pipes; 4 primitives (conversions are functions); 6 anonymous functions
+// gap: G23
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(5 | float64(), 5.0, "pipe into a conversion")
+  Expect.eq(5 | int8(), int8(5), "pipe into int8")
+  Expect.eq(5 | { x + 1 }(), 6, "pipe into a lambda call binds x")
+  Expect.eq("ab" | { x + "c" }() | String.length(), 3, "lambda call in the middle of a chain")
+}

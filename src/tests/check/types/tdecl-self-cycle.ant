@@ -1,0 +1,8 @@
+// check
+// spec: 4 type declarations (a type may refer to itself only through a record, array, map, or function type)
+type A = A | null              // ERROR "cycle"
+type B = C; type C = B         // ERROR "cycle"
+type Tree = { value: int, children: Array[Tree] }
+type Fn = func(Fn): Fn
+
+func main() {}

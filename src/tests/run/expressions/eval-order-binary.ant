@@ -1,0 +1,14 @@
+// run
+// spec: 5 expressions (evaluation order); 12 expressions
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(Expect.markv("f", 1) + Expect.markv("g", 2), 3, "sum")
+  Expect.eq(Expect.marks(), "f,g", "+ evaluates left then right")
+
+  Expect.isTrue(Expect.markv("f", 1) == Expect.markv("g", 1), "equal")
+  Expect.eq(Expect.marks(), "f,g", "== evaluates left then right")
+
+  Expect.isTrue(Expect.markv("f", 1) < Expect.markv("g", 2), "less")
+  Expect.eq(Expect.marks(), "f,g", "< evaluates left then right")
+}

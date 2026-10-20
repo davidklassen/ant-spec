@@ -1,0 +1,16 @@
+// check
+// spec: 5 return, break, continue; 9 goroutines; 12 go
+// gap: G24
+func main() {
+  var wg = WaitGroup.new()
+  for i in Array.range(0, 3) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      if i == 0 { return }              // leaves the go block only: not an error
+      if i == 1 { break }               // ERROR "outside a loop"
+      print(i)
+    }
+  }
+  WaitGroup.wait(wg)
+}

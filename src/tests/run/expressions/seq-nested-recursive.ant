@@ -1,0 +1,29 @@
+// run
+// spec: 5 loops (sequences); 4 type declarations (recursive record)
+import "../../lib/expect.ant" Expect
+
+type Tree = { value: int, children: Array[Tree] }
+
+func walk(t: Tree): Seq[int] {
+  func(yield: func(int): bool) {
+    if !yield(t.value) { return }
+    for c in t.children {
+      for v in walk(c) {
+        if !yield(v) { return }
+      }
+    }
+  }
+}
+
+func main() {
+  var leaf3 = Tree{ value: 3, children: [] }
+  var tree = Tree{ value: 1, children: [Tree{ value: 2, children: [leaf3] }, Tree{ value: 4, children: [] }] }
+  Expect.eq(Iter.toArray(walk(tree)), [1, 2, 3, 4], "depth-first walk through nested sequences")
+
+  var seen: Array[int] = []
+  for v in walk(tree) {
+    Array.push(seen, v)
+    if v == 3 { break }
+  }
+  Expect.eq(seen, [1, 2, 3], "break in the outer loop stops every nested sequence")
+}

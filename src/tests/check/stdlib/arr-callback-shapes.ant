@@ -1,0 +1,8 @@
+// check
+// spec: 11 Array.filter, Array.reduce, Array.map; 6 anonymous functions; 4 assignability
+func main() {
+  var xs = [1, 2, 3]
+  var a = Array.filter(xs, { x + 1 })                      // ERROR "not assignable"
+  var b = Array.reduce(xs, 0, { x })                       // ERROR "not assignable"
+  var c = Array.map(xs, func(p: int, q: int) { p })        // ERROR "not assignable"
+}

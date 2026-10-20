@@ -1,0 +1,10 @@
+// check
+// spec: 4 tagged unions (a field can never be assigned through a union type)
+type A = { name: string }
+type B = { name: string, n: int }
+
+func main() {
+  var v: A | B = A{ name: "a" }
+  v.name = "x"                   // ERROR "cannot assign"
+  if v is A { v.name = "y" }     // narrowed first
+}

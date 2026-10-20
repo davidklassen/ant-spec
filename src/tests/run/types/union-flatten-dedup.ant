@@ -1,0 +1,23 @@
+// run
+// spec: 4 unions; 4 assignability (members flatten and deduplicate); 7 nullability
+import "../../lib/expect.ant" Expect
+
+type Id = int | string
+type MaybeId = Id | null                 // flattens to int | string | null
+
+func pick(flag: bool): int | null | null {
+  if flag { 1 } else { null }
+}
+
+func main() {
+  var a: int | null = pick(true)         // int | null | null is int | null
+  Expect.eq(a ?? 0, 1, "value through the deduplicated type")
+  var b: int | null | null = pick(false)
+  Expect.isNull(b, "null through the written-out type")
+  var m: MaybeId = "s"
+  var n: int | string | null = m         // the alias flattens into the union
+  Expect.isTrue(n is string, "string member through the alias")
+  var back: MaybeId = n
+  Expect.isFalse(back is int, "not the int member")
+  Expect.isTrue(back is string, "still the string member")
+}

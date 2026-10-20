@@ -1,0 +1,21 @@
+// run
+// spec: 8 defer; 12 expressions (defer registers with the innermost enclosing block); 6 anonymous functions
+import "../../lib/expect.ant" Expect
+
+func main() {
+  if true {
+    Expect.mark("branch")
+    defer { Expect.mark("branch defer") }
+  }
+  Expect.mark("after if")
+
+  var f: func(): int = {
+    defer { Expect.mark("lambda defer") }
+    Expect.mark("lambda body")
+    7
+  }
+  Expect.eq(f(), 7, "the lambda's value")
+  Expect.mark("after call")
+
+  Expect.eq(Expect.marks(), "branch,branch defer,after if,lambda body,lambda defer,after call", "a defer runs when its branch or lambda body ends")
+}

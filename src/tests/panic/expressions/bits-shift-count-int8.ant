@@ -1,0 +1,7 @@
+// panic
+// spec: 11 Math and Bits (shift count not below the operand's width); 5 operators
+// panic: shift count
+func main() {
+  var n = 8
+  Bits.shiftLeft(int8(1), n)
+}

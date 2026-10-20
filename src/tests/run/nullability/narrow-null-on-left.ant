@@ -1,0 +1,18 @@
+// run
+// spec: 7 nullability
+// gap: G19
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func main() {
+  var u: User | null = User{ name: "ada" }
+  var a = if null != u { u.name } else { "nobody" }
+  Expect.eq(a, "ada", "null != u narrows the then branch")
+  var b = if null == u { "nobody" } else { u.name }
+  Expect.eq(b, "ada", "null == u narrows the else branch")
+
+  u = null
+  var c = if null == u { "nobody" } else { u.name }
+  Expect.eq(c, "nobody", "the null case")
+}

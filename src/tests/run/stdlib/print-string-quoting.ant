@@ -1,0 +1,16 @@
+// run
+// spec: 11 prelude print; 11 String.from
+// gap: G33
+// output:
+//   s
+//   ["a", "b\"c", "d\ne"]
+//   Named{ name: "ada" }
+//   [Named{ name: "q\"q" }]
+type Named = { name: string }
+
+func main() {
+  print("s")
+  print(["a", "b\"c", "d\ne"])
+  print(Named{ name: "ada" })
+  print([Named{ name: "q\"q" }])
+}

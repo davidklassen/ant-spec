@@ -1,0 +1,23 @@
+// run
+// spec: 4 generics; 4 records; 4 inference
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Pair[A, B] = { first: A, second: B }
+
+func swap[A, B](p: Pair[A, B]): Pair[B, A] {
+  Pair{ first: p.second, second: p.first }
+}
+
+func main() {
+  var p = Pair{ first: 1, second: "a" }
+  var typed: Pair[int, string] = p
+  Expect.eq(typed.first, 1, "first is an int")
+  Expect.eq(typed.second, "a", "second is a string")
+  var s = swap(p)
+  var swapped: Pair[string, int] = s
+  Expect.eq(swapped.first, "a", "swapped first")
+  Expect.eq(swapped.second, 1, "swapped second")
+  Expect.isTrue(s == Pair{ first: "a", second: 1 }, "equal to a literal of the swapped type")
+  Expect.eq(p.first + swapped.second, 2, "type arguments are solved from the fields")
+}

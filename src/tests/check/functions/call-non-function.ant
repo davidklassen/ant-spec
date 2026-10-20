@@ -1,0 +1,10 @@
+// check
+// spec: 6 calling; 4 records; 11 math and bits
+type Point = { x: float64 }
+
+func main() {
+  (1)()        // ERROR "not callable"
+  "s"()        // ERROR "not callable"
+  Point()      // ERROR "not callable"
+  Math.PI()    // ERROR "not callable"
+}

@@ -1,0 +1,3 @@
+import "./a.ant" { value }
+
+export var twice = value * 2

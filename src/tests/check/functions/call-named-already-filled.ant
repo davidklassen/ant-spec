@@ -1,0 +1,7 @@
+// check
+// spec: 6 calling
+func f(a: int, b: int = 0): int { a + b }
+
+func main() {
+  f(1, a: 2)    // ERROR "parameter already filled"
+}

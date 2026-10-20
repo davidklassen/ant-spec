@@ -1,0 +1,9 @@
+// check
+// spec: 4 records; 12 field read (a must be a record with a field b)
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  var z = p.z              // ERROR "unknown field"
+  var ok = p.x
+}

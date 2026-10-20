@@ -1,0 +1,18 @@
+// run
+// spec: 11 Array.same; 4 records reference values; 12 equality
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var a = [1, 2]
+  var b = a
+  var c = [1, 2]
+  Expect.isTrue(Array.same(a, b), "one array under two names")
+  Expect.isFalse(Array.same(a, c), "equal contents, distinct arrays")
+  Expect.isTrue(a == c, "== compares structure")
+  Array.push(b, 3)
+  Expect.eq(a, [1, 2, 3], "a change through b shows through a")
+  Expect.isFalse(a == c, "c did not change")
+  var none1: Array[int] = []
+  var none2: Array[int] = []
+  Expect.isFalse(Array.same(none1, none2), "two empty arrays are distinct")
+}

@@ -1,0 +1,12 @@
+// check
+// spec: 4 assignability (type arguments are invariant)
+// source: spec
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func main() {
+  var circles = [Circle{ radius: 1.0 }]
+  var shapes: Array[Shape] = circles          // ERROR "not assignable"
+  var widened: Array[Shape] = [...circles]
+}

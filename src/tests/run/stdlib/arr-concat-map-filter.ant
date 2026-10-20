@@ -1,0 +1,22 @@
+// run
+// spec: 11 Array.concat, Array.map, Array.filter
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [1, 2]
+  var ys = [3]
+  var c = Array.concat(xs, ys)
+  Expect.eq(c, [1, 2, 3], "concat")
+  Expect.isFalse(Array.same(c, xs), "concat is a new array")
+  var m = Array.map(xs, { x * 10 })
+  Expect.eq(m, [10, 20], "map")
+  Expect.isFalse(Array.same(m, xs), "map is a new array")
+  var strs = Array.map(xs, { String.from(x) })
+  Expect.eq(strs, ["1", "2"], "map may change the element type")
+  var evens = Array.filter([1, 2, 3, 4], { x % 2 == 0 })
+  Expect.eq(evens, [2, 4], "filter keeps matches in order")
+  var nothing = Array.filter(xs, { x > 5 })
+  Expect.isTrue(Array.isEmpty(nothing), "filter with no match")
+  Expect.eq(xs, [1, 2], "xs untouched")
+  Expect.eq(ys, [3], "ys untouched")
+}

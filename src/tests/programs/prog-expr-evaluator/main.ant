@@ -1,0 +1,28 @@
+// program
+// spec: 4 tagged unions; 6 functions (recursion); 5 if (exhaustive is chain); 5 operators (unary -)
+// output:
+//   7
+//   14
+//   -3
+//   -10
+type Num = { value: int }
+type Add = { left: Expr, right: Expr }
+type Mul = { left: Expr, right: Expr }
+type Neg = { operand: Expr }
+type Expr = Num | Add | Mul | Neg
+
+func eval(e: Expr): int {
+  if e is Num { e.value }
+  else if e is Add { eval(e.left) + eval(e.right) }
+  else if e is Mul { eval(e.left) * eval(e.right) }
+  else if e is Neg { -eval(e.operand) }
+}
+
+func num(v: int): Expr { Num{ value: v } }
+
+func main() {
+  print(eval(num(7)))
+  print(eval(Add{ left: num(2), right: Mul{ left: num(3), right: num(4) } }))
+  print(eval(Neg{ operand: Add{ left: num(1), right: num(2) } }))
+  print(eval(Mul{ left: Neg{ operand: num(5) }, right: Add{ left: num(1), right: num(1) } }))
+}

@@ -1,0 +1,10 @@
+// check
+// spec: stdlib Json; 4 unions; 5 is; 12 index read
+func main() {
+  var j = Result.unwrap(Json.parse("{\"k\": 1}"))
+  var before = j["k"]                 // ERROR "cannot index"
+  if j is Map {
+    var after: Json | null = j["k"]
+    print(after)
+  }
+}

@@ -1,0 +1,18 @@
+// run
+// spec: 4 inference (recursion is found on demand)
+// gap: G18
+import "../../lib/expect.ant" Expect
+
+func isEven(n: int): bool {
+  if n == 0 { true } else { isOdd(n - 1) }
+}
+
+func isOdd(n: int) {
+  if n == 0 { false } else { isEven(n - 1) }       // isEven is annotated, so nothing is in progress
+}
+
+func main() {
+  Expect.isTrue(isEven(10), "even")
+  Expect.isTrue(isOdd(7), "odd")
+  Expect.isFalse(isEven(3), "not even")
+}

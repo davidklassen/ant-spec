@@ -1,0 +1,25 @@
+// run
+// spec: 8 try; 12 expressions (try)
+// source: zig:behavior/error.zig
+import "../../lib/expect.ant" Expect
+
+func half(n: int): Result[int, Error] {
+  if n % 2 != 0 { return Result.err(Error{ message: "odd" }) }
+  Result.ok(n / 2)
+}
+
+func quarter(n: int): Result[int, Error] {
+  var h = try half(n)
+  Expect.mark("half")
+  var q = try half(h)
+  Expect.mark("quarter")
+  Result.ok(q)
+}
+
+func main() {
+  var r = quarter(8)
+  Expect.eq(Expect.marks(), "half,quarter", "each try on an Ok continues the function")
+  Expect.eq(Result.unwrap(r), 2, "try yields the value inside the Ok")
+  Expect.isTrue(quarter(6) is Err, "the second half is odd")
+  Expect.eq(Expect.marks(), "half", "the second try returned at once")
+}

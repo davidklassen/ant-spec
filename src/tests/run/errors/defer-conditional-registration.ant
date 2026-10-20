@@ -1,0 +1,15 @@
+// run
+// spec: 8 defer; 12 expressions (defer registers when evaluated)
+import "../../lib/expect.ant" Expect
+
+func run(flag: bool): void {
+  if flag { defer { Expect.mark("registered") } }
+  Expect.mark("end")
+}
+
+func main() {
+  run(true)
+  Expect.eq(Expect.marks(), "registered,end", "the branch ran, so its defer was registered and ran when the branch ended")
+  run(false)
+  Expect.eq(Expect.marks(), "end", "the branch did not run, so nothing was registered")
+}

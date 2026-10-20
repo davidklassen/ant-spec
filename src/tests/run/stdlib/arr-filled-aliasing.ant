@@ -1,0 +1,13 @@
+// run
+// spec: 11 Array.filled; 4 records reference values
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var rows: Array[Array[int]] = Array.filled(2, [])
+  Expect.eq(Array.length(rows), 2, "two slots")
+  Array.push(rows[0], 1)
+  Expect.eq(rows[1], [1], "the same array sits in both slots")
+  Expect.isTrue(Array.same(rows[0], rows[1]), "identity")
+  Expect.eq(Array.filled(3, 7), [7, 7, 7], "filled with a value")
+  Expect.isTrue(Array.isEmpty(Array.filled(0, 7)), "zero count is empty")
+}

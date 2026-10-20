@@ -1,0 +1,25 @@
+// panic
+// spec: 12 deferred blocks and panics (every block being evaluated exits in turn)
+// panic: deep
+// output:
+//   d3
+//   d2
+//   d1
+//   d0
+func inner() {
+  defer { print("d2") }
+  if true {
+    defer { print("d3") }
+    panic("deep")
+  }
+}
+
+func outer() {
+  defer { print("d1") }
+  inner()
+}
+
+func main() {
+  defer { print("d0") }
+  outer()
+}

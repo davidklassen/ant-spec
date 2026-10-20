@@ -1,0 +1,22 @@
+// run
+// spec: 5 destructuring
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64, label: string }
+
+func main() {
+  var origin = Point{ x: 1.0, y: 2.0, label: "o" }
+  var { x, y } = origin
+  Expect.eq(x, 1.0, "x bound")
+  Expect.eq(y, 2.0, "y bound; label is ignored")
+
+  var { x: px } = origin
+  Expect.eq(px, 1.0, "x bound as px")
+
+  px = 9.0
+  Expect.eq(origin.x, 1.0, "assigning the binding does not write the field")
+  origin.x = 5.0
+  Expect.eq(px, 9.0, "writing the field does not change the binding")
+  Expect.eq(x, 1.0, "the earlier binding is a copy too")
+}

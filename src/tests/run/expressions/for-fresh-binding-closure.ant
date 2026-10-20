@@ -1,0 +1,17 @@
+// run
+// spec: 5 loops (each iteration binds a fresh variable); 12 names and scopes
+// source: go:test/closure3.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var fs: Array[func(): int] = []
+  for i in [1, 2, 3] { Array.push(fs, func(): int { i }) }
+  Expect.eq(fs[0](), 1, "first closure keeps 1")
+  Expect.eq(fs[1](), 2, "second closure keeps 2")
+  Expect.eq(fs[2](), 3, "third closure keeps 3")
+
+  var gs: Array[func(): int] = []
+  for i in Iter.range(10, 13) { Array.push(gs, func(): int { i * 2 }) }
+  Expect.eq(gs[0](), 20, "sequence loops bind fresh variables too")
+  Expect.eq(gs[2](), 24, "last iteration")
+}

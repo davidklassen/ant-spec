@@ -1,0 +1,24 @@
+// run
+// spec: 4 primitives (int and byte are aliases); 4 assignability; 5 is
+// gap: G48
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var a: int = 1
+  var b: int64 = a
+  var c: int = b
+  Expect.eq(c, 1, "int and int64 are one type")
+
+  var d: byte = byte(7)
+  var e: uint8 = d
+  var f: byte = e
+  Expect.eq(f, byte(7), "byte and uint8 are one type")
+
+  var v: int8 | int = int8(1)
+  Expect.isTrue(v is int8, "int8(1) is int8")
+  Expect.isFalse(v is int64, "int8(1) is not int64")
+  Expect.isFalse(v is int, "int8(1) is not int")
+  var w: int8 | int = 1
+  Expect.isTrue(w is int, "1 is int")
+  Expect.isFalse(w is int8, "1 is not int8")
+}

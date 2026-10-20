@@ -1,0 +1,13 @@
+// run
+// spec: 11 Array.flatten
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xss: Array[Array[int]] = [[1], [2, 3], []]
+  Expect.eq(Array.flatten(xss), [1, 2, 3], "one level")
+  Expect.eq(xss, [[1], [2, 3], []], "the input is untouched")
+  var deep: Array[Array[Array[int]]] = [[[1]], [[2], [3]]]
+  Expect.eq(Array.flatten(deep), [[1], [2], [3]], "deeper nesting stays nested")
+  var empty: Array[Array[int]] = []
+  Expect.isTrue(Array.isEmpty(Array.flatten(empty)), "nothing to flatten")
+}

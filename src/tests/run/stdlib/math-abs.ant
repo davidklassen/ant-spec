@@ -1,0 +1,15 @@
+// run
+// spec: 11 Math.abs; 4 primitives IEEE 754
+// gap: G56
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(Math.abs(-5), 5, "negative int")
+  Expect.eq(Math.abs(5), 5, "positive int")
+  Expect.eq(Math.abs(0), 0, "zero")
+  Expect.eq(Math.abs(int8(-5)), int8(5), "int8")
+  Expect.eq(Math.abs(-2.5), 2.5, "negative float")
+  Expect.eq(Math.abs(2.5), 2.5, "positive float")
+  Expect.eq(1.0 / Math.abs(-0.0), 1.0 / 0.0, "abs of -0.0 is +0.0")
+  Expect.eq(Math.abs(-1.0 / 0.0), 1.0 / 0.0, "abs of negative infinity")
+}

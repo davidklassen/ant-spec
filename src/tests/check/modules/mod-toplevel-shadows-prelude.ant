@@ -1,0 +1,7 @@
+// check
+// spec: 10 modules (prelude names count as imports in every module); 11 prelude
+func print(s: string): void {}    // ERROR "redeclared"
+var Array = 1                     // ERROR "redeclared"
+type Error = {}                   // ERROR "redeclared"
+
+func main() {}

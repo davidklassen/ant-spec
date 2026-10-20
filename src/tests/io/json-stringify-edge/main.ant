@@ -1,0 +1,21 @@
+// io
+// spec: stdlib Json; 11 String.from
+// gap: G33, G39, G45
+import "../../lib/expect.ant" Expect
+
+func double(n: int): int { n * 2 }
+
+func main() {
+  var nan = 0.0 / 0.0
+  var inf = 1.0 / 0.0
+  Expect.eq(Json.stringify(nan), "null", "NaN")
+  Expect.eq(Json.stringify(inf), "null", "Infinity")
+  Expect.eq(Json.stringify(-inf), "null", "-Infinity")
+  Expect.eq(Json.stringify(double), "null", "a function")
+  Expect.eq(Json.stringify(int8(5)), "5", "a sized int is a number")
+  Expect.eq(Json.stringify(7), "7", "an int is a number")
+  Expect.eq(Json.stringify(1.5), "1.5", "a float")
+  Expect.eq(Json.stringify(null), "null", "null")
+  Expect.eq(Json.stringify("s"), "\"s\"", "a string is quoted")
+  Expect.eq(Json.stringify(Map{ 1: "one" }), "{\"1\":\"one\"}", "map keys through String.from")
+}

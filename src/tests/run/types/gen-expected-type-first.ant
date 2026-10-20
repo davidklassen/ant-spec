@@ -1,0 +1,26 @@
+// run
+// spec: 4 inference (a generic call solves from the expected type first)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type NotFound = { id: int }
+type Insufficient = { needed: float64 }
+type TransferError = NotFound | Insufficient
+
+func validate(id: int): Result[void, TransferError] {
+  if id < 0 { return Result.err(NotFound{ id }) }    // E = TransferError from the return type
+  Result.ok(void)
+}
+
+func main() {
+  var r: Result[void, TransferError] = Result.err(NotFound{ id: 1 })
+  Expect.isFalse(Result.isOk(r), "err")
+  if r is Err {
+    var e = r.error                                   // TransferError, not NotFound
+    Expect.isTrue(e is NotFound, "E widened to TransferError")
+    if e is NotFound { Expect.eq(e.id, 1, "payload") }
+  }
+  var bad = validate(-1)
+  Expect.isTrue(bad is Err, "return position")
+  Expect.isTrue(validate(1) is Ok, "ok(void)")
+}

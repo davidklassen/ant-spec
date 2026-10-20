@@ -1,0 +1,17 @@
+// run
+// spec: 11 Iter; 6 closures
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var calls = 0
+  var doubled = Iter.map(Iter.range(0, 3), { calls += 1; x * 2 })
+  Expect.eq(calls, 0, "map does not run the source")
+  var kept = Iter.filter(doubled, { x > 0 })
+  Expect.eq(calls, 0, "filter does not run the source")
+  Expect.eq(Iter.toArray(kept), [2, 4], "toArray runs it")
+  Expect.eq(calls, 3, "the mapper ran once per element")
+  var xs = [1]
+  var s = Iter.fromArray(xs)
+  Array.push(xs, 2)
+  Expect.eq(Iter.toArray(s), [1, 2], "fromArray reads the array when run")
+}

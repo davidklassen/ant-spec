@@ -1,0 +1,12 @@
+// unchecked
+// spec: 12 is (any other path must evaluate to a tag; the test is whether a carries that tag); 4 type declarations
+// gap: G17
+type Circle = { radius: float64 }
+type Rect = { width: float64 }
+type Shape = Circle | Rect
+
+func main() {
+  var x: Shape = Circle{ radius: 1.0 }
+  if x is Shape { panic("the alias tag is not the record's tag") }   // ERROR "not a record type"
+  if !(x is Circle) { panic("Circle tag expected") }
+}

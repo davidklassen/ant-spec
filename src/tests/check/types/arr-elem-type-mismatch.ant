@@ -1,0 +1,8 @@
+// check
+// spec: 4 arrays and maps; 4 assignability; 4 inference (element types of an expected array)
+func main() {
+  var xs: Array[int] = [1, "a"]            // ERROR "not assignable"
+  var ys: Array[int] = [1, 2]
+  Array.push(ys, "b")                      // ERROR "not assignable"
+  var zs: Array[float64] = [1]             // ERROR "not assignable"
+}

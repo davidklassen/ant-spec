@@ -1,0 +1,16 @@
+// run
+// spec: 6 anonymous functions; 6 closures and first-class values; 12 expressions (return)
+import "../../lib/expect.ant" Expect
+
+func viaLambda(): int {
+  var clampNeg: func(int): int = { if x < 0 { return 0 }; x }
+  clampNeg(-5) + clampNeg(7) + 100
+}
+
+func main() {
+  var clampNeg: func(int): int = { if x < 0 { return 0 }; x }
+  Expect.eq(clampNeg(-5), 0, "return leaves the lambda early")
+  Expect.eq(clampNeg(7), 7, "otherwise the last expression")
+  Expect.eq(viaLambda(), 107, "return in the lambda does not leave the enclosing function")
+  Expect.eq(Array.map([-1, 2, -3], { if x < 0 { return 0 }; x }), [0, 2, 0], "inside a map")
+}

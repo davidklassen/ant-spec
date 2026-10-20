@@ -1,0 +1,20 @@
+// run
+// spec: 4 records (reference values); 12 values
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func bump(p: Point) { p.x += 1.0 }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  var q = p
+  q.x = 5.0
+  Expect.eq(p.x, 5.0, "one record under two names")
+  bump(p)
+  Expect.eq(q.x, 6.0, "mutation through a parameter is visible to the caller")
+  Expect.isTrue(Record.same(p, q), "both names refer to one record")
+  var xs = [p]
+  xs[0].y = 0.0
+  Expect.eq(p.y, 0.0, "mutation through an array element")
+}

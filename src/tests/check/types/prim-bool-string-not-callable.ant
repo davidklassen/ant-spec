@@ -1,0 +1,8 @@
+// check
+// spec: 4 primitives (bool and string are not callable)
+// gap: G8
+func main() {
+  var a = bool(1)          // ERROR "not callable"
+  var b = string(1)        // ERROR "not callable"
+  var ok = String.from(1)
+}

@@ -1,0 +1,10 @@
+// panic
+// spec: 11 Array (indices run from 0 up to but excluding the length); 12 index read; 12 runtime panics
+// panic: index out of range
+// output:
+//   before
+func main() {
+  var xs = [1, 2, 3]
+  print("before")
+  print(xs[-1])
+}

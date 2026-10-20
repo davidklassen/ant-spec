@@ -1,0 +1,18 @@
+// run
+// spec: 5 loops (sequences); 12 expressions (for over a function)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var seq = func(yield: func(int): bool) {
+    Expect.mark(`first=${yield(1)}`)
+    Expect.mark(`second=${yield(2)}`)
+    Expect.mark("seq-end")
+  }
+  for n in seq {
+    Expect.mark(`body${n}`)
+    if n == 2 { break }
+  }
+  Expect.mark("after")
+  Expect.eq(Expect.marks(), "body1,first=true,body2,second=false,seq-end,after",
+    "yield returns true, then false after break, and the sequence returns")
+}

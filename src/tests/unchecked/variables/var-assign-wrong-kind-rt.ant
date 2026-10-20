@@ -1,0 +1,11 @@
+// unchecked
+// spec: 3 variables; 12 assignment; 12 runtime panics
+// panic: kind mismatch
+// output:
+//   assigned
+func main() {
+  var n = 1
+  n = 2.5                        // ERROR "not assignable"
+  print("assigned")
+  var m = n + 1
+}

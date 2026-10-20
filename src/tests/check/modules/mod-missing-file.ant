@@ -1,0 +1,6 @@
+// check
+// spec: 10 modules (the path is a file path relative to the importing file)
+// gap: G32
+import "./nope.ant" N    // ERROR "not found"
+
+func main() {}

@@ -1,0 +1,24 @@
+// run
+// spec: 11 Map.map, Map.filter, Map.merge
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m = Map{ "a": 1, "b": 2 }
+  var tens = Map.map(m, { x.value * 10 })
+  Expect.eq(Map.get(tens, "a") ?? 0, 10, "map applies f to each entry")
+  Expect.eq(Map.size(tens), 2, "map keeps every key")
+  Expect.isFalse(Map.same(tens, m), "map returns a new map")
+  var labels = Map.map(m, { `${x.key}${x.value}` })
+  Expect.eq(Map.get(labels, "b") ?? "", "b2", "map sees the key")
+  var big = Map.filter(m, { x.value > 1 })
+  Expect.eq(Map.size(big), 1, "filter drops entries")
+  Expect.isTrue(Map.has(big, "b"), "filter keeps matches")
+  var n = Map{ "b": 20, "c": 30 }
+  var r = Map.merge(m, n)
+  Expect.eq(Map.size(r), 3, "merge unions the keys")
+  Expect.eq(Map.get(r, "b") ?? 0, 20, "entries of n win")
+  Expect.eq(Map.get(r, "a") ?? 0, 1, "entries only in m are kept")
+  Expect.isFalse(Map.same(r, m), "merge returns a new map")
+  Expect.eq(m, Map{ "a": 1, "b": 2 }, "m untouched")
+  Expect.eq(n, Map{ "b": 20, "c": 30 }, "n untouched")
+}

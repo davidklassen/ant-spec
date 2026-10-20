@@ -1,0 +1,22 @@
+// run
+// spec: 8 try; 7 nullability
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func nameLength(u: User | null): int | null {
+  var v = try u
+  String.length(v.name)
+}
+
+func doubledFirst(xs: Array[int]): int | null {
+  var first = try Array.get(xs, 0)
+  first * 2
+}
+
+func main() {
+  Expect.eq(nameLength(User{ name: "ada" }), 3, "try unwraps a non-null value")
+  Expect.isNull(nameLength(null), "try on null returns null")
+  Expect.eq(doubledFirst([21]), 42, "found")
+  Expect.isNull(doubledFirst([]), "absent")
+}

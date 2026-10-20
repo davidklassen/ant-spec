@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (field read); 12 runtime panics
+// panic: not a record
+func main() {
+  var n = "s".length    // ERROR "unknown field"
+}

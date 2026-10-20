@@ -1,0 +1,23 @@
+// run
+// spec: 5 operators (precedence table); 5 is
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Empty = {}
+type Shape = Circle | Rect | Empty
+
+func main() {
+  Expect.isTrue(1 < 2 == true, "comparison binds tighter than equality")
+  Expect.isTrue(1 + 1 == 2, "additive binds tighter than equality")
+  var a = 1
+  var b = 1
+  var c = true
+  Expect.isTrue((a == b) == c, "parenthesized equality compared to a bool")
+  Expect.isTrue(a == b == c, "equality is left associative")
+
+  var x: Shape = Rect{ width: 1.0, height: 2.0 }
+  Expect.isTrue(!(x is Circle), "!(x is Circle)")
+  Expect.isTrue(x is Circle || x is Rect, "is binds tighter than ||")
+  Expect.isTrue(!(x is Circle) && x is Rect, "! and is bind tighter than &&")
+}

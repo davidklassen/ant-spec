@@ -1,0 +1,15 @@
+// check
+// spec: 5 if (an explicit else after a complete chain of is tests cannot run); 4 tagged unions
+type Circle = { radius: float64 }
+type Empty = {}
+type Shape = Circle | Empty
+
+func area(s: Shape): float64 {
+  if s is Circle { s.radius * s.radius }
+  else if s is Empty { 0.0 }
+  else { 1.0 }                   // ERROR "unreachable"
+}
+
+func main() {
+  area(Empty{})
+}

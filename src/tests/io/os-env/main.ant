@@ -1,0 +1,10 @@
+// io
+// spec: stdlib Os; 7 nullability
+// env: ANT_TEST_VALUE=hello
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var set = Expect.notNull(Os.env("ANT_TEST_VALUE"), "a set variable is not null")
+  Expect.eq(set, "hello", "a set variable gives its value")
+  Expect.isNull(Os.env("ANT_SURELY_UNSET_123"), "an unset variable is null")
+}

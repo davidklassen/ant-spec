@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 expressions (field read); 12 values (tag); 12 runtime panics
+// gap: G54
+// panic: not a record
+type Point = { x: float64 }
+
+func main() {
+  var v = Point.x    // ERROR
+}

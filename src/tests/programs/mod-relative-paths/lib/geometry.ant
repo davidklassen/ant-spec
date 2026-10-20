@@ -1,0 +1,5 @@
+export type Point = { x: float64, y: float64 }
+
+export func distance(a: Point, b: Point): float64 {
+  Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
+}

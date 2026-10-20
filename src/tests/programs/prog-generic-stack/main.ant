@@ -1,0 +1,36 @@
+// program
+// spec: 4 generics; 8 Result; 11 Array (push, pop); 7 nullability
+// gap: G34
+// output:
+//   popped 3
+//   popped 2
+//   popped 1
+//   empty
+//   popped b
+type Stack[T] = { items: Array[T] }
+type Empty = {}
+
+func push[T](s: Stack[T], v: T): void { Array.push(s.items, v) }
+
+func pop[T](s: Stack[T]): Result[T, Empty] {
+  var v = Array.pop(s.items)
+  if v == null { Result.err(Empty{}) } else { Result.ok(v) }
+}
+
+func show[T](r: Result[T, Empty]): string {
+  if r is Ok { `popped ${r.value}` } else { "empty" }
+}
+
+func main() {
+  var s: Stack[int] = Stack{ items: [] }
+  push(s, 1)
+  push(s, 2)
+  push(s, 3)
+  print(show(pop(s)))
+  print(show(pop(s)))
+  print(show(pop(s)))
+  print(show(pop(s)))
+  var names: Stack[string] = Stack{ items: ["a"] }
+  push(names, "b")
+  print(show(pop(names)))
+}

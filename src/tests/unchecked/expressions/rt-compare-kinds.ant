@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (comparison); 12 runtime panics
+// panic: kind mismatch
+func main() {
+  var b = 1 < "a"             // ERROR "mismatched operand types"
+}

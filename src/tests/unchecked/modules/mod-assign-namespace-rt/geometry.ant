@@ -1,0 +1,3 @@
+export var counter = 0
+
+export func read(): int { counter }

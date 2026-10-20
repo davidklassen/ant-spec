@@ -1,0 +1,18 @@
+// run
+// spec: 11 Math and Bits (two's complement, never panics); 5 operators
+// source: zig:behavior/math.zig
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var max = 9223372036854775807
+  var min = -9223372036854775807 - 1
+  Expect.eq(Bits.wrapAdd(max, 1), min, "wrapAdd past max wraps to min")
+  Expect.eq(Bits.wrapSub(min, 1), max, "wrapSub below min wraps to max")
+  Expect.eq(Bits.wrapAdd(1, 2), 3, "wrapAdd without overflow")
+
+  Expect.eq(Bits.wrapSub(uint8(0), uint8(1)), uint8(255), "unsigned wrapSub below zero")
+  Expect.eq(Bits.wrapAdd(uint8(255), uint8(1)), uint8(0), "unsigned wrapAdd past max")
+  Expect.eq(Bits.wrapMul(int32(65536), int32(65536)), int32(0), "wrapMul drops the high bits")
+  Expect.eq(Bits.wrapMul(int8(16), int8(16)), int8(0), "int8 wrapMul")
+  Expect.eq(Bits.wrapMul(uint8(16), uint8(17)), uint8(16), "uint8 wrapMul")
+}

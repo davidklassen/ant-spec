@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (record literal); 10 modules (a namespace is a record); 12 runtime panics
+// panic: not a tag
+func main() {
+  var r = Math{}    // ERROR "not a record type"
+}

@@ -1,0 +1,21 @@
+// io
+// spec: stdlib Json; 4 records; 11 String.from
+// gap: G33, G39, G45
+// output:
+//   {"x":1.0,"y":2.0}
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var text = Json.stringify(Point{ x: 1.0, y: 2.0 })
+  print(text)
+  Expect.isFalse(String.contains(text, "Point"), "the tag is not in the output")
+  var back = Result.unwrap(Json.parse(text))
+  if back is Map {
+    Expect.eq(Map.size(back), 2, "an object with the two fields")
+    Expect.eq(back["x"], 1.0, "x")
+    Expect.eq(back["y"], 2.0, "y")
+  }
+  else { Expect.fail("a record does not stringify to an object") }
+}

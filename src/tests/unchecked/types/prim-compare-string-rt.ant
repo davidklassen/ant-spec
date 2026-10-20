@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 comparison (both operands numbers of the same kind, or two strings); 12 runtime panics
+// panic: kind mismatch
+// output:
+//   before
+func main() {
+  print("before")
+  var b = 1 < "a"          // ERROR "mismatched operand types"
+}

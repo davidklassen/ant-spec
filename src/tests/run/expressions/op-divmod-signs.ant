@@ -1,0 +1,20 @@
+// run
+// spec: 5 operators (/ truncates toward zero, % takes the sign of the dividend); 12 expressions (arithmetic)
+// source: go:test/divmod.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(7 / 2, 3, "7 / 2")
+  Expect.eq(-7 / 2, -3, "-7 / 2 truncates toward zero")
+  Expect.eq(7 / -2, -3, "7 / -2 truncates toward zero")
+  Expect.eq(-7 / -2, 3, "-7 / -2")
+
+  Expect.eq(7 % 2, 1, "7 % 2")
+  Expect.eq(-7 % 2, -1, "-7 % 2 takes the sign of the dividend")
+  Expect.eq(7 % -2, 1, "7 % -2 takes the sign of the dividend")
+  Expect.eq(-7 % -2, -1, "-7 % -2")
+
+  Expect.eq(int8(-7) / int8(2), int8(-3), "int8 division")
+  Expect.eq(int8(-7) % int8(2), int8(-1), "int8 remainder")
+  Expect.eq(uint8(7) / uint8(2), uint8(3), "uint8 division")
+}

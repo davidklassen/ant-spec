@@ -1,0 +1,17 @@
+// run
+// spec: 6 anonymous functions; 12 expressions (call)
+import "../../lib/expect.ant" Expect
+
+func twice(f: func(): int): int { f() + f() }
+
+func main() {
+  var make: func(): int = { 21 }
+  Expect.eq(make(), 21, "called with no argument")
+  Expect.eq(twice({ 21 }), 42, "passed where func(): int is expected")
+
+  var n = 0
+  var bump: func(): void = { n += 1 }
+  bump()
+  bump()
+  Expect.eq(n, 2, "a zero-argument lambda with a side effect")
+}

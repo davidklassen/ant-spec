@@ -1,0 +1,15 @@
+// run
+// spec: 11 Map.same; 4 records reference values; 12 equality
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var a = Map{ "k": 1 }
+  var b = a
+  var c = Map{ "k": 1 }
+  Expect.isTrue(Map.same(a, b), "one map under two names")
+  Expect.isFalse(Map.same(a, c), "equal contents, distinct maps")
+  Expect.isTrue(a == c, "== compares structure")
+  b["j"] = 2
+  Expect.eq(Map.size(a), 2, "a change through b shows through a")
+  Expect.isFalse(a == c, "c did not change")
+}

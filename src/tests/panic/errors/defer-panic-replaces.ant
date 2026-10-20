@@ -1,0 +1,14 @@
+// panic
+// spec: 12 deferred blocks and panics (a panic inside a deferred block replaces the one in progress)
+// gap: G59
+// panic: replacement
+// output:
+//   body
+//   second
+//   first
+func main() {
+  defer { print("first") }
+  defer { print("second"); panic("replacement") }
+  print("body")
+  panic("original")
+}

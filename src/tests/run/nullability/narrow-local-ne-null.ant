@@ -1,0 +1,20 @@
+// run
+// spec: 7 nullability
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func main() {
+  var user: User | null = User{ name: "ada" }
+  if user != null {
+    Expect.eq(user.name, "ada", "user is a User inside the branch")
+  }
+  var label = if user != null { user.name } else { "nobody" }
+  Expect.eq(label, "ada", "narrowed in the then branch of an if expression")
+
+  var none: User | null = null
+  var entered = false
+  if none != null { entered = true }
+  Expect.isFalse(entered, "the branch is skipped for null")
+}

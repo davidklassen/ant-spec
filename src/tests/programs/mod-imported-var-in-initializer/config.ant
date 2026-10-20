@@ -1,0 +1,2 @@
+export var base = 10
+export var scale = 3

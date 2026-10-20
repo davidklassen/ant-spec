@@ -1,0 +1,4 @@
+// round.ant: tests the tag under local aliases.
+import "./shapes.ant" { Circle: Disc, Shape: Figure }
+
+export func isRound(s: Figure): bool { s is Disc }

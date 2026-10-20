@@ -1,0 +1,23 @@
+// run
+// spec: 11 Map.size, Map.isEmpty, Map.has, Map.get; 4 arrays and maps
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m = Map{ "a": 1, "b": 2 }
+  var e: Map[string, int] = Map{}
+  Expect.eq(Map.size(m), 2, "size")
+  Expect.eq(Map.size(e), 0, "empty size")
+  Expect.isFalse(Map.isEmpty(m), "not empty")
+  Expect.isTrue(Map.isEmpty(e), "empty")
+  Expect.isTrue(Map.has(m, "a"), "has")
+  Expect.isFalse(Map.has(m, "z"), "has not")
+  Expect.eq(Map.get(m, "a") ?? 0, 1, "get")
+  Expect.isNull(Map.get(m, "z"), "get of a missing key is null")
+  Expect.eq(m["b"] ?? 0, 2, "m[k] reads V | null")
+  var n: Map[string, int | null] = Map{ "k": null }
+  Expect.isTrue(Map.has(n, "k"), "has tells a stored null from a missing key")
+  Expect.isNull(Map.get(n, "k"), "stored null")
+  Expect.isFalse(Map.has(n, "j"), "missing key")
+  var byArray = Map{ [1, 2]: "x" }
+  Expect.eq(Map.get(byArray, [1, 2]) ?? "", "x", "keys compare by ==")
+}

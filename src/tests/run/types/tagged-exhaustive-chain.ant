@@ -1,0 +1,24 @@
+// run
+// spec: 4 tagged unions (exhaustiveness); 5 if
+// gap: G57
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Empty = {}
+type Shape = Circle | Rect | Empty
+
+func area(s: Shape): float64 {
+  if s is Circle { 3.0 * s.radius * s.radius }
+  else if s is Rect { s.width * s.height }
+  else if s is Empty { 0.0 }
+}
+
+func main() {
+  Expect.eq(area(Circle{ radius: 2.0 }), 12.0, "circle")
+  Expect.eq(area(Rect{ width: 2.0, height: 3.5 }), 7.0, "rect")
+  Expect.eq(area(Empty{}), 0.0, "empty")
+  var total: float64 = area(Circle{ radius: 1.0 }) + area(Empty{})
+  Expect.eq(total, 3.0, "every branch yields a float64")
+}

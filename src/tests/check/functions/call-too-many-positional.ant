@@ -1,0 +1,12 @@
+// check
+// spec: 6 calling; 6 anonymous functions
+func f(a: int): int { a }
+
+func g(): int { 0 }
+
+func main() {
+  f(1, 2)    // ERROR "too many arguments"
+  g(1)       // ERROR "too many arguments"
+  var l: func(int): int = { x }
+  l(1, 2)    // ERROR "too many arguments"
+}

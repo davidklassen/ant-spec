@@ -1,0 +1,34 @@
+// run
+// spec: 5 loops (break and continue, loops have type void); 12 expressions (break, continue)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var out: Array[string] = []
+  for i in [1, 2, 3] {
+    for j in [1, 2, 3] {
+      if j == 2 { break }
+      Array.push(out, `${i}${j}`)
+    }
+    Array.push(out, "-")
+  }
+  Expect.eq(out, ["11", "-", "21", "-", "31", "-"], "break leaves only the innermost loop")
+
+  var odds: Array[int] = []
+  for i in [1, 2, 3, 4, 5] {
+    if i % 2 == 0 { continue }
+    Array.push(odds, i)
+  }
+  Expect.eq(odds, [1, 3, 5], "continue skips the rest of the body")
+
+  var n = 0
+  while true {
+    n += 1
+    if n == 3 { break }
+  }
+  Expect.eq(n, 3, "break leaves a while")
+
+  var k = 0
+  Expect.isTrue((for x in [1, 2] { k += x }) == void, "a for loop is void")
+  Expect.isTrue((while k < 10 { k += 1 }) == void, "a while loop is void")
+  Expect.eq(k, 10, "the loops ran")
+}

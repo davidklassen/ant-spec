@@ -1,0 +1,9 @@
+// check
+// spec: 4 records (a literal lists exactly the fields of its named type)
+// source: spec
+type Named = { name: string }
+
+func main() {
+  var n = Named{ name: "ada", age: 36 }    // ERROR "unknown field"
+  var ok = Named{ name: "ada" }
+}

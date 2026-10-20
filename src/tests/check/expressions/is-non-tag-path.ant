@@ -1,0 +1,7 @@
+// check
+// spec: 5 is (T is a type name)
+func main() {
+  var n = 5
+  var x: int | string = 1
+  var t = x is n              // ERROR "not a type name"
+}

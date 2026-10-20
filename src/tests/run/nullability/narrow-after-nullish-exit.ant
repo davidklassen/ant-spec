@@ -1,0 +1,15 @@
+// run
+// spec: 7 nullability
+import "../../lib/expect.ant" Expect
+
+type User = { name: string }
+
+func nameOf(u: User | null): string | null {
+  var v = u ?? return null
+  v.name
+}
+
+func main() {
+  Expect.eq(nameOf(User{ name: "ada" }), "ada", "v is a User after ?? return")
+  Expect.isNull(nameOf(null), "null returns early")
+}

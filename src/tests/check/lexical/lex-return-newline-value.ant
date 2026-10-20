@@ -1,0 +1,11 @@
+// check
+// spec: 2 line endings; 5 return; 4 assignability
+// gap: G46
+func pick(): int {
+  return                         // ERROR "not assignable"
+  1
+}
+
+func main() {
+  print(pick())
+}

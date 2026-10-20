@@ -1,0 +1,13 @@
+// run
+// spec: 11 Map.fromEntries; 11 prelude Entry
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m = Map.fromEntries([Entry{ key: "a", value: 1 }, Entry{ key: "b", value: 2 }, Entry{ key: "a", value: 3 }])
+  Expect.eq(Map.size(m), 2, "duplicate keys collapse")
+  Expect.eq(Map.get(m, "a") ?? 0, 3, "the later entry wins")
+  Expect.eq(Map.get(m, "b") ?? 0, 2, "other keys kept")
+  var none: Array[Entry[string, int]] = []
+  Expect.isTrue(Map.isEmpty(Map.fromEntries(none)), "no entries")
+  Expect.eq(Map.fromEntries(Map.entries(m)), m, "entries round-trip")
+}

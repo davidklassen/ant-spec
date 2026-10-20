@@ -1,0 +1,8 @@
+// panic
+// spec: 5 operators (division by zero panics for integers); 12 runtime panics
+// panic: division by zero
+func div(a: int, b: int): int { a / b }
+
+func main() {
+  div(1, 0)
+}

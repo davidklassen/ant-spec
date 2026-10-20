@@ -1,0 +1,42 @@
+// run
+// spec: 12 values; 4 records (reference values)
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func grow(xs: Array[int]) { Array.push(xs, 0) }
+
+func main() {
+  var xs = [1, 2]
+  var ys = xs
+  Array.push(ys, 3)
+  Expect.eq(Array.length(xs), 3, "an array is shared by assignment")
+  grow(xs)
+  Expect.eq(Array.length(ys), 4, "an array is shared by a call")
+  Expect.isTrue(Array.same(xs, ys), "one array under two names")
+
+  var m = Map{ a: 1 }
+  var n = m
+  n["b"] = 2
+  Expect.eq(Map.size(m), 2, "a map is shared")
+  Expect.isTrue(Map.same(m, n), "one map under two names")
+
+  var p = Point{ x: 1.0, y: 2.0 }
+  var q = p
+  q.x = 5.0
+  Expect.eq(p.x, 5.0, "a record is shared")
+  Expect.same(p, q, "one record under two names")
+
+  var f = func() { 1 }
+  var g = f
+  Expect.isTrue(f == g, "a function is shared; == on functions is identity")
+
+  var s = "ant"
+  var t = s
+  t = t + "s"
+  Expect.eq(s, "ant", "a string is immutable: the copy was rebound, not the original")
+  var i = 1
+  var j = i
+  j += 1
+  Expect.eq(i, 1, "a number is immutable: compound assignment rebinds the copy")
+}

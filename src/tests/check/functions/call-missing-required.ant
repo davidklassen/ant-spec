@@ -1,0 +1,8 @@
+// check
+// spec: 6 calling
+func f(a: int, b: int): int { a + b }
+
+func main() {
+  f(1)       // ERROR "missing argument"
+  f(b: 2)    // ERROR "missing argument"
+}

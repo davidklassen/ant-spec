@@ -1,0 +1,19 @@
+// run
+// spec: 11 String.length, String.isEmpty, String.chars; 4 primitives string
+// source: go:test/utf.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.length("héllo"), 5, "code points, not bytes")
+  Expect.eq(String.length(""), 0, "empty")
+  var family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}"
+  Expect.eq(String.length(family), 5, "a ZWJ sequence counts each code point")
+  Expect.eq(String.length("\u{1F600}"), 1, "a non-BMP character is one code point")
+  Expect.isTrue(String.isEmpty(""), "isEmpty")
+  Expect.isFalse(String.isEmpty(" "), "a space is not empty")
+  Expect.eq(String.chars("héllo"), ["h", "é", "l", "l", "o"], "chars splits by code point")
+  var parts = String.chars(family)
+  Expect.eq(Array.length(parts), 5, "chars of the ZWJ sequence")
+  Expect.eq(parts[2], "\u{1F469}", "each part is one code point")
+  Expect.isTrue(Array.isEmpty(String.chars("")), "chars of empty")
+}

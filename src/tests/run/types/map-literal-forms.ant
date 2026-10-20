@@ -1,0 +1,25 @@
+// run
+// spec: 4 arrays and maps (map literal keys); 12 map literal
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var ages = Map{ ada: 36, linus: 54 }
+  Expect.eq(ages["ada"], 36, "an identifier key is the string of its name")
+  Expect.eq(Map.size(ages), 2, "two entries")
+
+  var name = "linus"
+  var byVar = Map{ (name): 1 }
+  Expect.eq(byVar["linus"], 1, "a parenthesized identifier is the variable")
+  Expect.isNull(byVar["name"], "and not the string of its name")
+
+  var nums = Map{ 7: "seven" }
+  Expect.eq(nums[7], "seven", "a non-string key")
+
+  var short = Map{ name }
+  Expect.eq(short["name"], "linus", "shorthand: the key is the name, the value the variable")
+
+  var empty: Map[string, int] = Map{}
+  Expect.eq(Map.size(empty), 0, "an annotated empty map")
+  Expect.isTrue(Map.isEmpty(empty), "is empty")
+}

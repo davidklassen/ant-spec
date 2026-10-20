@@ -1,0 +1,13 @@
+// run
+// spec: 4 primitives (float-to-int truncates toward zero); 12 conversion
+// gap: G38
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(int(3.9), 3, "truncates toward zero")
+  Expect.eq(int(-3.9), -3, "negative values truncate toward zero")
+  Expect.eq(int(1.5), 1, "a half truncates")
+  Expect.eq(int(0.999), 0, "below one")
+  Expect.eq(int8(-7.9), int8(-7), "a sized target truncates too")
+  Expect.eq(uint8(255.9), uint8(255), "the truncated value is what must fit")
+}

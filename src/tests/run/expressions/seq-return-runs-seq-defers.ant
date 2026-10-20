@@ -1,0 +1,28 @@
+// run
+// spec: 5 loops (sequences); 8 defer; 12 deferred blocks and panics
+// gap: G25
+import "../../lib/expect.ant" Expect
+
+func seq(yield: func(int): bool) {
+  defer { Expect.mark("seq-defer") }
+  var i = 0
+  while i < 5 {
+    if !yield(i) { return }
+    i += 1
+  }
+}
+
+func find(): int {
+  for n in seq {
+    if n == 1 { Expect.mark("found"); return n }
+  }
+  -1
+}
+
+func main() {
+  Expect.eq(find(), 1, "returned from the body")
+  Expect.eq(Expect.marks(), "found,seq-defer", "the sequence's defer ran as the return unwound it")
+
+  for n in seq { if n == 1 { break } }
+  Expect.eq(Expect.marks(), "seq-defer", "break lets the sequence return, running its defer")
+}

@@ -1,0 +1,24 @@
+// run
+// spec: 11 synchronization Atomic; 12 equality (records compare structurally)
+// gap: G40
+import "../../lib/expect.ant" Expect
+
+type Point = { x: int, y: int }
+
+func main() {
+  var a = Atomic.new(10)
+  Expect.eq(Atomic.load(a), 10, "load after new")
+  Atomic.store(a, 20)
+  Expect.eq(Atomic.load(a), 20, "load after store")
+  Expect.eq(Atomic.add(a, 5), 25, "add returns the new value")
+  Expect.eq(Atomic.load(a), 25, "add stored the new value")
+  Expect.isFalse(Atomic.compareAndSwap(a, 99, 1), "cas fails when expected differs")
+  Expect.eq(Atomic.load(a), 25, "a failed cas leaves the value alone")
+  Expect.isTrue(Atomic.compareAndSwap(a, 25, 1), "cas succeeds on ==")
+  Expect.eq(Atomic.load(a), 1, "a successful cas stores v")
+
+  var p = Atomic.new(Point{ x: 1, y: 2 })
+  var swapped = Atomic.compareAndSwap(p, Point{ x: 1, y: 2 }, Point{ x: 0, y: 0 })
+  Expect.isTrue(swapped, "an equal but distinct record matches, since cas compares with ==")
+  Expect.eq(Atomic.load(p), Point{ x: 0, y: 0 }, "the record swap took effect")
+}

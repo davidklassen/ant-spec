@@ -1,0 +1,14 @@
+// io
+// spec: stdlib Time
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isTrue(Time.now() > 1577836800000, "now is after 2020-01-01 in milliseconds")
+  var a = Time.monotonic()
+  var b = Time.monotonic()
+  Expect.isTrue(b >= a, "monotonic never decreases")
+  Time.sleep(50)
+  var c = Time.monotonic()
+  Expect.isTrue(c >= b, "monotonic never decreases across a sleep")
+  Expect.isTrue(c - a >= 50, "sleep(50) advances monotonic by at least 50")
+}

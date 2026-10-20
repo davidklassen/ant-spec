@@ -1,0 +1,9 @@
+// program
+// spec: 10 modules (the exit status is zero when main returns)
+// exit: 0
+import "./work.ant" { finish }
+
+func main() {
+  if finish() { return }
+  panic("return did not end main")
+}

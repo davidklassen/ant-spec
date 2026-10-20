@@ -1,0 +1,8 @@
+// check
+// spec: 11 Map (m[k] takes a K); 4 assignability
+func main() {
+  var m = Map{ a: 1 }
+  var v = m[1]             // ERROR "not assignable"
+  m[true] = 2              // ERROR "not assignable"
+  var ok = m["a"]
+}

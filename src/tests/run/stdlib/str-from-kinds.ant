@@ -1,0 +1,26 @@
+// run
+// spec: 11 String.from; 12 values
+// gap: G33, G54
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func id(n: int): int { n }
+
+func main() {
+  Expect.eq(String.from(42), "42", "int")
+  Expect.eq(String.from(-42), "-42", "negative int")
+  Expect.eq(String.from(int8(-5)), "-5", "sized int")
+  Expect.eq(String.from(1.5), "1.5", "float")
+  Expect.eq(String.from(true), "true", "bool")
+  Expect.eq(String.from(null), "null", "null")
+  Expect.eq(String.from(void), "void", "void")
+  Expect.eq(String.from("s"), "s", "a string is bare")
+  Expect.eq(String.from([1, 2]), "[1, 2]", "array")
+  Expect.eq(String.from(["a"]), "[\"a\"]", "a string inside an array is quoted")
+  Expect.eq(String.from(Point{ x: 1.0, y: 2.0 }), "Point{ x: 1.0, y: 2.0 }", "record")
+  Expect.eq(String.from(Map{ "a": 1 }), "Map{ \"a\": 1 }", "map with one entry")
+  Expect.eq(String.from(id), "func", "function")
+  Expect.eq(String.from(Point), "Point", "tag")
+  Expect.eq(String.from(Mutex.new()), "Mutex", "sync object")
+}

@@ -1,0 +1,17 @@
+// run
+// spec: 5 operators (??); 12 expressions (??)
+import "../../lib/expect.ant" Expect
+
+func pick(a: int | null, b: int | null, c: int): int {
+  a ?? b ?? c
+}
+
+func main() {
+  Expect.eq(pick(1, 2, 3), 1, "first non-null")
+  Expect.eq(pick(null, 2, 3), 2, "second when the first is null")
+  Expect.eq(pick(null, null, 3), 3, "third when both are null")
+
+  var a: int | null = null
+  var b: int | null = 2
+  Expect.eq(a ?? b ?? panic("evaluated past the first non-null"), 2, "stops at the first non-null")
+}

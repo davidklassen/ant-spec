@@ -1,0 +1,8 @@
+// check
+// spec: 4 generics (an operator applies to T only when it applies to every member of the bound)
+// gap: G15
+func diff[T: Ordered](a: T, b: T): T {
+  a - b                          // ERROR "mismatched operand types"
+}
+
+func main() {}

@@ -1,0 +1,16 @@
+// run
+// spec: 8 try; 12 expressions (try); 7 nullability
+import "../../lib/expect.ant" Expect
+
+func tenfold(xs: Array[int]): int | null {
+  var head = try Array.get(xs, 0)
+  Expect.mark("continued")
+  head * 10
+}
+
+func main() {
+  Expect.eq(tenfold([4]), 40, "try yields the non-null value")
+  Expect.eq(Expect.marks(), "continued", "the function went on after try")
+  Expect.isNull(tenfold([]), "try on null returns null from the enclosing function")
+  Expect.eq(Expect.marks(), "", "nothing after the try ran")
+}

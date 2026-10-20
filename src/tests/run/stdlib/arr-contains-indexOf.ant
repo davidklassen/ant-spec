@@ -1,0 +1,20 @@
+// run
+// spec: 11 Array.contains, Array.indexOf; 12 equality
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+
+func main() {
+  Expect.isTrue(Array.contains([1, 2, 3], 2), "contains")
+  Expect.isFalse(Array.contains([1, 2, 3], 9), "does not contain")
+  Expect.isTrue(Array.contains([Point{ x: 1.0, y: 2.0 }], Point{ x: 1.0, y: 2.0 }), "records by ==")
+  Expect.isTrue(Array.contains([[1, 2], [3]], [3]), "nested arrays by ==")
+  Expect.isFalse(Array.contains([[1, 2], [3]], [1]), "nested array that differs")
+  var nan = 0.0 / 0.0
+  Expect.isFalse(Array.contains([nan], nan), "NaN is never found")
+  Expect.isNull(Array.indexOf([nan], nan), "indexOf NaN is null")
+  Expect.eq(Array.indexOf([5, 6, 5], 5) ?? -1, 0, "first index")
+  Expect.eq(Array.indexOf([5, 6, 5], 6) ?? -1, 1, "index of a later element")
+  Expect.isNull(Array.indexOf([5, 6, 5], 7), "indexOf of a missing value is null")
+  Expect.eq(Array.indexOf(["a", "b"], "b") ?? -1, 1, "strings")
+}

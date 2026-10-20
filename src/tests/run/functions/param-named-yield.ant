@@ -1,0 +1,12 @@
+// run
+// spec: 2 identifiers and keywords; 6 calling
+import "../../lib/expect.ant" Expect
+
+func step(yield: int): int { yield + 1 }
+
+func main() {
+  Expect.eq(step(1), 2, "a parameter named yield")
+  Expect.eq(step(yield: 2), 3, "a named argument yield")
+  var yield = step(yield: 3)
+  Expect.eq(yield, 4, "a variable named yield")
+}

@@ -1,0 +1,23 @@
+// run
+// spec: 5 is; 7 nullability (narrowing through &&)
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Circle = { radius: float64 }
+type Rect = { width: float64, height: float64 }
+type Shape = Circle | Rect
+
+func isBig(s: Shape): bool { s is Circle && s.radius > 1.0 }
+
+func main() {
+  var big: Shape = Circle{ radius: 2.0 }
+  var small: Shape = Circle{ radius: 0.5 }
+  var r: Shape = Rect{ width: 5.0, height: 5.0 }
+  Expect.isTrue(isBig(big), "a big circle")
+  Expect.isFalse(isBig(small), "a small circle")
+  Expect.isFalse(isBig(r), "a rect: the right side of && is not evaluated")
+
+  var found = "none"
+  if big is Circle && big.radius > 1.0 { found = "big circle" }
+  Expect.eq(found, "big circle", "the subject is narrowed inside the if")
+}

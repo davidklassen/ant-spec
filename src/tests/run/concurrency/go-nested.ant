@@ -1,0 +1,25 @@
+// run
+// spec: 9 goroutines; 11 synchronization WaitGroup
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var wg = WaitGroup.new()
+  var lock = Mutex.new()
+  var count = 0
+  for i in Array.range(0, 3) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }       // runs after the inner adds, so the counter never hits zero early
+      for j in Array.range(0, 4) {
+        WaitGroup.add(wg, 1)
+        go {
+          defer { WaitGroup.done(wg) }
+          Mutex.withLock(lock, { count += 1 })
+        }
+      }
+      Mutex.withLock(lock, { count += 1 })
+    }
+  }
+  WaitGroup.wait(wg)
+  Expect.eq(count, 15, "3 outer and 12 inner goroutines all finished")
+}

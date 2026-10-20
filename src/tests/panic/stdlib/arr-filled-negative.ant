@@ -1,0 +1,6 @@
+// panic
+// spec: 11 Array.filled; 12 runtime panics
+// panic: negative count
+func main() {
+  var xs = Array.filled(-1, 0)
+}

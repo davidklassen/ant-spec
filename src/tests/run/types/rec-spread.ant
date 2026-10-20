@@ -1,0 +1,22 @@
+// run
+// spec: 4 records (spread); 12 record literal
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type Point = { x: float64, y: float64 }
+type Vec = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1.0, y: 2.0 }
+  var moved = Point{ ...p, x: 0.0 }
+  Expect.eq(moved, Point{ x: 0.0, y: 2.0 }, "a later field wins over the spread")
+  Expect.eq(p, Point{ x: 1.0, y: 2.0 }, "the source is untouched")
+  var q = Point{ x: 7.0, y: 8.0 }
+  Expect.eq(Point{ ...p, ...q }, q, "a later spread wins")
+  var v = Vec{ ...p }
+  Expect.eq(v, Vec{ x: 1.0, y: 2.0 }, "the tag comes from the head")
+  Expect.notSame(p, Point{ ...p }, "a spread copy is a new record")
+  var copy = Point{ ...p }
+  copy.x = 9.0
+  Expect.eq(p.x, 1.0, "the copy is independent")
+}

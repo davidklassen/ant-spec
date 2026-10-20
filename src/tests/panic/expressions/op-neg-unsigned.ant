@@ -1,0 +1,9 @@
+// panic
+// spec: 12 expressions (unary -); 12 runtime panics
+// gap: G5
+// panic: integer overflow
+func neg(n: uint8): uint8 { -n }
+
+func main() {
+  neg(uint8(1))
+}

@@ -1,0 +1,30 @@
+// run
+// spec: 11 synchronization Once (runs f the first time only; later calls wait for it)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var once = Once.new()
+  var gate = WaitGroup.new()
+  var wg = WaitGroup.new()
+  var lock = Mutex.new()
+  var runs = 0
+  var initialized = false
+  var sawInitialized = 0
+  WaitGroup.add(gate, 1)
+  for i in Array.range(0, 20) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      Once.do(once, {
+        WaitGroup.wait(gate)            // the first caller is held here; the others wait for it
+        runs += 1
+        initialized = true
+      })
+      if initialized { Mutex.withLock(lock, { sawInitialized += 1 }) }
+    }
+  }
+  WaitGroup.done(gate)
+  WaitGroup.wait(wg)
+  Expect.eq(runs, 1, "f ran once")
+  Expect.eq(sawInitialized, 20, "every caller returned only after f finished")
+}

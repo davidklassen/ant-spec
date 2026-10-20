@@ -1,0 +1,8 @@
+// check
+// spec: 4 records; 4 assignability (primitives never widen); 4 inference (field types are expected types)
+type Point = { x: float64, y: float64 }
+
+func main() {
+  var p = Point{ x: 1, y: 2.0 }            // ERROR "not assignable"
+  var ok = Point{ x: 1.0, y: 2.0 }
+}

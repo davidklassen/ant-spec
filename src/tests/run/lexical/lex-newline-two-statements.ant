@@ -1,0 +1,16 @@
+// run
+// spec: 2 line endings
+// source: go:test/syntax
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var a = func(v: int): int { Expect.mark("called"); v }
+  a
+  (Expect.markv("b", 1))
+  Expect.eq(Expect.marks(), "b", "a then (b) on the next line is two statements, not a call")
+
+  var x = 10
+  - Expect.markv("neg", 3)
+  Expect.eq(x, 10, "x keeps its value: the next line is a new statement")
+  Expect.eq(Expect.marks(), "neg", "-b runs as a statement of its own")
+}

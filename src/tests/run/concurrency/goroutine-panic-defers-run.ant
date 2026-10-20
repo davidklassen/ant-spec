@@ -1,0 +1,21 @@
+// run
+// spec: 9 panics in goroutines; 12 deferred blocks and panics; 8 defer
+// stderr: panic: boom
+// output:
+//   inner defer
+//   outer defer
+//   main done
+func main() {
+  var wg = WaitGroup.new()
+  WaitGroup.add(wg, 1)
+  go {
+    defer { WaitGroup.done(wg) }        // registered first, so it runs last
+    defer { print("outer defer") }
+    if true {
+      defer { print("inner defer") }
+      panic("boom")
+    }
+  }
+  WaitGroup.wait(wg)
+  print("main done")
+}

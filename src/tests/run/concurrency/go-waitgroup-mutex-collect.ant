@@ -1,0 +1,27 @@
+// run
+// spec: 9 synchronization; 11 synchronization Mutex, WaitGroup
+// source: spec
+import "../../lib/expect.ant" Expect
+
+func squareAll(xs: Array[int]): Array[int] {
+  var results = Array.filled(Array.length(xs), 0)
+  var lock = Mutex.new()
+  var wg = WaitGroup.new()
+
+  for entry in Array.entries(xs) {
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      var square = entry.value * entry.value
+      Mutex.withLock(lock, { results[entry.index] = square })
+    }
+  }
+
+  WaitGroup.wait(wg)
+  results
+}
+
+func main() {
+  Expect.eq(squareAll([1, 2, 3, 4, 5]), [1, 4, 9, 16, 25], "results land in index order")
+  Expect.eq(squareAll([]), [], "no work, no wait")
+}

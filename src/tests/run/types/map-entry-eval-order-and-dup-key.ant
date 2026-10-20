@@ -1,0 +1,17 @@
+// run
+// spec: 5 expressions (evaluation order); 12 map literal (a later entry with an == key replaces)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m = Map{
+    (Expect.markv("k1", "a")): Expect.markv("v1", 1),
+    (Expect.markv("k2", "b")): Expect.markv("v2", 2),
+  }
+  Expect.eq(Expect.marks(), "k1,v1,k2,v2", "keys and values evaluate in written order")
+  Expect.eq(Map.size(m), 2, "two entries")
+
+  var k = "a"
+  var d = Map{ a: 1, (k): 2 }
+  Expect.eq(d["a"], 2, "a later entry with an == key wins")
+  Expect.eq(Map.size(d), 1, "one entry")
+}

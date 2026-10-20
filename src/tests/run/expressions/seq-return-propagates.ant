@@ -1,0 +1,28 @@
+// run
+// spec: 5 loops (return in the body propagates through the sequence); 12 expressions (return)
+import "../../lib/expect.ant" Expect
+
+func seq(yield: func(int): bool) {
+  var i = 0
+  while i < 5 {
+    if !yield(i) { return }
+    i += 1
+  }
+  Expect.mark("seq-end")
+}
+
+func find(): int {
+  for n in seq {
+    Expect.mark(`b${n}`)
+    if n == 2 { return n * 10 }
+  }
+  Expect.mark("after-loop")
+  -1
+}
+
+func main() {
+  Expect.eq(find(), 20, "return leaves the enclosing function with its value")
+  Expect.eq(Expect.marks(), "b0,b1,b2", "neither the sequence nor the code after the loop continued")
+  Expect.eq(Iter.toArray(seq), [0, 1, 2, 3, 4], "the sequence is intact")
+  Expect.eq(Expect.marks(), "seq-end", "a full run reaches the end of the sequence")
+}

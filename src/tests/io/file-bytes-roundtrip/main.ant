@@ -1,0 +1,14 @@
+// io
+// spec: stdlib File; 11 String.fromBytes
+// gap: G39
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var path = Os.args()[0] + "/blob.bin"
+  var bytes = [byte(255), byte(0), byte(128)]
+  Expect.isNull(String.fromBytes(bytes), "the bytes are not valid UTF-8")
+  Expect.isTrue(Result.isOk(File.writeBytes(path, bytes)), "writeBytes")
+  var back = Result.unwrap(File.readBytes(path))
+  Expect.eq(Array.length(back), 3, "three bytes read back")
+  Expect.eq(back, bytes, "readBytes gives the bytes written")
+}

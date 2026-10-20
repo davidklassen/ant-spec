@@ -1,0 +1,17 @@
+// run
+// spec: 11 Array.length, Array.isEmpty, Array.get
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [10, 20, 30]
+  var none: Array[int] = []
+  Expect.eq(Array.length(xs), 3, "length")
+  Expect.eq(Array.length(none), 0, "empty length")
+  Expect.isFalse(Array.isEmpty(xs), "not empty")
+  Expect.isTrue(Array.isEmpty(none), "empty")
+  Expect.eq(Array.get(xs, 0) ?? -1, 10, "first")
+  Expect.eq(Array.get(xs, 2) ?? -1, 30, "last")
+  Expect.isNull(Array.get(xs, -1), "negative index")
+  Expect.isNull(Array.get(xs, 3), "index equal to the length")
+  Expect.isNull(Array.get(none, 0), "get on an empty array")
+}

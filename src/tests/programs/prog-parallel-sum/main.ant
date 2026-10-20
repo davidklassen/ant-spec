@@ -1,0 +1,29 @@
+// program
+// spec: 9 goroutines; 9 synchronization (Mutex, WaitGroup); 11 Array (slice, sum, filled)
+// output:
+//   325
+//   950
+//   1575
+//   2200
+//   5050
+func main() {
+  var xs = Array.range(1, 101)
+  var parts = 4
+  var size = Array.length(xs) / parts
+  var partials = Array.filled(parts, 0)
+  var total = 0
+  var lock = Mutex.new()
+  var wg = WaitGroup.new()
+  for i in Iter.range(0, parts) {
+    var slice = Array.slice(xs, i * size, (i + 1) * size)
+    WaitGroup.add(wg, 1)
+    go {
+      defer { WaitGroup.done(wg) }
+      var sum = Array.sum(slice) ?? 0
+      Mutex.withLock(lock, { partials[i] = sum; total += sum })
+    }
+  }
+  WaitGroup.wait(wg)
+  for p in partials { print(p) }
+  print(total)
+}

@@ -1,0 +1,9 @@
+// unchecked
+// spec: 12 expressions (call); 12 runtime panics
+// panic: unknown parameter
+func f(a: int): int { a }
+
+func main() {
+  if f(a: 1) != 1 { panic("named call") }
+  f(b: 1)    // ERROR "unknown parameter"
+}

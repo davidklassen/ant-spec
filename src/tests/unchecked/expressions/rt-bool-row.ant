@@ -1,0 +1,6 @@
+// unchecked
+// spec: 12 expressions (! needs a bool); 12 runtime panics
+// panic: not a bool
+func main() {
+  var b = !1                  // ERROR "not a bool"
+}

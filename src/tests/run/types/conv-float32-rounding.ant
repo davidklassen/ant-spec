@@ -1,0 +1,13 @@
+// run
+// spec: 4 primitives; 12 conversion (a float target rounds to the nearest representable value)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.ne(float64(float32(0.1)), 0.1, "0.1 is not exact in float32")
+  Expect.isTrue(float64(float32(0.1)) > 0.1, "float32(0.1) rounds up")
+  Expect.eq(float64(float32(0.5)), 0.5, "0.5 is exact")
+  Expect.eq(float32(16777217.0), float32(16777216.0), "2^24 + 1 rounds to 2^24")
+  Expect.eq(float64(float32(16777217.0)), 16777216.0, "the rounded value widens exactly")
+  Expect.ne(float32(16777218.0), float32(16777216.0), "2^24 + 2 is representable")
+  Expect.eq(float64(float32(3)), 3.0, "a small int converts exactly")
+}

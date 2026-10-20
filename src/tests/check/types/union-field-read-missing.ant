@@ -1,0 +1,10 @@
+// check
+// spec: 4 tagged unions (a field can be read through a union only when every member has it)
+type A = { name: string, n: int }
+type B = { name: string }
+
+func main() {
+  var v: A | B = A{ name: "a", n: 1 }
+  var s = v.name
+  var n = v.n                    // ERROR "unknown field"
+}

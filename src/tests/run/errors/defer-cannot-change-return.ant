@@ -1,0 +1,22 @@
+// run
+// spec: 12 expressions (block value, return); 12 deferred blocks and panics
+import "../../lib/expect.ant" Expect
+
+func fallsOff(): int {
+  var r = 1
+  defer { r = 2; Expect.mark(`deferred r=${r}`) }
+  r
+}
+
+func returns(): int {
+  var r = 1
+  defer { r = 2; Expect.mark(`deferred r=${r}`) }
+  return r
+}
+
+func main() {
+  Expect.eq(fallsOff(), 1, "the block's value is read before its deferred blocks run")
+  Expect.eq(Expect.marks(), "deferred r=2", "the deferred block ran and assigned r")
+  Expect.eq(returns(), 1, "return evaluates its operand before the deferred blocks run")
+  Expect.eq(Expect.marks(), "deferred r=2", "the deferred block ran and assigned r")
+}

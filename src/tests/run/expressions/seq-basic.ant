@@ -1,0 +1,22 @@
+// run
+// spec: 5 loops (sequences)
+// source: spec
+// output:
+//   0
+//   2
+//   4
+//   6
+//   8
+func evens(limit: int): Seq[int] {
+  func(yield: func(int): bool) {
+    var i = 0
+    while i < limit {
+      if !yield(i) { return }
+      i += 2
+    }
+  }
+}
+
+func main() {
+  for n in evens(10) { print(n) }
+}

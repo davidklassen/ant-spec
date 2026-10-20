@@ -1,0 +1,25 @@
+// run
+// spec: 12 assignment; 5 loops
+// gap: G4
+import "../../lib/expect.ant" Expect
+
+var calls = 0
+
+func idx(): int {
+  calls += 1
+  0
+}
+
+func main() {
+  var xs = [10]
+  xs[idx()] += 5
+  Expect.eq(xs[0], 15, "compound assignment stores the sum")
+  Expect.eq(calls, 1, "the index expression evaluates once")
+
+  var seen: Array[int] = []
+  for i in [1, 2, 3] {
+    i = i * 10
+    Array.push(seen, i)
+  }
+  Expect.eq(seen, [10, 20, 30], "a loop variable is an ordinary assignable binding")
+}

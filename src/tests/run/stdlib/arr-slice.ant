@@ -1,0 +1,16 @@
+// run
+// spec: 11 Array.slice, Array.same
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [1, 2, 3, 4]
+  Expect.eq(Array.slice(xs, 1, 3), [2, 3], "from inclusive, to exclusive")
+  Expect.isTrue(Array.isEmpty(Array.slice(xs, 2, 2)), "from == to is empty")
+  Expect.isTrue(Array.isEmpty(Array.slice(xs, 4, 4)), "empty slice at the end")
+  Expect.eq(Array.slice(xs, 0, 1), [1], "first element")
+  var full = Array.slice(xs, 0, 4)
+  Expect.eq(full, xs, "a full slice is equal")
+  Expect.isFalse(Array.same(full, xs), "but it is a new array")
+  Array.push(full, 5)
+  Expect.eq(xs, [1, 2, 3, 4], "the input is untouched")
+}

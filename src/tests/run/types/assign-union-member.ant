@@ -1,0 +1,19 @@
+// run
+// spec: 4 assignability (unions)
+import "../../lib/expect.ant" Expect
+
+func show(v: int | string | null): string {
+  if v is int { "int" } else if v is string { "string" } else { "null" }
+}
+
+func main() {
+  var x: int | string = 1
+  Expect.isTrue(x is int, "member to union")
+  x = "two"
+  Expect.isTrue(x is string, "another member")
+  var wide: int | string | null = x          // every member of the narrower union fits
+  Expect.eq(show(wide), "string", "narrower union to a wider one")
+  Expect.eq(show(x), "string", "argument position")
+  Expect.eq(show(3), "int", "member in argument position")
+  Expect.eq(show(null), "null", "null member")
+}

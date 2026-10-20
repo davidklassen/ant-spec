@@ -1,0 +1,20 @@
+// run
+// spec: 11 String.contains, String.startsWith, String.endsWith
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isTrue(String.contains("héllo", "éll"), "contains")
+  Expect.isFalse(String.contains("hello", "xyz"), "not contained")
+  Expect.isTrue(String.contains("hello", ""), "empty needle")
+  Expect.isTrue(String.contains("abc", "abc"), "the whole string")
+  Expect.isTrue(String.contains("", ""), "empty in empty")
+  Expect.isTrue(String.startsWith("hello", "he"), "starts")
+  Expect.isFalse(String.startsWith("hello", "lo"), "does not start")
+  Expect.isTrue(String.startsWith("hello", ""), "empty prefix")
+  Expect.isTrue(String.startsWith("éa", "é"), "non-ASCII prefix")
+  Expect.isFalse(String.startsWith("", "a"), "empty has no prefix")
+  Expect.isTrue(String.endsWith("hello", "lo"), "ends")
+  Expect.isFalse(String.endsWith("hello", "he"), "does not end")
+  Expect.isTrue(String.endsWith("hello", ""), "empty suffix")
+  Expect.isTrue(String.endsWith("a\u{1F600}", "\u{1F600}"), "non-BMP suffix")
+}

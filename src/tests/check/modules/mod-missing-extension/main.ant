@@ -1,0 +1,6 @@
+// check
+// spec: 10 modules (the import path includes the extension)
+// gap: G32
+import "./geometry" G    // ERROR "not found"
+
+func main() {}

@@ -1,0 +1,17 @@
+// run
+// spec: 11 String.toFloat
+// gap: G36
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.toFloat("3.14") ?? -1.0, 3.14, "fraction")
+  Expect.eq(String.toFloat("1e9") ?? -1.0, 1e9, "exponent")
+  Expect.eq(String.toFloat("2.5E-3") ?? -1.0, 2.5e-3, "upper-case exponent")
+  Expect.eq(String.toFloat("-0.5") ?? -1.0, -0.5, "negative")
+  Expect.eq(String.toFloat("+2.5") ?? -1.0, 2.5, "explicit plus")
+  Expect.eq(String.toFloat("7") ?? -1.0, 7.0, "integer text")
+  Expect.isNull(String.toFloat(""), "empty")
+  Expect.isNull(String.toFloat("abc"), "letters")
+  Expect.isNull(String.toFloat("1,5"), "comma")
+  Expect.isNull(String.toFloat(" 1.0"), "leading space")
+}

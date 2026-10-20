@@ -1,0 +1,5 @@
+// check
+// spec: 5 if (the condition must be a bool); 5 operators (no truthiness)
+func main() {
+  if 1 { }                    // ERROR "not a bool"
+}

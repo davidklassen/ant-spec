@@ -1,0 +1,19 @@
+// run
+// spec: 4 arrays and maps; 12 index read; 12 assignment
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var grid = [[1, 2], [3, 4]]
+  Expect.eq(grid[1][0], 3, "nested read")
+  grid[1][0] = 30
+  grid[0][1] += 5
+  Expect.eq(grid, [[1, 7], [30, 4]], "nested writes")
+  Array.push(grid[0], 9)
+  Expect.eq(grid[0], [1, 7, 9], "push through an index expression")
+  var row = grid[1]
+  row[1] = 40
+  Expect.eq(grid[1][1], 40, "a row is shared, not copied")
+  grid[0] = [0]
+  Expect.eq(grid, [[0], [30, 40]], "replace a whole row")
+  Expect.eq(Array.length(grid), 2, "still two rows")
+}

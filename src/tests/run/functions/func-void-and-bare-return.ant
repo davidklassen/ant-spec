@@ -1,0 +1,19 @@
+// run
+// spec: 6 functions; 4 primitives (void); 5 return, break, continue
+// output:
+//   x
+//   late
+import "../../lib/expect.ant" Expect
+
+func f() { print("x") }
+
+func g(stop: bool) {
+  if stop { return }
+  print("late")
+}
+
+func main() {
+  Expect.isTrue(f() == void, "a body ending in print yields void")
+  Expect.isTrue(g(true) == void, "a bare return yields void and skips the rest")
+  g(false)
+}

@@ -1,0 +1,18 @@
+// run
+// spec: 7 nullability; 11 map
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var m: Map[string, int | null] = Map{}
+  m["k"] = null
+  Expect.isTrue(Map.has(m, "k"), "a stored null is present")
+  Expect.isTrue(m["k"] == null, "and reads as null")
+  Expect.isNull(Map.get(m, "k"), "Map.get agrees")
+
+  Expect.isFalse(Map.has(m, "missing"), "a missing key is absent")
+  Expect.isTrue(m["missing"] == null, "but reads as null too")
+  Expect.eq(Map.size(m), 1, "only the stored entry counts")
+
+  m["n"] = 1
+  Expect.eq(m["n"], 1, "a non-null value")
+}

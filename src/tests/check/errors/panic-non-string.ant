@@ -1,0 +1,5 @@
+// check
+// spec: 8 panic; 11 prelude (panic(message: string)); 4 assignability
+func main() {
+  panic(1)                            // ERROR "not assignable"
+}

@@ -1,0 +1,5 @@
+// check
+// spec: 10 modules (import cycles are a compile error)
+import "./ping.ant" Ping    // ERROR "cycle"
+
+func main() {}

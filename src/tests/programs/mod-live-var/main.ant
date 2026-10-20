@@ -1,0 +1,17 @@
+// program
+// spec: 10 modules (imports are live: an imported name reads the exporter's current value each time)
+import "../../lib/expect.ant" Expect
+import "./counter.ant" { count, bump }
+import "./counter.ant" Counter
+
+func main() {
+  Expect.eq(count, 0, "initial value")
+  var snapshot = count
+  bump()
+  Expect.eq(count, 1, "the destructured name sees the update")
+  Expect.eq(Counter.count, 1, "the namespace field sees the update")
+  Expect.eq(snapshot, 0, "a copy taken earlier is an ordinary value")
+  Counter.bump()
+  bump()
+  Expect.eq(count, 3, "every bump is visible")
+}

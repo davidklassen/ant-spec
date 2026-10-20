@@ -1,0 +1,6 @@
+// unchecked
+// spec: 11 Map.size; 12 runtime panics library function
+// panic: wrong kind
+func main() {
+  var n = Map.size([])    // ERROR
+}

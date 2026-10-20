@@ -1,0 +1,14 @@
+// run
+// spec: 11 String.slice
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var s = "a\u{1F600}bc"
+  Expect.eq(String.slice(s, 1, 2), "\u{1F600}", "slice of a non-BMP character")
+  Expect.eq(String.slice(s, 2, 4), "bc", "indices count code points after it")
+  Expect.eq(String.slice(s, 0, 4), s, "full slice")
+  Expect.eq(String.slice("héllo", 1, 3), "él", "from inclusive, to exclusive")
+  Expect.eq(String.slice("abc", 1, 1), "", "from == to is empty")
+  Expect.eq(String.slice("abc", 3, 3), "", "empty slice at the end")
+  Expect.eq(String.slice("", 0, 0), "", "slice of empty")
+}

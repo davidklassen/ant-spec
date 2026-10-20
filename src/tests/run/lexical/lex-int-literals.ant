@@ -1,0 +1,19 @@
+// run
+// spec: 2 literals; 4 primitives; 5 is
+// gap: G48
+import "../../lib/expect.ant" Expect
+
+// `is` needs a union-typed subject: on a plain int it is a compile error.
+func isInt(v: int | string): bool { v is int }
+
+func main() {
+  Expect.eq(1_000_000, 1000000, "underscores between digits")
+  Expect.eq(0xFF, 255, "hexadecimal")
+  Expect.eq(0b1010, 10, "binary")
+  Expect.eq(0x7FFF_FFFF_FFFF_FFFF, 9223372036854775807, "the largest int, 2^63 - 1")
+  Expect.isTrue(isInt(42), "a decimal literal is an int")
+  Expect.isTrue(isInt(1_000_000), "an underscored literal is an int")
+  Expect.isTrue(isInt(0xFF), "a hex literal is an int")
+  Expect.isTrue(isInt(0b1010), "a binary literal is an int")
+  Expect.isTrue(isInt(0x7FFF_FFFF_FFFF_FFFF), "the largest literal is an int")
+}

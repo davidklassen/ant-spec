@@ -1,0 +1,14 @@
+// run
+// spec: 11 String.fromBytes
+// source: go:test/utf.go
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isNull(String.fromBytes([byte(255)]), "0xFF never appears in UTF-8")
+  Expect.isNull(String.fromBytes([byte(0x80)]), "a lone continuation byte")
+  Expect.isNull(String.fromBytes([byte(0xC0), byte(0x80)]), "overlong encoding")
+  Expect.isNull(String.fromBytes([byte(0xED), byte(0xA0), byte(0x80)]), "encoded surrogate")
+  Expect.isNull(String.fromBytes([byte(0xE2), byte(0x82)]), "truncated sequence")
+  Expect.isNull(String.fromBytes([byte(0xF4), byte(0x90), byte(0x80), byte(0x80)]), "beyond U+10FFFF")
+  Expect.eq(String.fromBytes([byte(0xE2), byte(0x82), byte(0xAC)]) ?? "", "\u{20AC}", "the complete sequence is valid")
+}

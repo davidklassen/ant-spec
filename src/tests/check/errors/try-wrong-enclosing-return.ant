@@ -1,0 +1,22 @@
+// check
+// spec: 8 try (the enclosing function must return a Result or a type that includes null); 10 main
+func half(): Result[int, Error] { Result.ok(1) }
+func maybe(): int | null { 1 }
+
+func plain(): int {
+  try half()                          // ERROR "try"
+}
+
+func nullableInResult(): Result[int, Error] {
+  var n = try maybe()                 // ERROR "try"
+  Result.ok(n)
+}
+
+func resultInNullable(): int | null {
+  var n = try half()                  // ERROR "try"
+  n
+}
+
+func main() {
+  var n = try half()                  // ERROR "try"
+}

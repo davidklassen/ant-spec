@@ -1,0 +1,11 @@
+// panic
+// spec: 3 variables; 10 modules; 12 names and scopes
+// panic: not initialized
+func readLimit(): int { limit }
+
+var first = readLimit()          // runs before the initializer of limit
+var limit = 100
+
+func main() {
+  print(first + limit)
+}

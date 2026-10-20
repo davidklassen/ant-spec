@@ -1,0 +1,25 @@
+// program
+// spec: 6 functions (recursion); 11 Map; 7 nullability (narrowing); 10 modules (top-level var)
+// source: go:test/ken/rob1.go
+// output:
+//   832040
+//   12586269025
+//   49
+var memo: Map[int, int] = Map{}
+var computed = 0
+
+func fib(n: int): int {
+  if n < 2 { return n }
+  var cached = memo[n]
+  if cached != null { return cached }
+  computed += 1
+  var value = fib(n - 1) + fib(n - 2)
+  memo[n] = value
+  value
+}
+
+func main() {
+  print(fib(30))
+  print(fib(50))
+  print(computed)         // every n from 2 to 50 was computed exactly once
+}

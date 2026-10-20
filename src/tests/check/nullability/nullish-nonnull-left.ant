@@ -1,0 +1,7 @@
+// check
+// spec: 7 nullability; 12 expressions (a ?? b)
+// gap: G20
+func main() {
+  var n = 1 ?? 2        // ERROR "always"
+  var s = "a" ?? "b"    // ERROR "always"
+}

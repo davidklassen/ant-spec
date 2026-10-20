@@ -1,0 +1,9 @@
+// check
+// spec: 6 anonymous functions (a lambda needs an expected function type with zero or one parameter); 4 inference
+func main() {
+  var f = { x * 2 }                                     // ERROR "cannot infer"
+  var xs = [3, 1, 2]
+  var total = Array.reduce(xs, 0, { x })                // ERROR "not assignable"
+  var sorted = Array.sortWith(xs, { 0 })                // ERROR "not assignable"
+  var ok = Array.reduce(xs, 0, func(a: int, b: int) { a + b })
+}

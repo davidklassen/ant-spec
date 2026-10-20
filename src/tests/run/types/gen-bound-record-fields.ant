@@ -1,0 +1,26 @@
+// run
+// spec: 4 generics (the fields of a record bound can be read and assigned)
+// source: go:test/typeparam/struct.go
+import "../../lib/expect.ant" Expect
+
+type Person = { name: string, age: int }
+type Pet = { name: string }
+
+func rename[T: { name: string }](x: T, to: string): string {
+  var old = x.name
+  x.name = to
+  old
+}
+
+func names[T: { name: string }](xs: Array[T]): Array[string] { Array.map(xs, { x.name }) }
+
+func main() {
+  var p = Person{ name: "ada", age: 36 }
+  Expect.eq(rename(p, "grace"), "ada", "old name read through the bound")
+  Expect.eq(p.name, "grace", "assigned through the bound")
+  Expect.eq(p.age, 36, "other fields untouched")
+  var d = Pet{ name: "rex" }
+  rename(d, "max")
+  Expect.eq(d.name, "max", "another T with the field")
+  Expect.eq(names([p, Person{ name: "linus", age: 54 }]), ["grace", "linus"], "T = Person")
+}

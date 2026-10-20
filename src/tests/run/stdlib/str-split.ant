@@ -1,0 +1,16 @@
+// run
+// spec: 11 String.split
+// gap: G36
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.eq(String.split("abc", ","), ["abc"], "separator absent")
+  Expect.eq(String.split("a,b,c", ","), ["a", "b", "c"], "simple split")
+  Expect.eq(String.split("a,,b", ","), ["a", "", "b"], "empty field between adjacent separators")
+  Expect.eq(String.split(",a,", ","), ["", "a", ""], "leading and trailing separators")
+  Expect.eq(String.split("a--b--c", "--"), ["a", "b", "c"], "multi-character separator")
+  Expect.eq(String.split("a-b--c", "--"), ["a-b", "c"], "a partial separator is text")
+  Expect.eq(String.split("aébéc", "é"), ["a", "b", "c"], "non-ASCII separator")
+  Expect.eq(String.split("", ","), [""], "splitting the empty string")
+  Expect.eq(String.split(",", ","), ["", ""], "only a separator")
+}

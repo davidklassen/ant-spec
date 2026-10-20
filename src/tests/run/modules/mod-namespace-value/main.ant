@@ -1,0 +1,10 @@
+// run
+// spec: 10 modules (a module is a record); 12 equality
+// gap: G31
+import "../../../lib/expect.ant" Expect
+import "./geometry.ant" Geometry
+
+func main() {
+  Expect.isTrue(Geometry == Geometry, "a namespace is a value equal to itself")
+  Expect.isFalse(Geometry != Geometry, "and never unequal to itself")
+}

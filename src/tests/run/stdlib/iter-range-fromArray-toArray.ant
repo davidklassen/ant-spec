@@ -1,0 +1,20 @@
+// run
+// spec: 11 Iter.range, Iter.fromArray, Iter.toArray
+import "../../lib/expect.ant" Expect
+
+func main() {
+  Expect.isTrue(Array.isEmpty(Iter.toArray(Iter.range(5, 0))), "to below from is empty")
+  Expect.isTrue(Array.isEmpty(Iter.toArray(Iter.range(3, 3))), "from == to is empty")
+  Expect.eq(Iter.toArray(Iter.range(0, 3)), [0, 1, 2], "half-open range")
+  Expect.eq(Iter.toArray(Iter.range(-2, 1)), [-2, -1, 0], "negative from")
+  var xs = [1, 2, 3]
+  var back = Iter.toArray(Iter.fromArray(xs))
+  Expect.eq(back, xs, "fromArray then toArray round-trips")
+  Expect.isFalse(Array.same(back, xs), "toArray builds a new array")
+  var s = Iter.range(0, 2)
+  Expect.eq(Iter.toArray(s), [0, 1], "first run")
+  Expect.eq(Iter.toArray(s), [0, 1], "a range can be run again")
+  var collected: Array[int] = []
+  for i in Iter.range(0, 3) { Array.push(collected, i) }
+  Expect.eq(collected, [0, 1, 2], "for runs a sequence")
+}

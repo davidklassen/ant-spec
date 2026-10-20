@@ -1,0 +1,29 @@
+// run
+// spec: 2 literals (template strings); 12 expressions (literals); 11 String.from
+// output:
+//   total: 3 items
+//   outer [inner 2] end
+//   Pair{ a: 1, b: 2 }
+//   kept 2
+//   line one
+//   line two
+//   cost: $5 and `ticks` and ${count}
+//   1-2
+import "../../lib/expect.ant" Expect
+
+type Pair = { a: int, b: int }
+
+func main() {
+  var count = 3
+  print(`total: ${count} items`)
+  print(`outer [${`inner ${1 + 1}`}] end`)
+  print(`${Pair{ a: 1, b: 2 }}`)
+  print(`kept ${Array.length(Array.filter([1, 2, 3], { x > 1 }))}`)
+  var two = `line one
+line two`
+  print(two)
+  Expect.eq(String.length(two), 17, "the newline is part of the string")
+  print(`cost: \$5 and \`ticks\` and \${count}`)
+  print(`${Expect.markv("a", 1)}-${Expect.markv("b", 2)}`)
+  Expect.eq(Expect.marks(), "a,b", "parts evaluate left to right")
+}

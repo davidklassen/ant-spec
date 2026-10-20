@@ -1,0 +1,9 @@
+// panic
+// spec: 5 operators (integer overflow panics); 12 runtime panics
+// source: zig:behavior/math.zig
+// panic: integer overflow
+func dec(n: int8): int8 { n - int8(1) }
+
+func main() {
+  dec(int8(-128))
+}

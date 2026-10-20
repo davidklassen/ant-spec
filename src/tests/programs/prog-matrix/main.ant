@@ -1,0 +1,30 @@
+// program
+// spec: 11 Array (nested arrays); 5 loops; 5 operators (float arithmetic)
+// gap: G33
+// output:
+//   58.0 64.0
+//   139.0 154.0
+func multiply(a: Array[Array[float64]], b: Array[Array[float64]]): Array[Array[float64]] {
+  var rows = Array.length(a)
+  var cols = Array.length(b[0])
+  var inner = Array.length(b)
+  var out: Array[Array[float64]] = []
+  for i in Iter.range(0, rows) {
+    var row: Array[float64] = []
+    for j in Iter.range(0, cols) {
+      var sum = 0.0
+      for k in Iter.range(0, inner) { sum += a[i][k] * b[k][j] }
+      Array.push(row, sum)
+    }
+    Array.push(out, row)
+  }
+  out
+}
+
+func main() {
+  var a = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+  var b = [[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]]
+  for row in multiply(a, b) {
+    print(String.join(Array.map(row, { String.from(x) }), " "))
+  }
+}

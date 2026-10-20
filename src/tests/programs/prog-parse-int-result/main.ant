@@ -1,0 +1,39 @@
+// program
+// spec: 8 Result; 8 try; 4 tagged unions; 5 destructuring (for)
+// output:
+//   sum 42
+//   empty input
+//   bad digit at 1
+type EmptyInput = {}
+type BadDigit = { at: int }
+type ParseError = EmptyInput | BadDigit
+
+func parseInt(s: string): Result[int, ParseError] {
+  if String.isEmpty(s) { return Result.err(EmptyInput{}) }
+  var n = 0
+  for { index, value } in Array.entries(String.chars(s)) {
+    var digit = String.toInt(value) ?? return Result.err(BadDigit{ at: index })
+    n = n * 10 + digit
+  }
+  Result.ok(n)
+}
+
+func sumAll(items: Array[string]): Result[int, ParseError] {
+  var total = 0
+  for item in items { total += try parseInt(item) }
+  Result.ok(total)
+}
+
+func describe(r: Result[int, ParseError]): string {
+  if r is Ok { `sum ${r.value}` }
+  else {
+    var error = r.error
+    if error is EmptyInput { "empty input" } else { `bad digit at ${error.at}` }
+  }
+}
+
+func main() {
+  print(describe(sumAll(["12", "30", "0"])))
+  print(describe(sumAll(["7", "", "1"])))
+  print(describe(sumAll(["7", "4x2"])))
+}

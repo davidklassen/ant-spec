@@ -1,0 +1,15 @@
+// run
+// spec: 3 variables (shadowing); 10 modules (prelude names count as imports)
+// output:
+//   outside
+import "../../lib/expect.ant" Expect
+
+func shadowed(): int {
+  var print = 1
+  print + 1
+}
+
+func main() {
+  Expect.eq(shadowed(), 2, "the local print is an int")
+  print("outside")
+}

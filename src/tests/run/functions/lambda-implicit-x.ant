@@ -1,0 +1,17 @@
+// run
+// spec: 6 anonymous functions
+// source: spec
+import "../../lib/expect.ant" Expect
+
+type User = { name: string, age: int }
+
+func main() {
+  var double: func(int): int = { x * 2 }
+  Expect.eq(double(4), 8, "x is the single parameter")
+
+  var isAdult: func(User): bool = { x.age >= 18 }
+  Expect.isTrue(isAdult(User{ name: "ada", age: 36 }), "x typed by the annotation")
+
+  Expect.eq(Array.map([1, 2, 3], { x * x }), [1, 4, 9], "x typed by the array")
+  Expect.eq(Array.filter([1, 2, 3, 4], { x % 2 == 0 }), [2, 4], "predicate")
+}

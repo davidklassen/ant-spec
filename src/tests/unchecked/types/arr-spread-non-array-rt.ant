@@ -1,0 +1,10 @@
+// unchecked
+// spec: 12 array literal (a spread appends every element of a value that must be an array); 12 runtime panics
+// panic: not an array
+// output:
+//   before
+func main() {
+  print("before")
+  var m: Map[string, int] = Map{}
+  var xs: Array[int] = [...m]   // ERROR "not assignable"
+}

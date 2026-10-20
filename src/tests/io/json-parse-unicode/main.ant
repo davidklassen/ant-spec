@@ -1,0 +1,17 @@
+// io
+// spec: stdlib Json; 11 String.length
+// gap: G39
+import "../../lib/expect.ant" Expect
+
+func parseString(text: string): string {
+  var j = Result.unwrap(Json.parse(text))
+  if j is string { j } else { Expect.fail(`not a string: ${text}`) }
+}
+
+func main() {
+  Expect.eq(parseString("\"é\""), "é", "a literal code point parses to itself")
+  Expect.eq(parseString("\"\\u00e9\""), "é", "a \\u escape parses to its code point")
+  var smile = parseString("\"\\ud83d\\ude00\"")
+  Expect.eq(String.length(smile), 1, "a surrogate pair is one code point")
+  Expect.eq(smile, "\u{1F600}", "the pair decodes to U+1F600")
+}

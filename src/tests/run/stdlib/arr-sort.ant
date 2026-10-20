@@ -1,0 +1,16 @@
+// run
+// spec: 11 Array.sort; 12 comparison
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var ints = [3, 1, 2]
+  Expect.eq(Array.sort(ints), [1, 2, 3], "ints ascending")
+  Expect.eq(ints, [3, 1, 2], "the input is untouched")
+  Expect.eq(Array.sort([2.5, -1.0, 0.0]), [-1.0, 0.0, 2.5], "floats")
+  Expect.eq(Array.sort(["b", "é", "a", "z", "B"]), ["B", "a", "b", "z", "é"], "strings by code point")
+  Expect.eq(Array.sort([int8(3), int8(-1), int8(0)]), [int8(-1), int8(0), int8(3)], "int8")
+  Expect.eq(Array.sort([2, 2, 1]), [1, 2, 2], "duplicates kept")
+  var none: Array[int] = []
+  Expect.isTrue(Array.isEmpty(Array.sort(none)), "empty")
+  Expect.eq(Array.sort([7]), [7], "single element")
+}

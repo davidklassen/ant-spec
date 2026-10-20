@@ -1,0 +1,17 @@
+// run
+// spec: 4 arrays and maps (spread copies elements); 12 array literal; 5 expressions (evaluation order)
+import "../../lib/expect.ant" Expect
+
+func main() {
+  var xs = [1, 2, 3]
+  var more = [...xs, 4]
+  Expect.eq(more, [1, 2, 3, 4], "spread then element")
+  Array.push(more, 5)
+  Expect.eq(xs, [1, 2, 3], "the spread copied, so the source is untouched")
+  Expect.isFalse(Array.same(xs, [...xs]), "a spread builds a new array")
+  Expect.eq([0, ...xs, ...xs], [0, 1, 2, 3, 1, 2, 3], "spreads anywhere, repeatedly")
+
+  var ys = [Expect.markv("a", 1), ...Expect.markv("b", xs), Expect.markv("c", 9)]
+  Expect.eq(Expect.marks(), "a,b,c", "elements evaluate in written order")
+  Expect.eq(ys, [1, 1, 2, 3, 9], "contents")
+}

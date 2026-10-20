@@ -1,0 +1,27 @@
+// run
+// spec: 7 nullability; 5 is (narrowing through &&, ||, !)
+import "../../lib/expect.ant" Expect
+
+type User = { name: string, age: int }
+
+func nameOf(u: User | null): string {
+  if !(u == null) { u.name } else { "nobody" }
+}
+
+func adult(u: User | null): bool { u != null && u.age >= 18 }
+
+func check(u: User | null): string {
+  if u == null || u.age < 0 { "invalid" } else { u.name }
+}
+
+func main() {
+  var ada = User{ name: "ada", age: 36 }
+  Expect.eq(nameOf(ada), "ada", "! narrows the then branch")
+  Expect.eq(nameOf(null), "nobody", "! complement")
+  Expect.isTrue(adult(ada), "&& narrows its right operand")
+  Expect.isFalse(adult(null), "&& short-circuits on null")
+  Expect.isFalse(adult(User{ name: "kid", age: 9 }), "the right operand decides")
+  Expect.eq(check(null), "invalid", "|| short-circuits on null")
+  Expect.eq(check(User{ name: "neg", age: -1 }), "invalid", "|| narrows its right operand")
+  Expect.eq(check(ada), "ada", "the else branch is narrowed")
+}
