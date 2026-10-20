@@ -104,11 +104,11 @@ Acceptance command (verbatim):
 ${step.accept}
 `
 
-const planner = (step) => `You are the planner for one roadmap step.
+const planner = (step, feedback) => `You are the planner for one roadmap step${feedback ? ' (re-plan after a failed attempt)' : ''}.
 ${RULES}
 
 ${header(step)}
-Read the step's row, the spec sections its deliverable names, the test files its acceptance command selects (look at a representative sample of each section), the current state of the allowed directories, and every existing work/*/report.md to learn what earlier steps built and decided. Then write work/${step.id}/plan.md: the files to create or change, the approach (data structures, module layout, the order to tackle the test sections), spec rules that are easy to get wrong, and risks. Keep it to the point: an implementer will follow it literally. Do not implement anything.
+${feedback ? `A previous attempt following an earlier plan did not reach a green acceptance after several rounds. Its last feedback:\n${feedback}\nRead work/${step.id}/report.md and the current state of the tree (the partial work is still there, uncommitted) and write a NEW plan that addresses the failure: a different decomposition, a smaller first target, or a design change where the old one proved wrong. Overwrite work/${step.id}/plan.md.\n` : ''}Read the step's row, the spec sections its deliverable names, the test files its acceptance command selects (look at a representative sample of each section), the current state of the allowed directories, and every existing work/*/report.md to learn what earlier steps built and decided. Then write work/${step.id}/plan.md: the files to create or change, the approach (data structures, module layout, the order to tackle the test sections), spec rules that are easy to get wrong, and risks. Keep it to the point: an implementer will follow it literally. Do not implement anything.
 Return JSON: summary (3-5 sentences), files (paths you expect to create or change), risks.`
 
 const implementer = (step, plan, feedback, iteration) => `You are the implementer for one roadmap step${iteration ? ` (round ${iteration + 1})` : ''}.
@@ -203,7 +203,14 @@ for (const step of steps) {
   let feedback = ''
   let green = false
   let iter = 0
-  for (; iter < maxIter && !green; iter++) {
+  const replans = step.gate ? 0 : ((args && args.replans !== undefined) ? args.replans : 1)
+  for (let planRound = 0; planRound <= replans && !green; planRound++) {
+  if (planRound > 0) {
+    log(`   re-planning ${step.id} after ${iter} red round(s)`)
+    plan = await agent(planner(step, feedback), { schema: PLAN, label: `replan ${step.id}`, phase: ph })
+    feedback = `The plan was redone after earlier rounds failed; follow the new work/${step.id}/plan.md. Last feedback before the re-plan:\n${feedback}`
+  }
+  for (let i = 0; i < maxIter && !green; i++, iter++) {
     let test
     if (step.gate && iter === 0) {
       test = await agent(tester(step), { schema: TEST, label: `test ${step.id} #${iter + 1}`, phase: ph })
@@ -254,6 +261,7 @@ for (const step of steps) {
       }
     }
     green = true
+  }
   }
 
   if (!green) {

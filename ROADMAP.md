@@ -113,7 +113,7 @@ Workflow({ scriptPath: SCRIPT, args: { milestone: "M0", dryRun: true } })    # l
 Workflow({ scriptPath: SCRIPT, resumeFromRunId: "wf_..." })                  # resume after a blocked step
 ```
 
-Per step: plan → implement → independent test → independent review → refactor (the `simplify` skill on the step's diff, then the reviewer's suggestions, then a retest) → commit, up to `maxIter` (default 4) implement/test/review rounds. A step that stays red writes `work/<id>/BLOCKED.md` and stops the run; fix by hand or adjust the plan, then resume. Gates skip the plan phase and, once green, run a milestone-wide simplify pass instead of the per-step refactor: four reviewers in parallel (reuse, simplification, efficiency, altitude) over everything the milestone changed since its base commit, one applier, the gate rerun, then the commit.
+Per step: plan → implement → independent test → independent review → refactor (the `simplify` skill on the step's diff, then the reviewer's suggestions, then a retest) → commit, up to `maxIter` (default 4) implement/test/review rounds. A step that stays red after `maxIter` rounds is re-planned once (the planner gets the failure history and writes a new plan; `args.replans` sets how many times) and given `maxIter` more rounds; only then does it write `work/<id>/BLOCKED.md` and stop the run; fix by hand or adjust the plan, then resume. Gates skip the plan phase and, once green, run a milestone-wide simplify pass instead of the per-step refactor: four reviewers in parallel (reuse, simplification, efficiency, altitude) over everything the milestone changed since its base commit, one applier, the gate rerun, then the commit.
 
 ## Future work (outside this roadmap)
 
