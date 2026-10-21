@@ -103,7 +103,7 @@ Follow `docs/runtime-design.md`. Steps 2.1 to 2.4 run `antc` under antpy, which 
 
 | Step | Deliverable | Directories | Acceptance |
 |---|---|---|---|
-| 4.1 final-polish | `antc --help`, `make test`, `src/antc/README.md` (build, bootstrap, layout), `work/TEST-CHANGES.md` reconciled against `src/tests/GAPS.md`, dead code and refactor pass across `bootstrap/`, `runtime/`, `src/antc/` | all implementation dirs | `make fixpoint && RUN CN --consistency && python3 -I tests/run_tests.py` |
+| 4.1 final-polish | `antc --help`, `make test`, `antc` locates `runtime/` relative to its own executable (`bin/../runtime`) with `ANT_RUNTIME` as the override, so it works from any directory, `src/antc/README.md` (build, bootstrap, layout), `work/TEST-CHANGES.md` reconciled against `src/tests/GAPS.md`, dead code and refactor pass across `bootstrap/`, `runtime/`, `src/antc/` | all implementation dirs | `make fixpoint && RUN CN --consistency && python3 -I tests/run_tests.py` |
 
 ## Running the workflow
 
