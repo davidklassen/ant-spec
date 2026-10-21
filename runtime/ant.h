@@ -166,6 +166,8 @@ void ant_sb_append_str(AntSb *sb, AntValue s);
 void ant_sb_append_cp(AntSb *sb, int32_t cp);      /* as UTF-8 */
 AntValue ant_sb_finish(AntSb *sb);
 void ant_template_add(AntSb *sb, AntValue v);       /* appends ant_render(v) */
+AntValue ant_bytes_array(const char *p, int64_t n);  /* the n bytes at p as an Array[byte] */
+char *ant_bytes_of(AntValue v, int64_t *n);          /* the bytes of an Array[byte], NUL-terminated, or `wrong kind` (NULL) */
 
 /* unicase.c (generated): simple one-to-one case mappings, the input on a miss */
 int32_t ant_cp_upper(int32_t cp);
@@ -236,6 +238,11 @@ uint32_t ant_hash(AntValue v);
 /* render.c */
 AntValue ant_render(AntValue v);
 void ant_render_into(AntSb *sb, AntValue v);
+void ant_render_float(AntSb *sb, double x, bool f32);   /* shortest round-trip, as String.from */
+/* The containers a walk is inside, so that a cycle is noticed (render, Json.stringify). */
+typedef struct { void **items; int n, cap; } AntActive;
+bool ant_active_has(AntActive *a, void *p);
+void ant_active_push(AntActive *a, void *p);
 
 /* func.c */
 AntValue ant_closure(AntNative code, const AntFuncInfo *info, int nfree, AntBox **boxes);
@@ -284,6 +291,9 @@ AntValue ant_entry(AntValue k, AntValue v);
 AntValue ant_indexed(int64_t i, AntValue v);
 extern Sym S_value, S_error, S_key, S_x;
 
+/* sync.c */
+void *ant_sync_need(AntValue v, const char *name);   /* the sync object named `name` (by pointer), or `wrong kind` (NULL) */
+
 /* namespaces, one per file */
 AntValue ant_ns_array(void);
 AntValue ant_ns_map(void);
@@ -296,6 +306,8 @@ AntValue ant_ns_record(void);
 AntValue ant_ns_os(void);
 AntValue ant_ns_time(void);
 AntValue ant_ns_file(void);
+AntValue ant_ns_http(void);
+AntValue ant_ns_json(void);
 AntValue ant_ns_mutex(void);
 AntValue ant_ns_rwmutex(void);
 AntValue ant_ns_waitgroup(void);

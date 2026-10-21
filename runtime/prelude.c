@@ -132,4 +132,6 @@ void ant_prelude_init(void) {
   ant_prelude_define("Os", ant_ns_os());
   ant_prelude_define("Time", ant_ns_time());
   ant_prelude_define("File", ant_ns_file());
+  ant_prelude_define("Http", ant_ns_http());
+  ant_prelude_define("Json", ant_ns_json());
 }

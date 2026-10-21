@@ -27,7 +27,7 @@ static AntValue monitor_new(const char *name, size_t size) {
   return v;
 }
 
-static void *need(AntValue v, const char *name) {
+void *ant_sync_need(AntValue v, const char *name) {
   if (v.kind != K_SYNC || ((AntSync *)v.as.p)->name != name) {
     ant_panicf("wrong kind: expected a%s %s", name[0] == 'A' ? "n" : "", name);   /* "an Atomic" */
     return NULL;
@@ -71,14 +71,14 @@ static void mutex_release(Mutex *m) {
 }
 
 static AntValue mutex_lock(AntFunc *self, int argc, AntValue *argv) {
-  Mutex *m = need(argv[0], MUTEX);
+  Mutex *m = ant_sync_need(argv[0], MUTEX);
   if (!m) return ANT_VOID;
   mutex_acquire(m);
   return ANT_VOID;
 }
 
 static AntValue mutex_unlock(AntFunc *self, int argc, AntValue *argv) {
-  Mutex *m = need(argv[0], MUTEX);
+  Mutex *m = ant_sync_need(argv[0], MUTEX);
   if (!m) return ANT_VOID;
   if (!m->locked) { ant_panic("not locked"); return ANT_VOID; }
   mutex_release(m);
@@ -109,7 +109,7 @@ static AntValue rw_new(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue rw_read_lock(AntFunc *self, int argc, AntValue *argv) {
-  RwMutex *m = need(argv[0], RWMUTEX);
+  RwMutex *m = ant_sync_need(argv[0], RWMUTEX);
   if (!m) return ANT_VOID;
   while (m->writer) ant_block_on(&m->mon.cv);
   m->readers++;
@@ -117,7 +117,7 @@ static AntValue rw_read_lock(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue rw_read_unlock(AntFunc *self, int argc, AntValue *argv) {
-  RwMutex *m = need(argv[0], RWMUTEX);
+  RwMutex *m = ant_sync_need(argv[0], RWMUTEX);
   if (!m) return ANT_VOID;
   if (m->readers == 0) { ant_panic("not locked"); return ANT_VOID; }
   m->readers--;
@@ -126,7 +126,7 @@ static AntValue rw_read_unlock(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue rw_write_lock(AntFunc *self, int argc, AntValue *argv) {
-  RwMutex *m = need(argv[0], RWMUTEX);
+  RwMutex *m = ant_sync_need(argv[0], RWMUTEX);
   if (!m) return ANT_VOID;
   while (m->writer || m->readers > 0) ant_block_on(&m->mon.cv);
   m->writer = true;
@@ -134,7 +134,7 @@ static AntValue rw_write_lock(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue rw_write_unlock(AntFunc *self, int argc, AntValue *argv) {
-  RwMutex *m = need(argv[0], RWMUTEX);
+  RwMutex *m = ant_sync_need(argv[0], RWMUTEX);
   if (!m) return ANT_VOID;
   if (!m->writer) { ant_panic("not locked"); return ANT_VOID; }
   m->writer = false;
@@ -173,7 +173,7 @@ static AntValue wg_new(AntFunc *self, int argc, AntValue *argv) {
 
 /* Waiters wake when the counter reaches zero through add or done. */
 static AntValue wg_add(AntFunc *self, int argc, AntValue *argv) {
-  WaitGroup *wg = need(argv[0], WAITGROUP);
+  WaitGroup *wg = ant_sync_need(argv[0], WAITGROUP);
   if (!wg) return ANT_VOID;
   INT(argv[1], n);
   if (wg->n + n < 0) { ant_panic("negative counter"); return ANT_VOID; }
@@ -183,7 +183,7 @@ static AntValue wg_add(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue wg_done(AntFunc *self, int argc, AntValue *argv) {
-  WaitGroup *wg = need(argv[0], WAITGROUP);
+  WaitGroup *wg = ant_sync_need(argv[0], WAITGROUP);
   if (!wg) return ANT_VOID;
   if (wg->n == 0) { ant_panic("negative counter"); return ANT_VOID; }
   wg->n--;
@@ -192,7 +192,7 @@ static AntValue wg_done(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue wg_wait(AntFunc *self, int argc, AntValue *argv) {
-  WaitGroup *wg = need(argv[0], WAITGROUP);
+  WaitGroup *wg = ant_sync_need(argv[0], WAITGROUP);
   if (!wg) return ANT_VOID;
   while (wg->n > 0) ant_block_on(&wg->mon.cv);
   return ANT_VOID;
@@ -221,7 +221,7 @@ static AntValue once_new(AntFunc *self, int argc, AntValue *argv) {
  * panic stays pending for that caller. Concurrent callers wait for f to
  * finish; later ones return at once. */
 static AntValue once_do(AntFunc *self, int argc, AntValue *argv) {
-  Once *o = need(argv[0], ONCE);
+  Once *o = ant_sync_need(argv[0], ONCE);
   if (!o) return ANT_VOID;
   FUNC(argv[1]);
   if (o->state == ONCE_NEW) {
@@ -250,7 +250,7 @@ AntValue ant_ns_once(void) {
 static const char COND[] = "Cond";
 
 static AntValue cond_new(AntFunc *self, int argc, AntValue *argv) {
-  Mutex *m = need(argv[0], MUTEX);
+  Mutex *m = ant_sync_need(argv[0], MUTEX);
   if (!m) return ANT_VOID;
   AntValue c = monitor_new(COND, sizeof(Cond));
   ((Cond *)c.as.p)->m = m;
@@ -259,7 +259,7 @@ static AntValue cond_new(AntFunc *self, int argc, AntValue *argv) {
 
 /* Releases the mutex, waits for a wake-up, re-acquires the mutex. */
 static AntValue cond_wait(AntFunc *self, int argc, AntValue *argv) {
-  Cond *c = need(argv[0], COND);
+  Cond *c = ant_sync_need(argv[0], COND);
   if (!c) return ANT_VOID;
   Mutex *m = c->m;
   if (!m->locked) { ant_panic("not locked"); return ANT_VOID; }
@@ -273,7 +273,7 @@ static AntValue cond_wait(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue cond_signal(AntFunc *self, int argc, AntValue *argv) {
-  Cond *c = need(argv[0], COND);
+  Cond *c = ant_sync_need(argv[0], COND);
   if (!c) return ANT_VOID;
   if (c->waiting > c->wakeups) {
     c->wakeups++;
@@ -283,7 +283,7 @@ static AntValue cond_signal(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue cond_broadcast(AntFunc *self, int argc, AntValue *argv) {
-  Cond *c = need(argv[0], COND);
+  Cond *c = ant_sync_need(argv[0], COND);
   if (!c) return ANT_VOID;
   c->wakeups = c->waiting;
   ant_cond_broadcast(&c->mon.cv);
@@ -312,13 +312,13 @@ static AntValue atomic_new(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue atomic_load(AntFunc *self, int argc, AntValue *argv) {
-  Atomic *a = need(argv[0], ATOMIC);
+  Atomic *a = ant_sync_need(argv[0], ATOMIC);
   if (!a) return ANT_VOID;
   return a->v;
 }
 
 static AntValue atomic_store(AntFunc *self, int argc, AntValue *argv) {
-  Atomic *a = need(argv[0], ATOMIC);
+  Atomic *a = ant_sync_need(argv[0], ATOMIC);
   if (!a) return ANT_VOID;
   a->v = argv[1];
   return ANT_VOID;
@@ -327,7 +327,7 @@ static AntValue atomic_store(AntFunc *self, int argc, AntValue *argv) {
 /* Through `+` (section 12), so a delta of another kind is `kind mismatch`
  * and an overflow `integer overflow`; returns the new value. */
 static AntValue atomic_add(AntFunc *self, int argc, AntValue *argv) {
-  Atomic *a = need(argv[0], ATOMIC);
+  Atomic *a = ant_sync_need(argv[0], ATOMIC);
   if (!a) return ANT_VOID;
   if (!ant_need_number(argv[1]) || !ant_need_number(a->v)) return ANT_VOID;
   AntValue r = ant_add(a->v, argv[1]);
@@ -337,7 +337,7 @@ static AntValue atomic_add(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue atomic_cas(AntFunc *self, int argc, AntValue *argv) {
-  Atomic *a = need(argv[0], ATOMIC);
+  Atomic *a = ant_sync_need(argv[0], ATOMIC);
   if (!a) return ANT_VOID;
   if (!ant_equal(a->v, argv[1])) return ANT_FALSE;
   a->v = argv[2];

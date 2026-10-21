@@ -369,25 +369,41 @@ static AntValue s_chars(AntFunc *self, int argc, AntValue *argv) {
   return out;
 }
 
-static AntValue s_to_bytes(AntFunc *self, int argc, AntValue *argv) {
-  STR(argv[0], s);
-  AntValue out = ant_array_new(s->nbytes);
-  for (int64_t i = 0; i < s->nbytes; i++) {
+/* ---------------------------------------------------------------- bytes */
+
+AntValue ant_bytes_array(const char *p, int64_t n) {
+  AntValue out = ant_array_new(n);
+  for (int64_t i = 0; i < n; i++) {
     AntValue b = ant_mk(K_UINT8);
-    b.as.u = (unsigned char)s->data[i];
+    b.as.u = (unsigned char)p[i];
     ant_array_push(out, b);
   }
   return out;
 }
 
-static AntValue s_from_bytes(AntFunc *self, int argc, AntValue *argv) {
-  ARR(argv[0], xs);
-  int64_t n = xs->len;
-  char *buf = ant_alloc_atomic((size_t)n + 1);
-  for (int64_t i = 0; i < n; i++) {
-    if (xs->data[i].kind != K_UINT8) { ant_panic("wrong kind: expected a byte"); return ANT_VOID; }
+/* The elements must all be bytes (`uint8`), as for String.fromBytes. */
+char *ant_bytes_of(AntValue v, int64_t *n) {
+  AntArray *xs = ant_need_array(v);
+  if (!xs) return NULL;
+  char *buf = ant_alloc_atomic((size_t)xs->len + 1);
+  for (int64_t i = 0; i < xs->len; i++) {
+    if (xs->data[i].kind != K_UINT8) { ant_panic("wrong kind: expected a byte"); return NULL; }
     buf[i] = (char)xs->data[i].as.u;
   }
+  buf[xs->len] = 0;
+  *n = xs->len;
+  return buf;
+}
+
+static AntValue s_to_bytes(AntFunc *self, int argc, AntValue *argv) {
+  STR(argv[0], s);
+  return ant_bytes_array(s->data, s->nbytes);
+}
+
+static AntValue s_from_bytes(AntFunc *self, int argc, AntValue *argv) {
+  int64_t n;
+  char *buf = ant_bytes_of(argv[0], &n);
+  if (!buf) return ANT_VOID;
   if (!ant_utf8_valid(buf, n)) return ANT_NULL;
   return ant_str_new(buf, n);
 }

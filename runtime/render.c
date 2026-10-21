@@ -7,14 +7,12 @@
 #include <string.h>
 #include "ant.h"
 
-typedef struct { void **items; int n, cap; } Active;
-
-static bool active_has(Active *a, void *p) {
+bool ant_active_has(AntActive *a, void *p) {
   for (int i = 0; i < a->n; i++) if (a->items[i] == p) return true;
   return false;
 }
 
-static void active_push(Active *a, void *p) {
+void ant_active_push(AntActive *a, void *p) {
   if (a->n == a->cap) {
     a->cap = a->cap ? a->cap * 2 : 16;
     a->items = ant_realloc(a->items, sizeof(void *) * (size_t)a->cap);
@@ -94,7 +92,7 @@ static void layout(AntSb *sb, const char *digits, int n) {
   }
 }
 
-static void render_float(AntSb *sb, double x, bool f32) {
+void ant_render_float(AntSb *sb, double x, bool f32) {
   if (x != x) { ant_sb_append_cstr(sb, "NaN"); return; }
   if (x == INFINITY) { ant_sb_append_cstr(sb, "Infinity"); return; }
   if (x == -INFINITY) { ant_sb_append_cstr(sb, "-Infinity"); return; }
@@ -116,7 +114,7 @@ static void render_quoted(AntSb *sb, AntString *s) {
   ant_sb_append(sb, "\"", 1);
 }
 
-static void render_in(AntSb *sb, AntValue v, Active *active) {
+static void render_in(AntSb *sb, AntValue v, AntActive *active) {
   char buf[32];
   switch (v.kind) {
     case K_INT8: case K_INT16: case K_INT32: case K_INT64:
@@ -127,8 +125,8 @@ static void render_in(AntSb *sb, AntValue v, Active *active) {
       snprintf(buf, sizeof buf, "%llu", (unsigned long long)v.as.u);
       ant_sb_append_cstr(sb, buf);
       return;
-    case K_FLOAT32: render_float(sb, v.as.f32, true); return;
-    case K_FLOAT64: render_float(sb, v.as.f, false); return;
+    case K_FLOAT32: ant_render_float(sb, v.as.f32, true); return;
+    case K_FLOAT64: ant_render_float(sb, v.as.f, false); return;
     case K_BOOL: ant_sb_append_cstr(sb, v.as.b ? "true" : "false"); return;
     case K_STRING: render_quoted(sb, v.as.p); return;
     case K_NULL: ant_sb_append_cstr(sb, "null"); return;
@@ -142,8 +140,8 @@ static void render_in(AntSb *sb, AntValue v, Active *active) {
     case K_ARRAY: case K_MAP: break;
     default: ant_sb_append_cstr(sb, ant_kind_name(v.kind)); return;
   }
-  if (active_has(active, v.as.p)) { ant_sb_append_cstr(sb, "..."); return; }
-  active_push(active, v.as.p);
+  if (ant_active_has(active, v.as.p)) { ant_sb_append_cstr(sb, "..."); return; }
+  ant_active_push(active, v.as.p);
   if (v.kind == K_ARRAY) {
     AntArray *a = v.as.p;
     ant_sb_append(sb, "[", 1);
@@ -183,7 +181,7 @@ static void render_in(AntSb *sb, AntValue v, Active *active) {
 
 /* Renders v as it appears inside a container (a string quoted). */
 void ant_render_into(AntSb *sb, AntValue v) {
-  Active active = { NULL, 0, 0 };
+  AntActive active = { NULL, 0, 0 };
   render_in(sb, v, &active);
 }
 
