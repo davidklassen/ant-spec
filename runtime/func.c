@@ -150,6 +150,7 @@ typedef struct { AntValue body; bool done; } Yield;
 static AntFuncInfo yield_info;
 
 static AntValue yield_code(AntFunc *self, int argc, AntValue *argv) {
+  ANT_SAFEPOINT();   /* a `for` body has no entry safepoint of its own */
   Yield *y = self->data;
   if (y->done) { ant_panic("yield after done"); return ANT_VOID; }
   AntValue r = ant_call(y->body, 1, argv);
@@ -189,6 +190,7 @@ bool ant_call_truth(AntValue f, AntValue x) {
 
 /* One iteration: false after a break, or when the body unwound. */
 static bool iterate(AntValue body, AntValue x) {
+  ANT_SAFEPOINT();   /* a `for` body has no entry safepoint of its own */
   AntValue r = ant_call(body, 1, &x);
   if (ant_g->unwind.mode) return false;
   return !(r.kind == K_BOOL && !r.as.b);

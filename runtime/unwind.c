@@ -7,8 +7,6 @@
 #include <unistd.h>
 #include "ant.h"
 
-static AntGoroutine main_goroutine;
-AntGoroutine *ant_g = &main_goroutine;
 AntValue ant_args;
 
 void ant_set_return(AntFrame *target, AntValue v) {
@@ -119,25 +117,28 @@ void ant_runtime_init(int argc, char **argv) {
   for (int i = 1; i < argc; i++) ant_array_push(ant_args, ant_str_cstr(argv[i]));
 }
 
-typedef struct { void (*init)(void); AntValue *module; int main; int status; } MainRun;
+typedef struct { void (*init)(void); AntValue *module; int main; } MainRun;
 
+/* The main goroutine. It ends the process from its own thread while it
+ * holds the GIL, so no other goroutine is mid-operation (section 12: the
+ * program ends when main returns, whatever other goroutines are doing). */
 static void *run_main_thread(void *p) {
   MainRun *run = p;
+  ant_sched_enter_main();
   run->init();
   if (!ant_g->unwind.mode) ant_call(ant_module_get(*run->module, run->main), 0, NULL);
   if (ant_g->unwind.mode == U_PANIC) {
     ant_report_panic();
-    return NULL;
+    ant_exit(2);
   }
-  run->status = 0;
-  return NULL;
+  ant_exit(0);
 }
 
 /* Initializes the entry module and calls its `main` (the module's field
- * main_idx) on the big-stack thread; exits with 0, or 2 after a reported
- * panic. */
+ * main_idx) on the big-stack thread, which exits with 0, or 2 after a
+ * reported panic. */
 int ant_run_main(void (*init)(void), AntValue *module, int main_idx) {
-  MainRun run = { init, module, main_idx, 2 };
+  MainRun run = { init, module, main_idx };
   ant_run_on_big_stack(run_main_thread, &run);
-  ant_exit(run.status);
+  ant_exit(2);   /* not reached: the main goroutine exits the process */
 }

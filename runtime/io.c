@@ -76,7 +76,9 @@ static AntValue os_exec(AntFunc *self, int argc, AntValue *argv) {
   int rc = posix_spawnp(&pid, items[0], NULL, NULL, items, environ);
   if (rc != 0) return io_error(rc, items[0]);
   int status = 0;
+  ant_gil_release();   /* blocks only the caller, like Time.sleep: pid and status are C data */
   while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+  ant_gil_acquire();
   if (WIFSIGNALED(status)) return ant_ok(ant_int(128 + WTERMSIG(status)));
   return ant_ok(ant_int(WEXITSTATUS(status)));
 }
@@ -102,11 +104,15 @@ static AntValue clock_ms(clockid_t clock) {
 static AntValue time_now(AntFunc *self, int argc, AntValue *argv) { return clock_ms(CLOCK_REALTIME); }
 static AntValue time_monotonic(AntFunc *self, int argc, AntValue *argv) { return clock_ms(CLOCK_MONOTONIC); }
 
+/* Blocks only the caller: the GIL is released around the sleep, and
+ * nothing in between touches an AntValue. */
 static AntValue time_sleep(AntFunc *self, int argc, AntValue *argv) {
   INT(argv[0], ms);
   if (ms <= 0) return ANT_VOID;
   struct timespec ts = { ms / 1000, (ms % 1000) * 1000000 };
+  ant_gil_release();
   while (nanosleep(&ts, &ts) < 0 && errno == EINTR) {}
+  ant_gil_acquire();
   return ANT_VOID;
 }
 

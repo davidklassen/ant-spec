@@ -27,7 +27,7 @@ runtime: runtime/libantrt.a runtime/libantrt.flags
 runtime/libantrt.a: $(RT_OBJ)
 	ar rcs $@ $^
 
-runtime/obj/%.o: runtime/%.c runtime/ant.h | runtime/obj
+runtime/obj/%.o: runtime/%.c $(wildcard runtime/*.h) | runtime/obj
 	$(CC) $(CFLAGS) -c $< -o $@
 
 runtime/obj:

@@ -1,0 +1,19 @@
+// Probe (not a test): the same 2000 goroutines released one at a time,
+// each unlock of the mutex waking the next waiter.
+func main() {
+  var m = Mutex.new()
+  Mutex.lock(m)
+  var done = WaitGroup.new()
+  for i in Array.range(0, 2000) {
+    WaitGroup.add(done, 1)
+    go {
+      Mutex.lock(m)
+      Mutex.unlock(m)
+      WaitGroup.done(done)
+    }
+  }
+  Time.sleep(500)        // every goroutine parks on the mutex
+  Mutex.unlock(m)        // releases one; each one releases the next
+  WaitGroup.wait(done)
+  print("released")
+}

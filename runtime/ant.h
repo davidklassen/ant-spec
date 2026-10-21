@@ -95,7 +95,16 @@ static inline AntValue ant_finish(AntFrame *fr, AntValue result) {
 
 #define CHK(e, L) ({ AntValue _v = (e); if (ant_g->unwind.mode) goto L; _v; })
 #define CHKB(e, L) ({ bool _b = (e); if (ant_g->unwind.mode) goto L; _b; })
-#define ANT_SAFEPOINT() ((void)0)
+/* sched.c: generated code polls at function entry and loop back-edges; the
+ * goroutine at the head of the GIL queue raises the request after waiting
+ * 5 ms. Waiters write it under the scheduler's mutex and the holder reads
+ * it without, so every access is a relaxed atomic (a plain load or store
+ * on arm64; <stdatomic.h> is avoided because its atomic_load/atomic_store
+ * macros would capture the Atomic natives' names): ant_gil_yield takes
+ * the mutex before acting on what it read. */
+extern int ant_switch_requested;
+void ant_gil_yield(void);
+#define ANT_SAFEPOINT() do { if (__atomic_load_n(&ant_switch_requested, __ATOMIC_RELAXED)) ant_gil_yield(); } while (0)
 
 /* ---------------------------------------------------------------- constructors */
 
@@ -118,6 +127,9 @@ void *ant_alloc_atomic(size_t n);
 void *ant_realloc(void *p, size_t n);
 void ant_gc_init(void);
 void ant_run_on_big_stack(void *(*fn)(void *), void *arg);
+void *ant_alloc_uncollectable(size_t n);   /* zeroed; scanned by the collector, never collected; freed with ant_free */
+void ant_free(void *p);
+int ant_thread_spawn(void *(*fn)(void *), void *arg, size_t stack);   /* detached; 0 or an errno */
 
 /* value.c */
 const char *ant_kind_name(AntKind k);
@@ -290,7 +302,13 @@ AntValue ant_ns_waitgroup(void);
 AntValue ant_ns_once(void);
 AntValue ant_ns_cond(void);
 AntValue ant_ns_atomic(void);
+
+/* sched.c */
 AntValue ant_go(AntValue closure);
+void ant_gil_acquire(void);
+void ant_gil_release(void);          /* only around a syscall that touches no AntValue */
+void ant_sched_enter_main(void);     /* the main goroutine takes the GIL */
+
 AntValue ant_native_print(AntFunc *self, int argc, AntValue *argv);
 AntValue ant_native_panic(AntFunc *self, int argc, AntValue *argv);
 extern AntValue ant_args;

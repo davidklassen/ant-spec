@@ -1,14 +1,18 @@
-/* The sync objects (sections 9 and 11) for a single-threaded runtime: the
- * state and panics are those of the design, and an operation that would
- * block forever without another goroutine panics `deadlock`. Step 2.6
- * replaces the waiting. */
+/* The sync objects (sections 9 and 11): monitors on the GIL. Each blocking
+ * object carries a condition variable that waits on the scheduler's mutex;
+ * an operation that must wait loops on its predicate around ant_block_on,
+ * and every state change that can satisfy a predicate signals or
+ * broadcasts it. All state is read and written under the GIL, so no
+ * wake-up is lost between a test and its wait. */
 #include "ant.h"
+#include "sched.h"
 
-typedef struct { AntSync base; bool locked; } Mutex;
-typedef struct { AntSync base; int64_t readers; bool writer; } RwMutex;
-typedef struct { AntSync base; int64_t n; } WaitGroup;
-typedef struct { AntSync base; int state; } Once;
-typedef struct { AntSync base; Mutex *m; } Cond;
+typedef struct { AntSync base; pthread_cond_t cv; } Monitor;   /* the first field of every blocking object */
+typedef struct { Monitor mon; bool locked; } Mutex;
+typedef struct { Monitor mon; int64_t readers; bool writer; } RwMutex;
+typedef struct { Monitor mon; int64_t n; } WaitGroup;
+typedef struct { Monitor mon; int state; } Once;
+typedef struct { Monitor mon; Mutex *m; int64_t waiting, wakeups; } Cond;
 typedef struct { AntSync base; AntValue v; } Atomic;
 
 static AntValue sync_new(const char *name, size_t size) {
@@ -17,17 +21,18 @@ static AntValue sync_new(const char *name, size_t size) {
   return ant_ptr(K_SYNC, s);
 }
 
+static AntValue monitor_new(const char *name, size_t size) {
+  AntValue v = sync_new(name, size);
+  ant_cond_init(&((Monitor *)v.as.p)->cv);
+  return v;
+}
+
 static void *need(AntValue v, const char *name) {
   if (v.kind != K_SYNC || ((AntSync *)v.as.p)->name != name) {
     ant_panicf("wrong kind: expected a%s %s", name[0] == 'A' ? "n" : "", name);   /* "an Atomic" */
     return NULL;
   }
   return v.as.p;
-}
-
-static AntValue deadlock(const char *what) {
-  ant_panicf("deadlock: %s with no other goroutines (step 2.6)", what);
-  return ANT_VOID;
 }
 
 /* `f` between lock and unlock (both natives on argv[0]): the unlock runs
@@ -46,17 +51,29 @@ static AntValue with_lock(AntFunc *self, AntValue *argv, AntNative lock, AntNati
 
 /* ---------------------------------------------------------------- Mutex */
 
+/* Not owned: any goroutine may unlock it (section 11). */
 static const char MUTEX[] = "Mutex";
 
 static AntValue mutex_new(AntFunc *self, int argc, AntValue *argv) {
-  return sync_new(MUTEX, sizeof(Mutex));
+  return monitor_new(MUTEX, sizeof(Mutex));
+}
+
+/* The wake-up discipline, shared with Cond: a release signals one waiter,
+ * which re-tests. */
+static void mutex_acquire(Mutex *m) {
+  while (m->locked) ant_block_on(&m->mon.cv);
+  m->locked = true;
+}
+
+static void mutex_release(Mutex *m) {
+  m->locked = false;
+  ant_cond_signal(&m->mon.cv);
 }
 
 static AntValue mutex_lock(AntFunc *self, int argc, AntValue *argv) {
   Mutex *m = need(argv[0], MUTEX);
   if (!m) return ANT_VOID;
-  if (m->locked) return deadlock("Mutex.lock");
-  m->locked = true;
+  mutex_acquire(m);
   return ANT_VOID;
 }
 
@@ -64,7 +81,7 @@ static AntValue mutex_unlock(AntFunc *self, int argc, AntValue *argv) {
   Mutex *m = need(argv[0], MUTEX);
   if (!m) return ANT_VOID;
   if (!m->locked) { ant_panic("not locked"); return ANT_VOID; }
-  m->locked = false;
+  mutex_release(m);
   return ANT_VOID;
 }
 
@@ -84,16 +101,17 @@ AntValue ant_ns_mutex(void) {
 
 /* ---------------------------------------------------------------- RwMutex */
 
+/* Readers are admitted while no writer holds it (G51); no writer preference. */
 static const char RWMUTEX[] = "RwMutex";
 
 static AntValue rw_new(AntFunc *self, int argc, AntValue *argv) {
-  return sync_new(RWMUTEX, sizeof(RwMutex));
+  return monitor_new(RWMUTEX, sizeof(RwMutex));
 }
 
 static AntValue rw_read_lock(AntFunc *self, int argc, AntValue *argv) {
   RwMutex *m = need(argv[0], RWMUTEX);
   if (!m) return ANT_VOID;
-  if (m->writer) return deadlock("RwMutex.readLock");
+  while (m->writer) ant_block_on(&m->mon.cv);
   m->readers++;
   return ANT_VOID;
 }
@@ -103,13 +121,14 @@ static AntValue rw_read_unlock(AntFunc *self, int argc, AntValue *argv) {
   if (!m) return ANT_VOID;
   if (m->readers == 0) { ant_panic("not locked"); return ANT_VOID; }
   m->readers--;
+  if (m->readers == 0) ant_cond_broadcast(&m->mon.cv);
   return ANT_VOID;
 }
 
 static AntValue rw_write_lock(AntFunc *self, int argc, AntValue *argv) {
   RwMutex *m = need(argv[0], RWMUTEX);
   if (!m) return ANT_VOID;
-  if (m->writer || m->readers) return deadlock("RwMutex.writeLock");
+  while (m->writer || m->readers > 0) ant_block_on(&m->mon.cv);
   m->writer = true;
   return ANT_VOID;
 }
@@ -119,6 +138,7 @@ static AntValue rw_write_unlock(AntFunc *self, int argc, AntValue *argv) {
   if (!m) return ANT_VOID;
   if (!m->writer) { ant_panic("not locked"); return ANT_VOID; }
   m->writer = false;
+  ant_cond_broadcast(&m->mon.cv);
   return ANT_VOID;
 }
 
@@ -148,15 +168,17 @@ AntValue ant_ns_rwmutex(void) {
 static const char WAITGROUP[] = "WaitGroup";
 
 static AntValue wg_new(AntFunc *self, int argc, AntValue *argv) {
-  return sync_new(WAITGROUP, sizeof(WaitGroup));
+  return monitor_new(WAITGROUP, sizeof(WaitGroup));
 }
 
+/* Waiters wake when the counter reaches zero through add or done. */
 static AntValue wg_add(AntFunc *self, int argc, AntValue *argv) {
   WaitGroup *wg = need(argv[0], WAITGROUP);
   if (!wg) return ANT_VOID;
   INT(argv[1], n);
   if (wg->n + n < 0) { ant_panic("negative counter"); return ANT_VOID; }
   wg->n += n;
+  if (wg->n == 0) ant_cond_broadcast(&wg->mon.cv);
   return ANT_VOID;
 }
 
@@ -165,13 +187,14 @@ static AntValue wg_done(AntFunc *self, int argc, AntValue *argv) {
   if (!wg) return ANT_VOID;
   if (wg->n == 0) { ant_panic("negative counter"); return ANT_VOID; }
   wg->n--;
+  if (wg->n == 0) ant_cond_broadcast(&wg->mon.cv);
   return ANT_VOID;
 }
 
 static AntValue wg_wait(AntFunc *self, int argc, AntValue *argv) {
   WaitGroup *wg = need(argv[0], WAITGROUP);
   if (!wg) return ANT_VOID;
-  if (wg->n > 0) return deadlock("WaitGroup.wait");
+  while (wg->n > 0) ant_block_on(&wg->mon.cv);
   return ANT_VOID;
 }
 
@@ -188,19 +211,26 @@ AntValue ant_ns_waitgroup(void) {
 /* ---------------------------------------------------------------- Once */
 
 static const char ONCE[] = "Once";
+enum { ONCE_NEW, ONCE_RUNNING, ONCE_DONE };
 
 static AntValue once_new(AntFunc *self, int argc, AntValue *argv) {
-  return sync_new(ONCE, sizeof(Once));
+  return monitor_new(ONCE, sizeof(Once));
 }
 
-/* The first call runs f and counts as done even when f panics (G30). */
+/* The first call runs f and counts as done even when f panics (G30); the
+ * panic stays pending for that caller. Concurrent callers wait for f to
+ * finish; later ones return at once. */
 static AntValue once_do(AntFunc *self, int argc, AntValue *argv) {
   Once *o = need(argv[0], ONCE);
   if (!o) return ANT_VOID;
   FUNC(argv[1]);
-  if (o->state) return ANT_VOID;
-  o->state = 1;
-  ant_call(argv[1], 0, NULL);
+  if (o->state == ONCE_NEW) {
+    o->state = ONCE_RUNNING;
+    ant_call(argv[1], 0, NULL);
+    o->state = ONCE_DONE;
+    ant_cond_broadcast(&o->mon.cv);
+  }
+  while (o->state == ONCE_RUNNING) ant_block_on(&o->mon.cv);
   return ANT_VOID;
 }
 
@@ -214,25 +244,49 @@ AntValue ant_ns_once(void) {
 
 /* ---------------------------------------------------------------- Cond */
 
+/* `waiting` counts goroutines parked in wait and `wakeups` how many of
+ * them signal or broadcast has released but which have not left yet, so
+ * exactly that many leave whatever pthread wakes. */
 static const char COND[] = "Cond";
 
 static AntValue cond_new(AntFunc *self, int argc, AntValue *argv) {
   Mutex *m = need(argv[0], MUTEX);
   if (!m) return ANT_VOID;
-  AntValue c = sync_new(COND, sizeof(Cond));
+  AntValue c = monitor_new(COND, sizeof(Cond));
   ((Cond *)c.as.p)->m = m;
   return c;
 }
 
+/* Releases the mutex, waits for a wake-up, re-acquires the mutex. */
 static AntValue cond_wait(AntFunc *self, int argc, AntValue *argv) {
   Cond *c = need(argv[0], COND);
   if (!c) return ANT_VOID;
-  if (!c->m->locked) { ant_panic("not locked"); return ANT_VOID; }
-  return deadlock("Cond.wait");
+  Mutex *m = c->m;
+  if (!m->locked) { ant_panic("not locked"); return ANT_VOID; }
+  mutex_release(m);
+  c->waiting++;
+  do ant_block_on(&c->mon.cv); while (c->wakeups == 0);
+  c->wakeups--;
+  c->waiting--;
+  mutex_acquire(m);
+  return ANT_VOID;
 }
 
 static AntValue cond_signal(AntFunc *self, int argc, AntValue *argv) {
-  if (!need(argv[0], COND)) return ANT_VOID;
+  Cond *c = need(argv[0], COND);
+  if (!c) return ANT_VOID;
+  if (c->waiting > c->wakeups) {
+    c->wakeups++;
+    ant_cond_broadcast(&c->mon.cv);
+  }
+  return ANT_VOID;
+}
+
+static AntValue cond_broadcast(AntFunc *self, int argc, AntValue *argv) {
+  Cond *c = need(argv[0], COND);
+  if (!c) return ANT_VOID;
+  c->wakeups = c->waiting;
+  ant_cond_broadcast(&c->mon.cv);
   return ANT_VOID;
 }
 
@@ -241,13 +295,14 @@ AntValue ant_ns_cond(void) {
     { "new", "m", cond_new },
     { "wait", "c", cond_wait },
     { "signal", "c", cond_signal },
-    { "broadcast", "c", cond_signal },
+    { "broadcast", "c", cond_broadcast },
   };
   return ANT_NAMESPACE("Cond", members);
 }
 
 /* ---------------------------------------------------------------- Atomic */
 
+/* Every operation is one C function under the GIL with no callback, hence atomic. */
 static const char ATOMIC[] = "Atomic";
 
 static AntValue atomic_new(AntFunc *self, int argc, AntValue *argv) {

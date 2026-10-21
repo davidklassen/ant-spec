@@ -1,0 +1,18 @@
+// Probe (not a test): 2000 goroutines parked on one WaitGroup and released
+// by a single broadcast, so they all queue for the GIL at once.
+func main() {
+  var gate = WaitGroup.new()
+  WaitGroup.add(gate, 1)
+  var done = WaitGroup.new()
+  for i in Array.range(0, 2000) {
+    WaitGroup.add(done, 1)
+    go {
+      WaitGroup.wait(gate)
+      WaitGroup.done(done)
+    }
+  }
+  Time.sleep(500)        // every goroutine parks on the gate
+  WaitGroup.done(gate)   // one broadcast releases all 2000
+  WaitGroup.wait(done)
+  print("released")
+}
