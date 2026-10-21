@@ -9,7 +9,8 @@ AntValue ant_tag_new(const char *name) {
   return ant_ptr(K_TAG, t);
 }
 
-AntTag *ant_need_tag(AntValue v) {
+/* The one `not a tag` check: the tag behind v, or NULL after the panic. */
+static AntTag *need_tag(AntValue v) {
   if (v.kind != K_TAG) {
     ant_panic("not a tag");
     return NULL;
@@ -18,7 +19,7 @@ AntTag *ant_need_tag(AntValue v) {
 }
 
 AntValue ant_check_tag(AntValue v) {
-  if (v.kind != K_TAG) ant_panic("not a tag");
+  need_tag(v);
   return v;
 }
 
@@ -31,19 +32,23 @@ static AntRecord *need_record(AntValue v) {
   return v.as.p;
 }
 
-AntValue ant_record_make(AntTag *tag, const AntShape *shape, AntValue *values) {
+/* A record of the shape, its fields still to be filled. */
+static AntRecord *alloc_record(AntTag *tag, const AntShape *shape) {
   AntRecord *r = ant_alloc(sizeof(AntRecord) + sizeof(AntValue) * (size_t)shape->n);
   r->tag = tag;
   r->shape = shape;
+  return r;
+}
+
+AntValue ant_record_make(AntTag *tag, const AntShape *shape, AntValue *values) {
+  AntRecord *r = alloc_record(tag, shape);
   if (shape->n) memcpy(r->fields, values, sizeof(AntValue) * (size_t)shape->n);
   return ant_ptr(K_RECORD, r);
 }
 
-/* A literal without spread: the head must be a tag, the shape is static. */
+/* A literal without spread: the shape is static. */
 AntValue ant_record_new(AntValue tag, const AntShape *shape, AntValue *values) {
-  AntTag *t = ant_need_tag(tag);
-  if (!t) return ANT_VOID;
-  return ant_record_make(t, shape, values);
+  return ant_record_make(tag.as.p, shape, values);
 }
 
 /* The field s of a record under construction: appended, or replaced in place. */
@@ -64,20 +69,11 @@ AntValue ant_record_snapshot(AntValue v) {
 }
 
 /* A literal with a spread: fields are gathered in order, a later entry
- * replacing an earlier one in place, and the shape is interned. The emitter
- * lands each spread operand through ant_record_snapshot, which is where a
- * non-record panics in evaluation order; the `not a record` check in the
- * pre-pass below is a second line of defence, not the primary one. */
+ * replacing an earlier one in place, and the shape is interned. */
 AntValue ant_record_build(AntValue tag, int n, const Sym *names, AntValue *values, const bool *isSpread) {
-  AntTag *t = ant_need_tag(tag);
-  if (!t) return ANT_VOID;
   int cap = n;
   for (int i = 0; i < n; i++) {
-    if (isSpread[i]) {
-      AntRecord *src = need_record(values[i]);
-      if (!src) return ANT_VOID;
-      cap += src->shape->n;
-    }
+    if (isSpread[i]) cap += ((AntRecord *)values[i].as.p)->shape->n;
   }
   Sym *syms = ant_alloc_atomic(sizeof(Sym) * (size_t)(cap ? cap : 1));
   AntValue *vals = ant_alloc(sizeof(AntValue) * (size_t)(cap ? cap : 1));
@@ -90,7 +86,7 @@ AntValue ant_record_build(AntValue tag, int n, const Sym *names, AntValue *value
       put(syms, vals, &count, names[i], values[i]);
     }
   }
-  return ant_record_make(t, ant_shape_intern(count, syms), vals);
+  return ant_record_make(tag.as.p, ant_shape_intern(count, syms), vals);
 }
 
 int ant_shape_find(const AntShape *shape, Sym s) {
@@ -112,15 +108,21 @@ static int field_index(AntValue v, Sym s, AntFieldCache *c) {
   return i;
 }
 
-AntValue ant_field_get(AntValue v, Sym s, AntFieldCache *c) {
-  int i = field_index(v, s, c);
-  if (i < 0) return ANT_VOID;
-  AntValue f = ((AntRecord *)v.as.p)->fields[i];
+/* The field at index i, which consumes the K_UNINIT sentinel: a module var
+ * read before its initializer ran is `not initialized`. */
+static AntValue field_at(AntRecord *r, int i) {
+  AntValue f = r->fields[i];
   if (f.kind == K_UNINIT) {
-    ant_panicf("not initialized: %s", ant_sym_name(s));
+    ant_panicf("not initialized: %s", ant_sym_name(r->shape->names[i]));
     return ANT_VOID;
   }
   return f;
+}
+
+AntValue ant_field_get(AntValue v, Sym s, AntFieldCache *c) {
+  int i = field_index(v, s, c);
+  if (i < 0) return ANT_VOID;
+  return field_at(v.as.p, i);
 }
 
 AntValue ant_field_set(AntValue v, Sym s, AntValue val, AntFieldCache *c) {
@@ -137,7 +139,7 @@ AntValue ant_field_check(AntValue v, Sym s, AntFieldCache *c) {
 }
 
 AntValue ant_is_tag(AntValue v, AntValue tag) {
-  AntTag *t = ant_need_tag(tag);
+  AntTag *t = need_tag(tag);
   if (!t) return ANT_VOID;
   return ant_bool(v.kind == K_RECORD && ((AntRecord *)v.as.p)->tag == t);
 }
@@ -151,21 +153,13 @@ AntTag *ant_module_tag(void) {
 }
 
 AntValue ant_module_new(const AntShape *shape) {
-  AntRecord *r = ant_alloc(sizeof(AntRecord) + sizeof(AntValue) * (size_t)shape->n);
-  r->tag = &module_tag;
-  r->shape = shape;
+  AntRecord *r = alloc_record(&module_tag, shape);
   for (int i = 0; i < shape->n; i++) r->fields[i] = ANT_UNINIT;
   return ant_ptr(K_RECORD, r);
 }
 
 AntValue ant_module_get(AntValue m, int idx) {
-  AntRecord *r = m.as.p;
-  AntValue v = r->fields[idx];
-  if (v.kind == K_UNINIT) {
-    ant_panicf("not initialized: %s", ant_sym_name(r->shape->names[idx]));
-    return ANT_VOID;
-  }
-  return v;
+  return field_at(m.as.p, idx);
 }
 
 void ant_module_set(AntValue m, int idx, AntValue v) {

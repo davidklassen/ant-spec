@@ -87,14 +87,15 @@ func orExit[T](path: string, r: Result[T, Lex.Diagnostic]): T {
   }
 }
 
-// The one diagnostic form: path:line:col: message, on stderr.
-func report(path: string, d: Lex.Diagnostic): void {
+// The one diagnostic form: path:line:col: message, on stderr. A Problem
+// carries its own path and is reported as `report(p.path, p)`.
+func report(path: string, d: { line: int, col: int, message: string }): void {
   eprint(`${path}:${d.line}:${d.col}: ${d.message}`)
 }
 
 func problemExit(p: Mod.Problem): never {
   if p.path == "" { eprint(`antc: ${p.message}`) }
-  else { report(p.path, Lex.Diagnostic{ line: p.line, col: p.col, message: p.message }) }
+  else { report(p.path, p) }
   Os.exit(1)
 }
 

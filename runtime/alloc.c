@@ -13,30 +13,41 @@ static void out_of_memory(void) {
   abort();
 }
 
-void *ant_alloc(size_t n) {
-  void *p = GC_MALLOC(n ? n : 1);
+/* The one rule of every wrapper: a zero-size request is a one-byte block,
+ * and exhaustion ends the process. */
+static void *checked(void *p) {
   if (!p) out_of_memory();
   return p;
+}
+
+void *ant_alloc(size_t n) {
+  return checked(GC_MALLOC(n ? n : 1));
 }
 
 /* Memory the collector never scans: string bytes, number arrays. */
 void *ant_alloc_atomic(size_t n) {
-  void *p = GC_MALLOC_ATOMIC(n ? n : 1);
-  if (!p) out_of_memory();
-  return p;
+  return checked(GC_MALLOC_ATOMIC(n ? n : 1));
+}
+
+/* The growing tables (array data, map entries and index): only their
+ * owner's header points to them, so the collector need not keep them
+ * reachable through interior pointers, which spares it the search for
+ * blacklist-free space that makes a multi-megabyte block slow and noisy. */
+void *ant_alloc_big(size_t n) {
+  return checked(GC_MALLOC_IGNORE_OFF_PAGE(n ? n : 1));
+}
+
+void *ant_alloc_atomic_big(size_t n) {
+  return checked(GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE(n ? n : 1));
 }
 
 void *ant_realloc(void *p, size_t n) {
-  void *q = GC_REALLOC(p, n ? n : 1);
-  if (!q) out_of_memory();
-  return q;
+  return checked(GC_REALLOC(p, n ? n : 1));
 }
 
 /* Zeroed memory the collector scans but never frees: a goroutine's state. */
 void *ant_alloc_uncollectable(size_t n) {
-  void *p = GC_MALLOC_UNCOLLECTABLE(n ? n : 1);
-  if (!p) out_of_memory();
-  return p;
+  return checked(GC_MALLOC_UNCOLLECTABLE(n ? n : 1));
 }
 
 void ant_free(void *p) {

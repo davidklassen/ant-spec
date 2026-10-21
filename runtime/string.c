@@ -2,6 +2,9 @@
  * builder, and the String namespace (section 11). */
 #include <errno.h>
 #include <math.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ant.h"
@@ -34,7 +37,7 @@ bool ant_utf8_valid(const char *p, int64_t n) {
     int32_t v = c & (len == 2 ? 0x1F : len == 3 ? 0x0F : 0x07);
     for (int k = 1; k < len; k++) {
       unsigned char d = (unsigned char)p[i + k];
-      if ((d & 0xC0) != 0x80) return false;
+      if (!ant_utf8_cont(d)) return false;
       v = (v << 6) | (d & 0x3F);
     }
     if (v < min || v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) return false;
@@ -45,52 +48,84 @@ bool ant_utf8_valid(const char *p, int64_t n) {
 
 /* ---------------------------------------------------------------- creation */
 
-AntValue ant_str_new(const char *bytes, int64_t n) {
+/* A string block of n bytes with room for the NUL, its bytes to be filled. */
+static AntString *alloc_str(int64_t n) {
   AntString *s = ant_alloc_atomic(sizeof(AntString) + (size_t)n + 1);
   s->nbytes = n;
   s->hash = 0;
-  memcpy(s->data, bytes, (size_t)n);
   s->data[n] = 0;
+  return s;
+}
+
+/* Computes ncps and ascii from the bytes, once per string. */
+static AntValue finish_str(AntString *s) {
   int64_t cps = 0;
   bool ascii = true;
-  for (int64_t i = 0; i < n; i++) {
-    unsigned char c = (unsigned char)bytes[i];
+  for (int64_t i = 0; i < s->nbytes; i++) {
+    unsigned char c = (unsigned char)s->data[i];
     if (c >= 0x80) ascii = false;
-    if ((c & 0xC0) != 0x80) cps++;
+    if (!ant_utf8_cont(c)) cps++;
   }
   s->ncps = cps;
   s->ascii = ascii;
   return ant_ptr(K_STRING, s);
 }
 
-AntValue ant_str_lit(const char *bytes, int64_t n) {
-  return ant_str_new(bytes, n);
+/* The one-character ASCII strings, shared: `for c in s`, String.chars and
+ * String.split hand them out by the million, strings are immutable and
+ * compared by content, and nothing tests their identity. */
+static AntValue ascii1[128];
+
+AntValue ant_str_new(const char *bytes, int64_t n) {
+  if (n == 1 && (unsigned char)bytes[0] < 0x80) {
+    AntValue *slot = &ascii1[(unsigned char)bytes[0]];
+    if (!slot->as.p) {
+      AntString *s = alloc_str(1);
+      s->data[0] = bytes[0];
+      *slot = finish_str(s);
+    }
+    return *slot;
+  }
+  AntString *s = alloc_str(n);
+  memcpy(s->data, bytes, (size_t)n);
+  return finish_str(s);
 }
 
 AntValue ant_str_cstr(const char *s) {
   return ant_str_new(s, (int64_t)strlen(s));
 }
 
+char *ant_vfmt(const char *fmt, va_list ap) {
+  va_list ap2;
+  va_copy(ap2, ap);
+  int n = vsnprintf(NULL, 0, fmt, ap2);
+  va_end(ap2);
+  char *buf = ant_alloc_atomic((size_t)n + 1);
+  vsnprintf(buf, (size_t)n + 1, fmt, ap);
+  return buf;
+}
+
+char *ant_fmt(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  char *buf = ant_vfmt(fmt, ap);
+  va_end(ap);
+  return buf;
+}
+
 AntString *ant_str(AntValue v) {
-  if (v.kind != K_STRING) {
-    ant_panic("wrong kind: expected a string");
-    return NULL;
-  }
-  return v.as.p;
+  return ant_need_kind(v, K_STRING, "a string") ? v.as.p : NULL;
 }
 
 AntValue ant_str_concat(AntValue a, AntValue b) {
   AntString *x = a.as.p, *y = b.as.p;
   if (x->nbytes == 0) return b;
   if (y->nbytes == 0) return a;
-  AntString *s = ant_alloc_atomic(sizeof(AntString) + (size_t)(x->nbytes + y->nbytes) + 1);
-  s->nbytes = x->nbytes + y->nbytes;
+  AntString *s = alloc_str(x->nbytes + y->nbytes);
   s->ncps = x->ncps + y->ncps;
-  s->hash = 0;
   s->ascii = x->ascii && y->ascii;
   memcpy(s->data, x->data, (size_t)x->nbytes);
   memcpy(s->data + x->nbytes, y->data, (size_t)y->nbytes);
-  s->data[s->nbytes] = 0;
   return ant_ptr(K_STRING, s);
 }
 
@@ -106,11 +141,15 @@ bool ant_str_eq(AntString *a, AntString *b) {
   return a == b || (a->nbytes == b->nbytes && memcmp(a->data, b->data, (size_t)a->nbytes) == 0);
 }
 
-uint32_t ant_str_hash(AntString *s) {
-  if (s->hash) return s->hash;
+/* FNV-1a over bytes, never zero so that a zero can mean "not yet hashed". */
+uint32_t ant_fnv1a(const char *p, int64_t n) {
   uint32_t h = 2166136261u;
-  for (int64_t i = 0; i < s->nbytes; i++) h = (h ^ (unsigned char)s->data[i]) * 16777619u;
-  s->hash = h ? h : 1;
+  for (int64_t i = 0; i < n; i++) h = (h ^ (unsigned char)p[i]) * 16777619u;
+  return h ? h : 1;
+}
+
+uint32_t ant_str_hash(AntString *s) {
+  if (!s->hash) s->hash = ant_fnv1a(s->data, s->nbytes);
   return s->hash;
 }
 
@@ -119,28 +158,52 @@ static int64_t advance(AntString *s, int64_t off, int64_t count) {
   if (s->ascii) return off + count;
   while (count-- > 0) {
     off++;
-    while (off < s->nbytes && ((unsigned char)s->data[off] & 0xC0) == 0x80) off++;
+    while (off < s->nbytes && ant_utf8_cont((unsigned char)s->data[off])) off++;
   }
   return off;
 }
 
-AntValue ant_str_slice_cps(AntString *s, int64_t from, int64_t to) {
+static AntValue slice_cps(AntString *s, int64_t from, int64_t to) {
   int64_t a = advance(s, 0, from), b = advance(s, a, to - from);
   return ant_str_new(s->data + a, b - a);
 }
 
+AntValue ant_str_next_char(AntString *s, int64_t *i) {
+  int32_t cp;
+  int len = ant_utf8_decode(s->data + *i, s->nbytes - *i, &cp);
+  AntValue c = ant_str_new(s->data + *i, len);
+  *i += len;
+  return c;
+}
+
+bool ant_check_slice(int64_t from, int64_t to, int64_t len) {
+  if (from < 0 || from > to || to > len) {
+    ant_panic("index out of range");
+    return false;
+  }
+  return true;
+}
+
 /* ---------------------------------------------------------------- builder */
+
+/* The builder writes into the string it will become: `data` is the bytes
+ * of an AntString block whose header ant_sb_finish fills, so a built
+ * string costs one allocation and one scan. */
+static AntString *sb_block(AntSb *sb) {
+  return (AntString *)(sb->data - offsetof(AntString, data));
+}
 
 void ant_sb_init(AntSb *sb) {
   sb->len = 0;
   sb->cap = 64;
-  sb->data = ant_alloc_atomic((size_t)sb->cap);
+  sb->data = alloc_str(sb->cap)->data;
 }
 
 void ant_sb_append(AntSb *sb, const char *p, int64_t n) {
   if (sb->len + n > sb->cap) {
     while (sb->len + n > sb->cap) sb->cap *= 2;
-    sb->data = ant_realloc(sb->data, (size_t)sb->cap);
+    AntString *s = ant_realloc(sb_block(sb), sizeof(AntString) + (size_t)sb->cap + 1);
+    sb->data = s->data;
   }
   memcpy(sb->data + sb->len, p, (size_t)n);
   sb->len += n;
@@ -169,7 +232,11 @@ void ant_sb_append_cp(AntSb *sb, int32_t cp) {
 }
 
 AntValue ant_sb_finish(AntSb *sb) {
-  return ant_str_new(sb->data, sb->len);
+  if (sb->len == 1 && (unsigned char)sb->data[0] < 0x80) return ant_str_new(sb->data, 1);
+  AntString *s = sb_block(sb);
+  s->nbytes = sb->len;
+  s->data[sb->len] = 0;
+  return finish_str(s);
 }
 
 /* A template part: a string bare, anything else rendered. */
@@ -194,8 +261,8 @@ static AntValue s_slice(AntFunc *self, int argc, AntValue *argv) {
   STR(argv[0], s);
   INT(argv[1], from);
   INT(argv[2], to);
-  if (from < 0 || from > to || to > s->ncps) { ant_panic("index out of range"); return ANT_VOID; }
-  return ant_str_slice_cps(s, from, to);
+  if (!ant_check_slice(from, to, s->ncps)) return ANT_VOID;
+  return slice_cps(s, from, to);
 }
 
 static AntValue join_parts(AntValue parts, AntString *sep) {
@@ -222,8 +289,7 @@ static AntValue s_join(AntFunc *self, int argc, AntValue *argv) {
 
 static AntValue s_repeat(AntFunc *self, int argc, AntValue *argv) {
   STR(argv[0], s);
-  INT(argv[1], n);
-  if (n < 0) { ant_panic("negative count"); return ANT_VOID; }
+  COUNT(argv[1], n);
   AntSb sb;
   ant_sb_init(&sb);
   for (int64_t i = 0; i < n; i++) ant_sb_append(&sb, s->data, s->nbytes);
@@ -252,7 +318,7 @@ static AntValue s_trim(AntFunc *self, int argc, AntValue *argv) {
   }
   while (end > start) {
     int64_t k = end - 1;
-    while (k > start && ((unsigned char)s->data[k] & 0xC0) == 0x80) k--;
+    while (k > start && ant_utf8_cont((unsigned char)s->data[k])) k--;
     int32_t cp;
     ant_utf8_decode(s->data + k, end - k, &cp);
     if (!is_white_space(cp)) break;
@@ -273,7 +339,7 @@ static int64_t find_bytes(AntString *s, AntString *t, int64_t from) {
 static int64_t cps_before(AntString *s, int64_t byteoff) {
   if (s->ascii) return byteoff;
   int64_t n = 0;
-  for (int64_t i = 0; i < byteoff; i++) if (((unsigned char)s->data[i] & 0xC0) != 0x80) n++;
+  for (int64_t i = 0; i < byteoff; i++) if (!ant_utf8_cont((unsigned char)s->data[i])) n++;
   return n;
 }
 
@@ -360,12 +426,7 @@ static AntValue s_chars(AntFunc *self, int argc, AntValue *argv) {
   STR(argv[0], s);
   AntValue out = ant_array_new(s->ncps);
   int64_t i = 0;
-  while (i < s->nbytes) {
-    int32_t cp;
-    int len = ant_utf8_decode(s->data + i, s->nbytes - i, &cp);
-    ant_array_push(out, ant_str_new(s->data + i, len));
-    i += len;
-  }
+  while (i < s->nbytes) ant_array_push(out, ant_str_next_char(s, &i));
   return out;
 }
 
@@ -387,7 +448,7 @@ char *ant_bytes_of(AntValue v, int64_t *n) {
   if (!xs) return NULL;
   char *buf = ant_alloc_atomic((size_t)xs->len + 1);
   for (int64_t i = 0; i < xs->len; i++) {
-    if (xs->data[i].kind != K_UINT8) { ant_panic("wrong kind: expected a byte"); return NULL; }
+    if (xs->data[i].kind != K_UINT8) { ant_wrong_kind("a byte"); return NULL; }
     buf[i] = (char)xs->data[i].as.u;
   }
   buf[xs->len] = 0;
@@ -462,7 +523,7 @@ static AntValue s_from(AntFunc *self, int argc, AntValue *argv) {
   return ant_render(argv[0]);
 }
 
-AntValue ant_ns_string(void) {
+void ant_ns_string(void) {
   static const AntMember members[] = {
     { "length", "s", s_length },
     { "isEmpty", "s", s_is_empty },
@@ -486,5 +547,5 @@ AntValue ant_ns_string(void) {
     { "toFloat", "s", s_to_float },
     { "from", "value", s_from },
   };
-  return ANT_NAMESPACE("String", members);
+  ANT_NAMESPACE("String", members);
 }

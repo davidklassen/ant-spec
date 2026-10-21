@@ -13,7 +13,9 @@
 // took before dispatching. The newline rule is split between `lastContinues`
 // (the token before a newline) and `emit` (the token after it).
 
-export type Token = { kind: string, value: string, line: int, col: int, parts: Array[Part] }
+// A TEMPLATE token carries its `${...}` bodies in `parts` and, in `chunks`,
+// the raw text before, between and after them (one more than the parts).
+export type Token = { kind: string, value: string, line: int, col: int, parts: Array[Part], chunks: Array[string] }
 // One `${...}` body of a template: its position (just after the `${`) and raw text.
 export type Part = { line: int, col: int, text: string }
 // The one diagnostic record of the package: the lexer, the parser and later
@@ -73,8 +75,8 @@ export func tokenize(src: string): Result[Array[Token], Diagnostic] {
       try scanToken(lx)
     }
   }
-  if Array.length(lx.toks) > 0 && !lastIs(lx, "NEWLINE") { emit(lx, "NEWLINE", "\n", mark(lx), []) }
-  emit(lx, "EOF", "", mark(lx), [])
+  if Array.length(lx.toks) > 0 && !lastIs(lx, "NEWLINE") { emit(lx, "NEWLINE", "\n", mark(lx), [], []) }
+  emit(lx, "EOF", "", mark(lx), [], [])
   Result.ok(lx.toks)
 }
 
@@ -84,17 +86,18 @@ func scanToken(lx: Lexer): Result[void, Diagnostic] {
   var m = mark(lx)
   var c = lx.chars[lx.pos]
   if c == "\n" {
-    if !lastContinues(lx) { emit(lx, "NEWLINE", "\n", m, []) }
+    if !lastContinues(lx) { emit(lx, "NEWLINE", "\n", m, [], []) }
     step(lx)
     return Result.ok(void)
   }
   var parts: Array[Part] = []
+  var chunks: Array[string] = []
   var kind = if isDigit(c) { try number(lx) }
     else if isAlpha(c) || c == "_" { try identifier(lx) }
     else if c == "\"" { try stringLit(lx, m); "STRING" }
-    else if c == "`" { parts = try templateLit(lx, m); "TEMPLATE" }
+    else if c == "`" { parts = try templateLit(lx, m, chunks); "TEMPLATE" }
     else { try operator(lx); "OP" }
-  emit(lx, kind, text(lx, m.pos), m, parts)
+  emit(lx, kind, text(lx, m.pos), m, parts, chunks)
   Result.ok(void)
 }
 
@@ -150,9 +153,9 @@ func lastIs(lx: Lexer, kind: string): bool {
 // continues the previous one (section 2, Line endings), so such a token
 // takes the place of the NEWLINE emitted before it; no other kind of token
 // has one of those values.
-func emit(lx: Lexer, kind: string, value: string, m: Mark, parts: Array[Part]): void {
+func emit(lx: Lexer, kind: string, value: string, m: Mark, parts: Array[Part], chunks: Array[string]): void {
   if Map.has(CONTINUING, value) && lastIs(lx, "NEWLINE") { Array.pop(lx.toks) }
-  Array.push(lx.toks, Token{ kind, value, line: m.line, col: m.col, parts })
+  Array.push(lx.toks, Token{ kind, value, line: m.line, col: m.col, parts, chunks })
 }
 
 // The source text from start up to the current position.
@@ -319,21 +322,25 @@ func stringLit(lx: Lexer, m: Mark): Result[void, Diagnostic] {
 }
 
 // At a backtick, marked at m: a template may span lines and holds `${...}`
-// parts, which are returned.
-func templateLit(lx: Lexer, m: Mark): Result[Array[Part], Diagnostic] {
+// parts, which are returned; the raw text around them goes to `chunks`.
+func templateLit(lx: Lexer, m: Mark, chunks: Array[string]): Result[Array[Part], Diagnostic] {
   var parts: Array[Part] = []
   step(lx)
+  var start = lx.pos
   while lx.pos < lx.n {
     var c = lx.chars[lx.pos]
     if c == "`" {
+      Array.push(chunks, text(lx, start))
       step(lx)
       return Result.ok(parts)
     }
     if c == "\\" {
       try escape(lx)
     } else if c == "$" && peekc(lx, 1) == "{" {
+      Array.push(chunks, text(lx, start))
       advance(lx, 2)
       Array.push(parts, try embedded(lx))
+      start = lx.pos
     } else {
       step(lx)
     }
@@ -363,7 +370,7 @@ func embedded(lx: Lexer): Result[Part, Diagnostic] {
     } else if c == "\"" {
       try stringLit(lx, mark(lx))
     } else if c == "`" {
-      try templateLit(lx, mark(lx))
+      try templateLit(lx, mark(lx), [])
     } else {
       step(lx)
     }

@@ -49,10 +49,7 @@ func loadModule(ld: Loader, path: string, importer: string | null, line: int): R
     return Result.err(Problem{ path: importer ?? path, line, col: 1, message: "not found: " + path })
   }
   var ast = Parser.parse(src.value)
-  if ast is Err {
-    var d = ast.error
-    return Result.err(Problem{ path, line: d.line, col: d.col, message: d.message })
-  }
+  if ast is Err { return Result.err(Problem{ path, ...ast.error }) }
   var m = ast.value
   var deps: Array[int] = []
   var base = dirname(path)
@@ -104,9 +101,20 @@ func collectNames(m: Loaded): void {
 }
 
 func addName(m: Loaded, name: string): void {
-  if Map.has(m.nameIndex, name) { return }
-  Map.set(m.nameIndex, name, Array.length(m.names))
-  Array.push(m.names, name)
+  intern(m.nameIndex, name, { Array.push(m.names, name) })
+}
+
+// The number of `key` in `table`, assigned in first-seen order; `declare`
+// runs once, with that number, on the key's first appearance. The one
+// rule behind every numbered-once table of the compiler (names, symbols,
+// literals, shapes, prelude globals).
+export func intern(table: Map[string, int], key: string, declare: func(n: int): void): int {
+  var known = Map.get(table, key)
+  if known != null { return known }
+  var n = Map.size(table)
+  Map.set(table, key, n)
+  declare(n)
+  n
 }
 
 // The names a `var` or `for` target binds.

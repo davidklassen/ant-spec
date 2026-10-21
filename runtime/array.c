@@ -2,20 +2,22 @@
 #include <string.h>
 #include "ant.h"
 
+/* The data is allocated at the first push when no capacity is asked for:
+ * `[]` costs one block, and most empty arrays stay empty. */
 AntValue ant_array_new(int64_t cap) {
   AntArray *a = ant_alloc(sizeof(AntArray));
   a->len = 0;
-  a->cap = cap > 0 ? cap : 4;
-  a->data = ant_alloc(sizeof(AntValue) * (size_t)a->cap);
+  a->cap = cap > 0 ? cap : 0;
+  a->data = cap > 0 ? ant_alloc_big(sizeof(AntValue) * (size_t)cap) : NULL;
   return ant_ptr(K_ARRAY, a);
 }
 
 static void grow(AntArray *a, int64_t need) {
   if (need <= a->cap) return;
-  int64_t cap = a->cap * 2;
+  int64_t cap = a->cap ? a->cap * 2 : 4;
   while (cap < need) cap *= 2;
-  AntValue *data = ant_alloc(sizeof(AntValue) * (size_t)cap);
-  memcpy(data, a->data, sizeof(AntValue) * (size_t)a->len);
+  AntValue *data = ant_alloc_big(sizeof(AntValue) * (size_t)cap);
+  if (a->len) memcpy(data, a->data, sizeof(AntValue) * (size_t)a->len);
   a->data = data;
   a->cap = cap;
 }
@@ -34,25 +36,21 @@ AntValue ant_array_extend(AntValue av, AntValue v) {
   }
   AntArray *a = av.as.p, *b = v.as.p;
   grow(a, a->len + b->len);
-  memcpy(a->data + a->len, b->data, sizeof(AntValue) * (size_t)b->len);
+  if (b->len) memcpy(a->data + a->len, b->data, sizeof(AntValue) * (size_t)b->len);
   a->len += b->len;
   return ANT_VOID;
 }
 
-AntArray *ant_need_array(AntValue v) {
-  if (v.kind != K_ARRAY) {
-    ant_panic("wrong kind: expected an array");
-    return NULL;
-  }
-  return v.as.p;
+AntValue ant_array_from(const AntValue *p, int64_t n) {
+  AntValue out = ant_array_new(n);
+  AntArray *o = out.as.p;
+  if (n) memcpy(o->data, p, sizeof(AntValue) * (size_t)n);
+  o->len = n;
+  return out;
 }
 
-int64_t ant_need_int(AntValue v) {
-  if (v.kind != K_INT64) {
-    ant_panic("wrong kind: expected an int");
-    return 0;
-  }
-  return v.as.i;
+AntArray *ant_need_array(AntValue v) {
+  return ant_need_kind(v, K_ARRAY, "an array") ? v.as.p : NULL;
 }
 
 /* The one definition of a valid array index for `a[i]`; -1 after a panic. */
@@ -134,22 +132,16 @@ static AntValue a_slice(AntFunc *self, int argc, AntValue *argv) {
   ARR(argv[0], xs);
   INT(argv[1], from);
   INT(argv[2], to);
-  if (from < 0 || from > to || to > xs->len) { ant_panic("index out of range"); return ANT_VOID; }
-  AntValue out = ant_array_new(to - from);
-  AntArray *o = out.as.p;
-  memcpy(o->data, xs->data + from, sizeof(AntValue) * (size_t)(to - from));
-  o->len = to - from;
-  return out;
+  if (!ant_check_slice(from, to, xs->len)) return ANT_VOID;
+  return ant_array_from(xs->data + from, to - from);
 }
 
 static AntValue a_concat(AntFunc *self, int argc, AntValue *argv) {
   ARR(argv[0], xs);
   ARR(argv[1], ys);
   AntValue out = ant_array_new(xs->len + ys->len);
-  AntArray *o = out.as.p;
-  memcpy(o->data, xs->data, sizeof(AntValue) * (size_t)xs->len);
-  memcpy(o->data + xs->len, ys->data, sizeof(AntValue) * (size_t)ys->len);
-  o->len = xs->len + ys->len;
+  ant_array_extend(out, argv[0]);
+  ant_array_extend(out, argv[1]);
   return out;
 }
 
@@ -233,61 +225,59 @@ static AntValue a_index_of(AntFunc *self, int argc, AntValue *argv) {
 
 static AntValue a_contains(AntFunc *self, int argc, AntValue *argv) {
   AntValue i = a_index_of(self, argc, argv);
-  if (ant_g->unwind.mode) return ANT_VOID;
+  UNWOUND();
   return ant_bool(i.kind != K_NULL);
 }
 
 /* ---------------------------------------------------------------- sorting */
 
-/* A stable merge sort of n values with a less-than that may panic: `less`
- * answers through *out and returns false once the unwind flag is set. */
-typedef bool (*Less)(void *ctx, AntValue a, AntValue b, bool *out);
+/* A stable merge sort of n values with a less-than that may panic: the
+ * unwind flag reports it, as after every other callback, and the sort
+ * stops at the next test of it. */
+typedef bool (*Less)(void *ctx, AntValue a, AntValue b);
 
-static bool merge_sort(AntValue *v, AntValue *tmp, int64_t n, Less less, void *ctx) {
-  if (n < 2) return true;
+static void merge_sort(AntValue *v, AntValue *tmp, int64_t n, Less less, void *ctx) {
+  if (n < 2) return;
   int64_t mid = n / 2;
-  if (!merge_sort(v, tmp, mid, less, ctx)) return false;
-  if (!merge_sort(v + mid, tmp, n - mid, less, ctx)) return false;
+  merge_sort(v, tmp, mid, less, ctx);
+  if (ant_g->unwind.mode) return;
+  merge_sort(v + mid, tmp, n - mid, less, ctx);
+  if (ant_g->unwind.mode) return;
   int64_t i = 0, j = mid, k = 0;
   while (i < mid && j < n) {
-    bool right_first;
-    if (!less(ctx, v[j], v[i], &right_first)) return false;
+    bool right_first = less(ctx, v[j], v[i]);
+    if (ant_g->unwind.mode) return;
     tmp[k++] = right_first ? v[j++] : v[i++];
   }
   while (i < mid) tmp[k++] = v[i++];
   while (j < n) tmp[k++] = v[j++];
   memcpy(v, tmp, sizeof(AntValue) * (size_t)n);
-  return true;
 }
 
 static AntValue sorted_copy(AntArray *xs, Less less, void *ctx) {
-  AntValue out = ant_array_new(xs->len);
-  AntArray *o = out.as.p;
-  memcpy(o->data, xs->data, sizeof(AntValue) * (size_t)xs->len);
-  o->len = xs->len;
+  AntValue out = ant_array_from(xs->data, xs->len);
   AntValue *tmp = ant_alloc(sizeof(AntValue) * (size_t)(xs->len ? xs->len : 1));
-  if (!merge_sort(o->data, tmp, o->len, less, ctx)) return ANT_VOID;
+  merge_sort(((AntArray *)out.as.p)->data, tmp, xs->len, less, ctx);
+  UNWOUND();
   return out;
 }
 
-static bool less_values(void *ctx, AntValue a, AntValue b, bool *out) {
-  *out = ant_less(a, b);
-  return !ant_g->unwind.mode;
+static bool less_values(void *ctx, AntValue a, AntValue b) {
+  return ant_less(a, b);
 }
 
 static AntValue a_sort(AntFunc *self, int argc, AntValue *argv) {
   ARR(argv[0], xs);
-  for (int64_t i = 0; i < xs->len; i++) if (!ant_need_ordered(xs->data[i])) return ANT_VOID;
+  for (int64_t i = 0; i < xs->len; i++) ORD(xs->data[i]);
   return sorted_copy(xs, less_values, NULL);
 }
 
 /* sortBy: the keys are computed once, in order; indices are sorted by key. */
 typedef struct { AntValue *keys; } ByKeys;
 
-static bool less_by_key(void *ctx, AntValue a, AntValue b, bool *out) {
+static bool less_by_key(void *ctx, AntValue a, AntValue b) {
   AntValue *keys = ((ByKeys *)ctx)->keys;
-  *out = ant_less(keys[a.as.i], keys[b.as.i]);
-  return !ant_g->unwind.mode;
+  return ant_less(keys[a.as.i], keys[b.as.i]);
 }
 
 static AntValue a_sort_by(AntFunc *self, int argc, AntValue *argv) {
@@ -299,7 +289,7 @@ static AntValue a_sort_by(AntFunc *self, int argc, AntValue *argv) {
     AntValue x = xs->data[i];
     keys[i] = ant_call(argv[1], 1, &x);
     UNWOUND();
-    if (!ant_need_ordered(keys[i])) return ANT_VOID;
+    ORD(keys[i]);
   }
   AntValue idx = ant_array_new(n);
   for (int64_t i = 0; i < n; i++) ant_array_push(idx, ant_int(i));
@@ -311,14 +301,11 @@ static AntValue a_sort_by(AntFunc *self, int argc, AntValue *argv) {
   return order;
 }
 
-static bool less_with(void *ctx, AntValue a, AntValue b, bool *out) {
+static bool less_with(void *ctx, AntValue a, AntValue b) {
   AntValue args[2] = { a, b };
   AntValue r = ant_call(*(AntValue *)ctx, 2, args);
   if (ant_g->unwind.mode) return false;
-  int64_t c = ant_need_int(r);
-  if (ant_g->unwind.mode) return false;
-  *out = c < 0;
-  return true;
+  return ant_need_int(r) < 0;
 }
 
 static AntValue a_sort_with(AntFunc *self, int argc, AntValue *argv) {
@@ -350,8 +337,7 @@ static AntValue a_range(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue a_filled(AntFunc *self, int argc, AntValue *argv) {
-  INT(argv[0], n);
-  if (n < 0) { ant_panic("negative count"); return ANT_VOID; }
+  COUNT(argv[0], n);
   AntValue out = ant_array_new(n);
   for (int64_t i = 0; i < n; i++) ant_array_push(out, argv[1]);
   return out;
@@ -368,9 +354,7 @@ static AntValue a_flatten(AntFunc *self, int argc, AntValue *argv) {
 static AntValue a_sum(AntFunc *self, int argc, AntValue *argv) {
   ARR(argv[0], xs);
   if (xs->len == 0) return ANT_NULL;
-  for (int64_t i = 0; i < xs->len; i++) {
-    if (!ant_need_number(xs->data[i])) return ANT_VOID;
-  }
+  for (int64_t i = 0; i < xs->len; i++) NUM(xs->data[i]);
   AntValue acc = xs->data[0];
   for (int64_t i = 1; i < xs->len; i++) {
     acc = ant_add(acc, xs->data[i]);
@@ -385,7 +369,7 @@ static AntValue a_same(AntFunc *self, int argc, AntValue *argv) {
   return ant_bool(xs == ys);
 }
 
-AntValue ant_ns_array(void) {
+void ant_ns_array(void) {
   static const AntMember members[] = {
     { "length", "xs", a_length },
     { "isEmpty", "xs", a_is_empty },
@@ -413,5 +397,5 @@ AntValue ant_ns_array(void) {
     { "sum", "xs", a_sum },
     { "same", "xs,ys", a_same },
   };
-  return ANT_NAMESPACE("Array", members);
+  ANT_NAMESPACE("Array", members);
 }

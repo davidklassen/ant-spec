@@ -15,9 +15,7 @@ static int32_t *symindex;        /* open addressing over ids */
 static int icap;
 
 static uint32_t hash_cstr(const char *s) {
-  uint32_t h = 2166136261u;
-  for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u;
-  return h ? h : 1;
+  return ant_fnv1a(s, (int64_t)strlen(s));
 }
 
 static void rebuild_index(int cap) {
@@ -32,16 +30,11 @@ static void rebuild_index(int cap) {
 }
 
 static Sym add(const char *name, uint32_t h) {
-  if (nsyms == capsyms) {
-    capsyms = capsyms ? capsyms * 2 : 256;
-    syms = ant_realloc(syms, sizeof(SymEntry) * (size_t)capsyms);
-  }
   size_t n = strlen(name);
   char *copy = ant_alloc_atomic(n + 1);
   memcpy(copy, name, n + 1);
-  syms[nsyms].name = copy;
-  syms[nsyms].hash = h;
-  Sym id = (Sym)nsyms++;
+  ANT_PUSH(syms, nsyms, capsyms, 256, ((SymEntry){ copy, h }));
+  Sym id = (Sym)(nsyms - 1);
   if (nsyms * 2 >= icap) {
     rebuild_index(icap ? icap * 2 : 512);
   } else {

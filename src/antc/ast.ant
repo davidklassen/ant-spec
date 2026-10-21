@@ -71,7 +71,7 @@ export type NamedArg = { line: int, col: int, name: string, value: Expr }
 export type Int = { line: int, col: int, text: string }
 export type Float = { line: int, col: int, text: string }
 export type StringLit = { line: int, col: int, text: string }                         // raw, quotes included
-export type Template = { line: int, col: int, text: string, parts: Array[Expr] }      // raw text, backticks included
+export type Template = { line: int, col: int, text: string, parts: Array[Expr], chunks: Array[string] }   // raw text, backticks included; chunks: the raw text around the parts
 export type Ident = { line: int, col: int, name: string }
 export type Lit = { line: int, col: int, text: string }                               // true false null void
 export type AnonFunc = { line: int, col: int, params: Array[Param], ret: TypeExpr | null, body: Block }
@@ -91,3 +91,72 @@ export type Paren = { line: int, col: int, inner: Expr }
 export type MapLit = { line: int, col: int, entries: Array[LitEntry | Spread] }
 export type RecordLit = { line: int, col: int, path: Array[string], entries: Array[LitEntry | Spread] }
 export type LitEntry = { line: int, col: int, key: Expr, value: Expr }
+
+// --- traversal
+//
+// One enumeration of every expression's structure, so that a pass over a
+// function body (the emitter's capture analysis, later the checker's) is a
+// generic walk rather than a second dispatch over the node kinds.
+
+// The names e refers to beyond its sub-expressions: an identifier, the head
+// of an `is` target (which may also be a kind name such as `int`, which no
+// binding ever provides), or the head of a record literal's path.
+export func mentions(e: Expr): Array[string] {
+  if e is Ident { return [e.name] }
+  if e is Is { return [e.target[0]] }
+  if e is RecordLit { return [e.path[0]] }
+  []
+}
+
+// The sub-expressions and nested statements of e that run in the same
+// function body as e: what a walk visits without entering a nested function.
+export func children(e: Expr): Array[Stmt] {
+  if e is Assign { return [e.target, e.value] }
+  if e is Pipe || e is Nullish || e is And || e is Or || e is Bin { return [e.left, e.right] }
+  if e is Is { return [e.value] }
+  if e is Unary { return [e.operand] }
+  if e is Field || e is OptField { return [e.object] }
+  if e is Index || e is OptIndex { return [e.object, e.index] }
+  if e is Call || e is OptCall { return [e.callee, ...Array.map(e.args, { x.value })] }
+  if e is Template { return e.parts }
+  if e is Paren { return [e.inner] }
+  if e is If {
+    var otherwise = e.otherwise
+    var rest: Array[Stmt] = if otherwise is If { [otherwise] } else if otherwise is Block { otherwise.stmts } else { [] }
+    return [e.cond, ...e.then.stmts, ...rest]
+  }
+  if e is While { return [e.cond, ...e.body.stmts] }
+  if e is For { return [e.iter] }
+  if e is Return { var v = e.value; return if v == null { [] } else { [v] } }
+  if e is ArrayLit || e is MapLit || e is RecordLit { return entryExprs(e) }
+  if e is Int || e is Float || e is StringLit || e is Ident || e is Lit || e is Break || e is Continue
+    || e is Lambda || e is AnonFunc || e is Go || e is Defer { return [] }
+  panic("ast: unknown expression")
+}
+
+// The bodies of the functions nested directly in e, each as its statements
+// (an anonymous function's parameter defaults run in its body too): a `for`
+// body is one, since the emitter compiles it as a closure.
+export func nestedBodies(e: Expr): Array[Array[Stmt]] {
+  if e is Lambda { return [e.stmts] }
+  if e is AnonFunc {
+    var defaults: Array[Stmt] = []
+    for p in e.params { var d = p.default; if d != null { Array.push(defaults, d) } }
+    return [[...defaults, ...e.body.stmts]]
+  }
+  if e is For || e is Go || e is Defer { return [e.body.stmts] }
+  []
+}
+
+// The expressions of a container literal in order: a map entry's key (a
+// record entry's key is a field name, not an expression), the values and
+// the spread operands.
+func entryExprs(e: ArrayLit | MapLit | RecordLit): Array[Stmt] {
+  var out: Array[Stmt] = []
+  var entries: Array[Elem | LitEntry | Spread] = if e is ArrayLit { e.elems } else { e.entries }
+  for en in entries {
+    if en is LitEntry && e is MapLit { Array.push(out, en.key) }
+    Array.push(out, en.value)
+  }
+  out
+}

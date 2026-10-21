@@ -211,17 +211,20 @@ static int32_t parse_unicode_escape(Parser *ps) {
 }
 
 /* The text is an Ant string, hence valid UTF-8, so bytes that are not
- * escapes are copied through; a raw control character is an error. */
+ * escapes are copied through, a run at a time; a raw control character is
+ * an error. */
 static AntValue parse_string(Parser *ps) {
   ps->p++;   /* the opening quote */
   AntSb sb;
   ant_sb_init(&sb);
   for (;;) {
+    const char *run = ps->p;
+    while (ps->p < ps->end && (unsigned char)*ps->p >= 0x20 && *ps->p != '"' && *ps->p != '\\') ps->p++;
+    if (ps->p > run) ant_sb_append(&sb, run, ps->p - run);
     if (ps->p >= ps->end) return fail(ps, "unterminated string");
     unsigned char c = (unsigned char)*ps->p;
     if (c == '"') { ps->p++; return ant_sb_finish(&sb); }
     if (c < 0x20) return fail(ps, "control character in string");
-    if (c != '\\') { ant_sb_append(&sb, ps->p, 1); ps->p++; continue; }
     ps->p++;
     if (ps->p >= ps->end) return fail(ps, "unterminated string");
     char e = *ps->p++;
@@ -327,18 +330,14 @@ static AntValue j_parse(AntFunc *self, int argc, AntValue *argv) {
     skip_ws(&ps);
     if (ps.p < ps.end) fail(&ps, "trailing characters");
   }
-  if (ps.msg) {
-    char buf[128];
-    snprintf(buf, sizeof buf, "%s at offset %lld", ps.msg, (long long)ps.at);
-    return ant_err(ant_error(buf));
-  }
+  if (ps.msg) return ant_err(ant_error(ant_fmt("%s at offset %lld", ps.msg, (long long)ps.at)));
   return ant_ok(v);
 }
 
-AntValue ant_ns_json(void) {
+void ant_ns_json(void) {
   static const AntMember members[] = {
     { "parse", "text", j_parse },
     { "stringify", "value", j_stringify },
   };
-  return ANT_NAMESPACE("Json", members);
+  ANT_NAMESPACE("Json", members);
 }

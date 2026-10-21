@@ -17,7 +17,7 @@ struct AntMap {
 
 static void build_index(AntMap *m, int64_t icap) {
   m->icap = icap;
-  m->index = ant_alloc_atomic(sizeof(int32_t) * (size_t)icap);
+  m->index = ant_alloc_atomic_big(sizeof(int32_t) * (size_t)icap);
   memset(m->index, -1, sizeof(int32_t) * (size_t)icap);
   for (int64_t i = 0; i < m->n; i++) {
     if (!m->entries[i].alive) continue;
@@ -27,25 +27,23 @@ static void build_index(AntMap *m, int64_t icap) {
   }
 }
 
+/* The tables are allocated at the first insertion: `Map{}` costs one
+ * block, and most empty maps (scratch sets, scopes) stay small or empty. */
 AntValue ant_map_new(void) {
   AntMap *m = ant_alloc(sizeof(AntMap));
-  m->n = m->live = 0;
-  m->cap = 8;
-  m->entries = ant_alloc(sizeof(Entry) * (size_t)m->cap);
-  build_index(m, 16);
+  m->n = m->live = m->cap = m->icap = 0;
+  m->entries = NULL;
+  m->index = NULL;
   return ant_ptr(K_MAP, m);
 }
 
 AntMap *ant_need_map(AntValue v) {
-  if (v.kind != K_MAP) {
-    ant_panic("wrong kind: expected a map");
-    return NULL;
-  }
-  return v.as.p;
+  return ant_need_kind(v, K_MAP, "a map") ? v.as.p : NULL;
 }
 
 /* The index slot holding the entry for key, or -1. */
 static int64_t find(AntMap *m, AntValue key, uint32_t h) {
+  if (m->icap == 0) return -1;
   int64_t slot = h & (m->icap - 1);
   for (;;) {
     int32_t idx = m->index[slot];
@@ -80,9 +78,9 @@ void ant_map_set(AntValue mv, AntValue key, AntValue value) {
   }
   if ((m->n + 1) * 3 >= m->icap * 2) compact(m);
   if (m->n == m->cap) {
-    m->cap *= 2;
-    Entry *entries = ant_alloc(sizeof(Entry) * (size_t)m->cap);
-    memcpy(entries, m->entries, sizeof(Entry) * (size_t)m->n);
+    m->cap = m->cap ? m->cap * 2 : 8;
+    Entry *entries = ant_alloc_big(sizeof(Entry) * (size_t)m->cap);
+    if (m->n) memcpy(entries, m->entries, sizeof(Entry) * (size_t)m->n);
     m->entries = entries;
   }
   Entry *e = &m->entries[m->n];
@@ -110,12 +108,7 @@ AntValue ant_map_get(AntValue mv, AntValue key) {
   return ant_map_lookup(mv, key, &v) ? v : ANT_NULL;
 }
 
-bool ant_map_has(AntValue mv, AntValue key) {
-  AntValue v;
-  return ant_map_lookup(mv, key, &v);
-}
-
-bool ant_map_remove(AntValue mv, AntValue key, AntValue *out) {
+static bool map_remove(AntValue mv, AntValue key, AntValue *out) {
   AntMap *m = mv.as.p;
   int64_t slot = find(m, key, ant_hash(key));
   if (slot < 0) return false;
@@ -159,7 +152,8 @@ static AntValue m_is_empty(AntFunc *self, int argc, AntValue *argv) {
 
 static AntValue m_has(AntFunc *self, int argc, AntValue *argv) {
   MAP(argv[0], m);
-  return ant_bool(ant_map_has(argv[0], argv[1]));
+  AntValue v;
+  return ant_bool(ant_map_lookup(argv[0], argv[1], &v));
 }
 
 static AntValue m_get(AntFunc *self, int argc, AntValue *argv) {
@@ -176,7 +170,7 @@ static AntValue m_set(AntFunc *self, int argc, AntValue *argv) {
 static AntValue m_remove(AntFunc *self, int argc, AntValue *argv) {
   MAP(argv[0], m);
   AntValue out;
-  if (!ant_map_remove(argv[0], argv[1], &out)) return ANT_NULL;
+  if (!map_remove(argv[0], argv[1], &out)) return ANT_NULL;
   return out;
 }
 
@@ -212,7 +206,7 @@ static AntValue m_from_entries(AntFunc *self, int argc, AntValue *argv) {
   AntValue out = ant_map_new();
   for (int64_t i = 0; i < xs->len; i++) {
     AntValue e = xs->data[i];
-    if (e.kind != K_RECORD) { ant_panic("wrong kind: expected a record"); return ANT_VOID; }
+    if (e.kind != K_RECORD) { ant_wrong_kind("a record"); return ANT_VOID; }
     AntValue k = ant_field_get(e, S_key, NULL);
     UNWOUND();
     AntValue v = ant_field_get(e, S_value, NULL);
@@ -272,7 +266,7 @@ static AntValue m_same(AntFunc *self, int argc, AntValue *argv) {
   return ant_bool(m == n);
 }
 
-AntValue ant_ns_map(void) {
+void ant_ns_map(void) {
   static const AntMember members[] = {
     { "size", "m", m_size },
     { "isEmpty", "m", m_is_empty },
@@ -289,5 +283,5 @@ AntValue ant_ns_map(void) {
     { "merge", "m,n", m_merge },
     { "same", "m,n", m_same },
   };
-  return ANT_NAMESPACE("Map", members);
+  ANT_NAMESPACE("Map", members);
 }

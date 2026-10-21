@@ -13,11 +13,7 @@ bool ant_active_has(AntActive *a, void *p) {
 }
 
 void ant_active_push(AntActive *a, void *p) {
-  if (a->n == a->cap) {
-    a->cap = a->cap ? a->cap * 2 : 16;
-    a->items = ant_realloc(a->items, sizeof(void *) * (size_t)a->cap);
-  }
-  a->items[a->n++] = p;
+  ANT_PUSH(a->items, a->n, a->cap, 16, p);
 }
 
 static bool reads_back(const char *buf, double x, bool f32) {
@@ -114,16 +110,22 @@ static void render_quoted(AntSb *sb, AntString *s) {
   ant_sb_append(sb, "\"", 1);
 }
 
+/* The decimal digits of mag, written backwards into a local and appended once. */
+static void render_uint(AntSb *sb, uint64_t mag) {
+  char buf[24];
+  int i = sizeof buf;
+  do { buf[--i] = (char)('0' + mag % 10); mag /= 10; } while (mag);
+  ant_sb_append(sb, buf + i, (int64_t)(sizeof buf - (size_t)i));
+}
+
 static void render_in(AntSb *sb, AntValue v, AntActive *active) {
-  char buf[32];
   switch (v.kind) {
     case K_INT8: case K_INT16: case K_INT32: case K_INT64:
-      snprintf(buf, sizeof buf, "%lld", (long long)v.as.i);
-      ant_sb_append_cstr(sb, buf);
+      if (v.as.i < 0) ant_sb_append(sb, "-", 1);
+      render_uint(sb, v.as.i < 0 ? (uint64_t)0 - (uint64_t)v.as.i : (uint64_t)v.as.i);
       return;
     case K_UINT8: case K_UINT16: case K_UINT32: case K_UINT64:
-      snprintf(buf, sizeof buf, "%llu", (unsigned long long)v.as.u);
-      ant_sb_append_cstr(sb, buf);
+      render_uint(sb, v.as.u);
       return;
     case K_FLOAT32: ant_render_float(sb, v.as.f32, true); return;
     case K_FLOAT64: ant_render_float(sb, v.as.f, false); return;

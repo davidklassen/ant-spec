@@ -36,12 +36,9 @@ AntValue ant_native_panic(AntFunc *self, int argc, AntValue *argv) {
   return ANT_VOID;
 }
 
-/* The Err `<what>: <path>`, the path whole however long it is. */
+/* The Err `<what>: <path>`. */
 static AntValue path_error(const char *what, const char *path) {
-  size_t n = strlen(what) + 2 + strlen(path);
-  char *buf = ant_alloc_atomic(n + 1);
-  snprintf(buf, n + 1, "%s: %s", what, path);
-  return ant_err(ant_error(buf));
+  return ant_err(ant_error(ant_fmt("%s: %s", what, path)));
 }
 
 /* The Err for the error code err of a call on path. */
@@ -51,10 +48,10 @@ static AntValue io_error(int err, const char *path) {
 
 /* ---------------------------------------------------------------- Os */
 
+/* A fresh copy each time, so the caller's changes do not reach the next one. */
 static AntValue os_args(AntFunc *self, int argc, AntValue *argv) {
-  AntArray *a = ant_args.as.p;
-  AntValue out = ant_array_new(a->len);
-  for (int64_t i = 0; i < a->len; i++) ant_array_push(out, a->data[i]);
+  AntValue out = ant_array_new(0);
+  ant_array_extend(out, ant_args);
   return out;
 }
 
@@ -94,14 +91,14 @@ static AntValue os_exec(AntFunc *self, int argc, AntValue *argv) {
   return ant_ok(ant_int(WEXITSTATUS(status)));
 }
 
-AntValue ant_ns_os(void) {
+void ant_ns_os(void) {
   static const AntMember members[] = {
     { "args", "", os_args },
     { "env", "name", os_env },
     { "exit", "status", os_exit },
     { "exec", "args", os_exec },
   };
-  return ANT_NAMESPACE("Os", members);
+  ANT_NAMESPACE("Os", members);
 }
 
 /* ---------------------------------------------------------------- Time */
@@ -127,13 +124,13 @@ static AntValue time_sleep(AntFunc *self, int argc, AntValue *argv) {
   return ANT_VOID;
 }
 
-AntValue ant_ns_time(void) {
+void ant_ns_time(void) {
   static const AntMember members[] = {
     { "now", "", time_now },
     { "sleep", "ms", time_sleep },
     { "monotonic", "", time_monotonic },
   };
-  return ANT_NAMESPACE("Time", members);
+  ANT_NAMESPACE("Time", members);
 }
 
 /* ---------------------------------------------------------------- File */
@@ -226,11 +223,13 @@ static AntValue file_list(AntFunc *self, int argc, AntValue *argv) {
  * A stream opened the other way fails its reads or writes with EBADF,
  * which the usual errno path reports. */
 static const char FILE_NAME[] = "File";
-typedef struct { AntSync base; FILE *fp; AntString *path; } FileHandle;   /* path: kept for messages */
-
-static FileHandle *need_file(AntValue v) {
-  return ant_sync_need(v, FILE_NAME);
-}
+typedef struct {
+  AntSync base;
+  FILE *fp;
+  AntString *path;     /* kept for messages */
+  char *line;          /* readLine's buffer, grown by getline, freed with the stream */
+  size_t linecap;
+} FileHandle;
 
 static AntValue closed_error(FileHandle *h) {
   return path_error("file is closed", h->path->data);
@@ -243,6 +242,8 @@ static AntValue handle_open(AntString *path, const char *mode) {
   h->base.name = FILE_NAME;
   h->fp = fp;
   h->path = path;
+  h->line = NULL;
+  h->linecap = 0;
   return ant_ok(ant_ptr(K_SYNC, h));
 }
 
@@ -259,26 +260,21 @@ static AntValue file_create(AntFunc *self, int argc, AntValue *argv) {
 /* The next line without its `\n`, or null at end of file (G44): a last
  * line without a terminator is still a line, and a `\r` stays. */
 static AntValue file_read_line(AntFunc *self, int argc, AntValue *argv) {
-  FileHandle *h = need_file(argv[0]);
-  if (!h) return ANT_VOID;
+  SYNC(argv[0], FileHandle, FILE_NAME, h);
   if (!h->fp) return closed_error(h);
-  AntSb sb;
-  ant_sb_init(&sb);
-  int c;
-  while ((c = fgetc(h->fp)) != EOF && c != '\n') {
-    char b = (char)c;
-    ant_sb_append(&sb, &b, 1);
+  ssize_t n = getline(&h->line, &h->linecap, h->fp);
+  if (n < 0) {
+    if (ferror(h->fp)) return io_error(errno, h->path->data);
+    return ant_ok(ANT_NULL);
   }
-  if (ferror(h->fp)) return io_error(errno, h->path->data);
-  if (c == EOF && sb.len == 0) return ant_ok(ANT_NULL);
-  if (!ant_utf8_valid(sb.data, sb.len)) return path_error("invalid UTF-8", h->path->data);
-  return ant_ok(ant_sb_finish(&sb));
+  if (n > 0 && h->line[n - 1] == '\n') n--;
+  if (!ant_utf8_valid(h->line, n)) return path_error("invalid UTF-8", h->path->data);
+  return ant_ok(ant_str_new(h->line, n));
 }
 
 /* Writes the line and a `\n` (G44), flushed at once. */
 static AntValue file_write_line(AntFunc *self, int argc, AntValue *argv) {
-  FileHandle *h = need_file(argv[0]);
-  if (!h) return ANT_VOID;
+  SYNC(argv[0], FileHandle, FILE_NAME, h);
   STR(argv[1], line);
   if (!h->fp) return closed_error(h);
   bool failed = fwrite(line->data, 1, (size_t)line->nbytes, h->fp) != (size_t)line->nbytes ||
@@ -290,10 +286,8 @@ static AntValue file_write_line(AntFunc *self, int argc, AntValue *argv) {
 /* Copies from the source's position to its end onto the destination; a
  * failure is reported against the side it happened on. */
 static AntValue file_pipe(AntFunc *self, int argc, AntValue *argv) {
-  FileHandle *src = need_file(argv[0]);
-  if (!src) return ANT_VOID;
-  FileHandle *dst = need_file(argv[1]);
-  if (!dst) return ANT_VOID;
+  SYNC(argv[0], FileHandle, FILE_NAME, src);
+  SYNC(argv[1], FileHandle, FILE_NAME, dst);
   if (!src->fp) return closed_error(src);
   if (!dst->fp) return closed_error(dst);
   char buf[1 << 16];
@@ -308,16 +302,17 @@ static AntValue file_pipe(AntFunc *self, int argc, AntValue *argv) {
 
 /* Closing twice is a no-op; a failure to write the last bytes has nowhere to go. */
 static AntValue file_close(AntFunc *self, int argc, AntValue *argv) {
-  FileHandle *h = need_file(argv[0]);
-  if (!h) return ANT_VOID;
+  SYNC(argv[0], FileHandle, FILE_NAME, h);
   if (h->fp) {
     fclose(h->fp);
     h->fp = NULL;
+    free(h->line);
+    h->line = NULL;
   }
   return ANT_VOID;
 }
 
-AntValue ant_ns_file(void) {
+void ant_ns_file(void) {
   static const AntMember members[] = {
     { "read", "path", file_read },
     { "readBytes", "path", file_read_bytes },
@@ -333,7 +328,7 @@ AntValue ant_ns_file(void) {
     { "pipe", "src,dst", file_pipe },
     { "close", "f", file_close },
   };
-  return ANT_NAMESPACE("File", members);
+  ANT_NAMESPACE("File", members);
 }
 
 /* ---------------------------------------------------------------- Http */
@@ -354,10 +349,10 @@ static AntValue http_post(AntFunc *self, int argc, AntValue *argv) {
   return http_unsupported();
 }
 
-AntValue ant_ns_http(void) {
+void ant_ns_http(void) {
   static const AntMember members[] = {
     { "get", "url", http_get },
     { "post", "url,body,headers", http_post },
   };
-  return ANT_NAMESPACE("Http", members);
+  ANT_NAMESPACE("Http", members);
 }

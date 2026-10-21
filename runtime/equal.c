@@ -12,13 +12,7 @@ static bool pair_active(void *a, void *b) {
 }
 
 static void pair_push(void *a, void *b) {
-  if (ant_g->npairs == ant_g->cappairs) {
-    ant_g->cappairs = ant_g->cappairs ? ant_g->cappairs * 2 : 16;
-    ant_g->pairs = ant_realloc(ant_g->pairs, sizeof(AntPair) * (size_t)ant_g->cappairs);
-  }
-  ant_g->pairs[ant_g->npairs].a = a;
-  ant_g->pairs[ant_g->npairs].b = b;
-  ant_g->npairs++;
+  ANT_PUSH(ant_g->pairs, ant_g->npairs, ant_g->cappairs, 16, ((AntPair){ a, b }));
 }
 
 static bool equal_in(AntValue a, AntValue b);

@@ -33,14 +33,7 @@ static AntTrace *snapshot(void) {
   t->n = n;
   t->lines = ant_alloc(sizeof(char *) * (size_t)(n ? n : 1));
   int i = 0;
-  for (AntFrame *f = ant_g->top; f; f = f->parent) {
-    char buf[512];
-    snprintf(buf, sizeof buf, "%s (%s:%d)", f->info->name, f->info->file, f->line);
-    size_t len = strlen(buf);
-    char *line = ant_alloc_atomic(len + 1);
-    memcpy(line, buf, len + 1);
-    t->lines[i++] = line;
-  }
+  for (AntFrame *f = ant_g->top; f; f = f->parent) t->lines[i++] = ant_fmt("%s (%s:%d)", f->info->name, f->info->file, f->line);
   return t;
 }
 
@@ -57,32 +50,35 @@ void ant_panic(const char *msg) {
 }
 
 void ant_panicf(const char *fmt, ...) {
-  char buf[512];
   va_list ap;
   va_start(ap, fmt);
-  vsnprintf(buf, sizeof buf, fmt, ap);
+  char *msg = ant_vfmt(fmt, ap);
   va_end(ap);
-  ant_panic(buf);
+  ant_panic(msg);
 }
 
 void ant_defer_push(AntDefers *d, AntValue closure) {
-  if (d->n == d->cap) {
-    d->cap = d->cap ? d->cap * 2 : 4;
-    d->items = ant_realloc(d->items, sizeof(AntValue) * (size_t)d->cap);
-  }
-  d->items[d->n++] = closure;
+  ANT_PUSH(d->items, d->n, d->cap, 4, closure);
+}
+
+void ant_unwind_aside(AntUnwind *saved) {
+  *saved = ant_g->unwind;
+  ant_g->unwind.mode = U_NONE;
+}
+
+void ant_unwind_merge(const AntUnwind *saved) {
+  if (ant_g->unwind.mode != U_PANIC) ant_g->unwind = *saved;
 }
 
 /* Runs a block's deferred closures in reverse order. Each runs with the
  * pending unwind set aside; a panic inside one replaces it (G59), anything
  * else restores it, and the remaining closures still run. */
 void ant_run_defers(AntDefers *d) {
-  AntUnwind *u = &ant_g->unwind;
   for (int i = d->n - 1; i >= 0; i--) {
-    AntUnwind saved = *u;
-    u->mode = U_NONE;
+    AntUnwind saved;
+    ant_unwind_aside(&saved);
     ant_call(d->items[i], 0, NULL);
-    if (u->mode != U_PANIC) *u = saved;
+    ant_unwind_merge(&saved);
   }
   d->n = 0;
 }

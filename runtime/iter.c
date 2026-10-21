@@ -6,18 +6,27 @@
 
 typedef struct { AntValue source, f, yield; int64_t a, b; } Stage;
 
-static AntValue stage(const char *name, AntNative run, Stage *st) {
-  return ant_native(name, "yield", run, st);
-}
+/* The metadata of every stage function, fixed: a stage takes `yield`, a
+ * stage body (the yield a stage hands its source) takes `x`. */
+#define STAGE_INFO(var, name, param) static const AntFuncInfo var = { name, "<runtime>", 0, 1, &param, NULL, false }
+STAGE_INFO(range_info, "Iter.range", S_yield);
+STAGE_INFO(from_array_info, "Iter.fromArray", S_yield);
+STAGE_INFO(map_info, "Iter.map", S_yield);
+STAGE_INFO(map_body_info, "Iter.map", S_x);
+STAGE_INFO(filter_info, "Iter.filter", S_yield);
+STAGE_INFO(filter_body_info, "Iter.filter", S_x);
+STAGE_INFO(take_info, "Iter.take", S_yield);
+STAGE_INFO(take_body_info, "Iter.take", S_x);
+STAGE_INFO(collect_info, "Iter.toArray", S_x);
 
 /* Runs a stage's source with `body` as the stage's own yield: the body
  * finds a copy of the stage, with the downstream `yield`, in self->data.
  * A `false` from downstream (ant_call_truth) travels back to the source. */
-static AntValue run_stage(const Stage *st, AntValue yield, const char *name, AntNative body) {
+static AntValue run_stage(const Stage *st, AntValue yield, const AntFuncInfo *info, AntNative body) {
   Stage *run = ant_alloc(sizeof(Stage));
   *run = *st;
   run->yield = yield;
-  ant_for_each(st->source, ant_native(name, "x", body, run));
+  ant_for_each(st->source, ant_closure_data(body, info, run));
   return ANT_VOID;
 }
 
@@ -34,7 +43,7 @@ static AntValue i_range(AntFunc *self, int argc, AntValue *argv) {
   Stage *st = ant_alloc(sizeof(Stage));
   st->a = from;
   st->b = to;
-  return stage("Iter.range", range_run, st);
+  return ant_closure_data(range_run, &range_info, st);
 }
 
 static AntValue from_array_run(AntFunc *self, int argc, AntValue *argv) {
@@ -46,10 +55,11 @@ static AntValue from_array_run(AntFunc *self, int argc, AntValue *argv) {
 }
 
 static AntValue i_from_array(AntFunc *self, int argc, AntValue *argv) {
-  if (!ant_need_array(argv[0])) return ANT_VOID;
+  ARR(argv[0], xs);
+  (void)xs;
   Stage *st = ant_alloc(sizeof(Stage));
   st->source = argv[0];
-  return stage("Iter.fromArray", from_array_run, st);
+  return ant_closure_data(from_array_run, &from_array_info, st);
 }
 
 /* map: body(v) pushes f(v) downstream and answers what the yield answered. */
@@ -62,7 +72,7 @@ static AntValue map_body(AntFunc *self, int argc, AntValue *argv) {
 
 static AntValue map_run(AntFunc *self, int argc, AntValue *argv) {
   FUNC(argv[0]);
-  return run_stage(self->data, argv[0], "Iter.map", map_body);
+  return run_stage(self->data, argv[0], &map_body_info, map_body);
 }
 
 static AntValue i_map(AntFunc *self, int argc, AntValue *argv) {
@@ -71,7 +81,7 @@ static AntValue i_map(AntFunc *self, int argc, AntValue *argv) {
   Stage *st = ant_alloc(sizeof(Stage));
   st->source = argv[0];
   st->f = argv[1];
-  return stage("Iter.map", map_run, st);
+  return ant_closure_data(map_run, &map_info, st);
 }
 
 static AntValue filter_body(AntFunc *self, int argc, AntValue *argv) {
@@ -84,7 +94,7 @@ static AntValue filter_body(AntFunc *self, int argc, AntValue *argv) {
 
 static AntValue filter_run(AntFunc *self, int argc, AntValue *argv) {
   FUNC(argv[0]);
-  return run_stage(self->data, argv[0], "Iter.filter", filter_body);
+  return run_stage(self->data, argv[0], &filter_body_info, filter_body);
 }
 
 static AntValue i_filter(AntFunc *self, int argc, AntValue *argv) {
@@ -93,7 +103,7 @@ static AntValue i_filter(AntFunc *self, int argc, AntValue *argv) {
   Stage *st = ant_alloc(sizeof(Stage));
   st->source = argv[0];
   st->f = argv[1];
-  return stage("Iter.filter", filter_run, st);
+  return ant_closure_data(filter_run, &filter_info, st);
 }
 
 /* take: the source is stopped right after the nth element; take(s, 0) never runs it. */
@@ -109,17 +119,16 @@ static AntValue take_run(AntFunc *self, int argc, AntValue *argv) {
   Stage *st = self->data;
   FUNC(argv[0]);
   if (st->a == 0) return ANT_VOID;
-  return run_stage(st, argv[0], "Iter.take", take_body);
+  return run_stage(st, argv[0], &take_body_info, take_body);
 }
 
 static AntValue i_take(AntFunc *self, int argc, AntValue *argv) {
   FUNC(argv[0]);
-  INT(argv[1], n);
-  if (n < 0) { ant_panic("negative count"); return ANT_VOID; }
+  COUNT(argv[1], n);
   Stage *st = ant_alloc(sizeof(Stage));
   st->source = argv[0];
   st->a = n;
-  return stage("Iter.take", take_run, st);
+  return ant_closure_data(take_run, &take_info, st);
 }
 
 static AntValue collect_body(AntFunc *self, int argc, AntValue *argv) {
@@ -131,12 +140,12 @@ static AntValue i_to_array(AntFunc *self, int argc, AntValue *argv) {
   FUNC(argv[0]);
   AntValue *out = ant_alloc(sizeof(AntValue));
   *out = ant_array_new(4);
-  ant_for_each(argv[0], ant_native("Iter.toArray", "x", collect_body, out));
+  ant_for_each(argv[0], ant_closure_data(collect_body, &collect_info, out));
   UNWOUND();
   return *out;
 }
 
-AntValue ant_ns_iter(void) {
+void ant_ns_iter(void) {
   static const AntMember members[] = {
     { "range", "from,to", i_range },
     { "fromArray", "xs", i_from_array },
@@ -145,5 +154,5 @@ AntValue ant_ns_iter(void) {
     { "take", "s,n", i_take },
     { "toArray", "s", i_to_array },
   };
-  return ANT_NAMESPACE("Iter", members);
+  ANT_NAMESPACE("Iter", members);
 }

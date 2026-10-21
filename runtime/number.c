@@ -157,8 +157,8 @@ AntValue ant_neg(AntValue a) {
 }
 
 AntValue ant_not(AntValue a) {
-  if (a.kind != K_BOOL) { ant_panic("not a bool"); return ANT_VOID; }
-  return ant_bool(!a.as.b);
+  bool b = ant_truth(a);
+  return ant_g->unwind.mode ? ANT_VOID : ant_bool(!b);
 }
 
 /* ---------------------------------------------------------------- conversions */
@@ -168,8 +168,8 @@ static AntValue out_of_range(void) {
   return ANT_VOID;
 }
 
-AntValue ant_convert(AntKind k, AntValue v) {
-  if (!ant_need_number(v)) return ANT_VOID;
+static AntValue convert(AntKind k, AntValue v) {
+  NUM(v);
   if (k == K_FLOAT64 || k == K_FLOAT32) {
     double d;
     if (v.kind == K_FLOAT64) d = v.as.f;
@@ -214,7 +214,7 @@ AntValue ant_convert(AntKind k, AntValue v) {
 }
 
 static AntValue convert_native(AntFunc *self, int argc, AntValue *argv) {
-  return ant_convert((AntKind)(intptr_t)self->data, argv[0]);
+  return convert((AntKind)(intptr_t)self->data, argv[0]);
 }
 
 AntValue ant_conversion(const char *name, AntKind k) {
@@ -241,14 +241,12 @@ static AntValue wrap(AntKind k, uint64_t bits) {
 }
 
 static bool need_int_kind(AntValue a) {
-  if (!ant_is_int(a.kind)) { ant_panic("wrong kind: expected an integer"); return false; }
-  return true;
+  return ant_is_int(a.kind) || ant_wrong_kind("an integer");
 }
 
 static bool need_same_int(AntValue a, AntValue b) {
   if (!need_int_kind(a) || !need_int_kind(b)) return false;
-  if (a.kind != b.kind) { ant_panic("wrong kind: expected integers of one kind"); return false; }
-  return true;
+  return a.kind == b.kind || ant_wrong_kind("integers of one kind");
 }
 
 #define BITS2(NAME, EXPR) \
@@ -299,7 +297,7 @@ static AntValue b_pop_count(AntFunc *self, int argc, AntValue *argv) {
   return ant_int(__builtin_popcountll(bits));
 }
 
-AntValue ant_ns_bits(void) {
+void ant_ns_bits(void) {
   static const AntMember members[] = {
     { "and", "a,b", b_and },
     { "or", "a,b", b_or },
@@ -312,19 +310,18 @@ AntValue ant_ns_bits(void) {
     { "wrapSub", "a,b", b_wrap_sub },
     { "wrapMul", "a,b", b_wrap_mul },
   };
-  return ANT_NAMESPACE("Bits", members);
+  ANT_NAMESPACE("Bits", members);
 }
 
 /* ---------------------------------------------------------------- Math */
 
 static bool need_f64(AntValue v) {
-  if (v.kind != K_FLOAT64) { ant_panic("wrong kind: expected a float64"); return false; }
-  return true;
+  return ant_need_kind(v, K_FLOAT64, "a float64");
 }
 
 static AntValue m_abs(AntFunc *self, int argc, AntValue *argv) {
   AntValue x = argv[0];
-  if (!ant_need_number(x)) return ANT_VOID;
+  NUM(x);
   if (x.kind == K_FLOAT64) return ant_float(fabs(x.as.f));
   if (x.kind == K_FLOAT32) { x.as.f32 = fabsf(x.as.f32); return x; }
   if (x.kind >= K_UINT8 || x.as.i >= 0) return x;
@@ -332,24 +329,24 @@ static AntValue m_abs(AntFunc *self, int argc, AntValue *argv) {
 }
 
 bool ant_need_number(AntValue v) {
-  if (!ant_is_number(v.kind)) { ant_panic("wrong kind: expected a number"); return false; }
-  return true;
+  return ant_is_number(v.kind) || ant_wrong_kind("a number");
 }
 
 bool ant_need_ordered(AntValue v) {
-  if (!ant_is_number(v.kind) && v.kind != K_STRING) { ant_panic("wrong kind: expected a number or a string"); return false; }
-  return true;
+  return ant_is_number(v.kind) || v.kind == K_STRING || ant_wrong_kind("a number or a string");
 }
 
 static AntValue m_min(AntFunc *self, int argc, AntValue *argv) {
-  if (!ant_need_ordered(argv[0]) || !ant_need_ordered(argv[1])) return ANT_VOID;
+  ORD(argv[0]);
+  ORD(argv[1]);
   bool less = ant_less(argv[1], argv[0]);
   UNWOUND();
   return less ? argv[1] : argv[0];
 }
 
 static AntValue m_max(AntFunc *self, int argc, AntValue *argv) {
-  if (!ant_need_ordered(argv[0]) || !ant_need_ordered(argv[1])) return ANT_VOID;
+  ORD(argv[0]);
+  ORD(argv[1]);
   bool less = ant_less(argv[0], argv[1]);
   UNWOUND();
   return less ? argv[1] : argv[0];
@@ -370,7 +367,7 @@ MATH1(m_floor, floor)
 MATH1(m_ceil, ceil)
 MATH1(m_round, round)     /* half away from zero */
 
-AntValue ant_ns_math(void) {
+void ant_ns_math(void) {
   static const AntMember members[] = {
     { "abs", "x", m_abs },
     { "min", "a,b", m_min },
@@ -383,5 +380,5 @@ AntValue ant_ns_math(void) {
     { "PI", NULL, NULL, { K_FLOAT64, { .f = M_PI } } },
     { "E", NULL, NULL, { K_FLOAT64, { .f = M_E } } },
   };
-  return ANT_NAMESPACE("Math", members);
+  ANT_NAMESPACE("Math", members);
 }

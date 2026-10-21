@@ -23,9 +23,26 @@ AntValue ant_closure_ret(AntNative code, const AntFuncInfo *info, AntFrame *ret,
   return f;
 }
 
+/* A native over fixed metadata: the runtime's per-call closures (yield
+ * objects, Iter stages) and the namespace members. */
+AntValue ant_closure_data(AntNative code, const AntFuncInfo *info, void *data) {
+  AntValue f = ant_closure(code, info, 0, NULL);
+  ((AntFunc *)f.as.p)->data = data;
+  return f;
+}
+
+/* The one `not a function` check: the function behind f, or NULL after the panic. */
+static AntFunc *callee(AntValue f) {
+  if (f.kind != K_FUNC) {
+    ant_panic("not a function");
+    return NULL;
+  }
+  return f.as.p;
+}
+
 /* The callee check of a call, made before the arguments evaluate. */
 AntValue ant_callee(AntValue f) {
-  if (f.kind != K_FUNC) ant_panic("not a function");
+  callee(f);
   return f;
 }
 
@@ -56,9 +73,7 @@ AntValue ant_native(const char *name, const char *params, AntNative code, void *
   info->params = syms;
   info->hasDefault = NULL;
   info->isLambda = false;
-  AntValue f = ant_closure(code, info, 0, NULL);
-  ((AntFunc *)f.as.p)->data = data;
-  return f;
+  return ant_closure_data(code, info, data);
 }
 
 AntBox *ant_box_new(AntValue v) {
@@ -67,32 +82,11 @@ AntBox *ant_box_new(AntValue v) {
   return b;
 }
 
-/* A captured variable read: `unbound name` while its `var` has not run. */
-AntValue ant_box_get(AntBox *b, const char *name) {
-  if (b->v.kind == K_UNBOUND) {
-    ant_panicf("unbound name: %s", name);
-    return ANT_VOID;
-  }
-  return b->v;
-}
-
 AntFunc *ant_need_func(AntValue v) {
-  if (v.kind != K_FUNC) {
-    ant_panic("wrong kind: expected a function");
-    return NULL;
-  }
-  return v.as.p;
+  return ant_need_kind(v, K_FUNC, "a function") ? v.as.p : NULL;
 }
 
 /* ---------------------------------------------------------------- calls */
-
-static AntFunc *callee(AntValue f) {
-  if (f.kind != K_FUNC) {
-    ant_panic("not a function");
-    return NULL;
-  }
-  return f.as.p;
-}
 
 /* Every parameter still unfilled must have a default. */
 static bool check_missing(const AntFuncInfo *info, AntValue *slots) {
@@ -147,37 +141,25 @@ AntValue ant_call_named(AntValue f, int npos, AntValue *pos, int nnamed, const S
 
 typedef struct { AntValue body; bool done; } Yield;
 
-static AntFuncInfo yield_info;
+static const AntFuncInfo yield_info = { "yield", "<runtime>", 0, 1, &S_x, NULL, false };
 
 static AntValue yield_code(AntFunc *self, int argc, AntValue *argv) {
   ANT_SAFEPOINT();   /* a `for` body has no entry safepoint of its own */
   Yield *y = self->data;
   if (y->done) { ant_panic("yield after done"); return ANT_VOID; }
   AntValue r = ant_call(y->body, 1, argv);
-  if (ant_g->unwind.mode) return ANT_VOID;
+  UNWOUND();
   bool more = r.kind == K_BOOL && r.as.b;
   if (!more) y->done = true;
   return ant_bool(more);
 }
 
 /* The `yield` a sequence receives: runs body(x) and answers its bool. */
-AntValue ant_yield_new(AntValue body) {
-  if (!yield_info.params) {
-    yield_info.name = "yield";
-    yield_info.file = "<runtime>";
-    yield_info.nparams = 1;
-    yield_info.params = &S_x;
-  }
+static AntValue yield_new(AntValue body) {
   Yield *y = ant_alloc(sizeof(Yield));
   y->body = body;
   y->done = false;
-  AntValue f = ant_closure(yield_code, &yield_info, 0, NULL);
-  ((AntFunc *)f.as.p)->data = y;
-  return f;
-}
-
-void ant_yield_done(AntValue y) {
-  ((Yield *)((AntFunc *)y.as.p)->data)->done = true;
+  return ant_closure_data(yield_code, &yield_info, y);
 }
 
 /* f(x) as the bool it must answer: false after a panic in f or `not a
@@ -214,18 +196,13 @@ AntValue ant_for_each(AntValue v, AntValue body) {
     case K_STRING: {
       AntString *s = v.as.p;
       int64_t i = 0;
-      while (i < s->nbytes) {
-        int32_t cp;
-        int len = ant_utf8_decode(s->data + i, s->nbytes - i, &cp);
-        if (!iterate(body, ant_str_new(s->data + i, len))) break;
-        i += len;
-      }
+      while (i < s->nbytes) if (!iterate(body, ant_str_next_char(s, &i))) break;
       return ANT_VOID;
     }
     case K_FUNC: {
-      AntValue y = ant_yield_new(body);
+      AntValue y = yield_new(body);
       ant_call(v, 1, &y);
-      ant_yield_done(y);
+      ((Yield *)((AntFunc *)y.as.p)->data)->done = true;
       return ANT_VOID;
     }
     default:
@@ -245,7 +222,7 @@ AntValue ant_try(AntValue v, AntFrame *target) {
     AntRecord *r = v.as.p;
     if (r->tag == ant_tag_err.as.p) {
       AntValue e = ant_field_get(v, S_error, NULL);
-      if (ant_g->unwind.mode) return ANT_VOID;
+      UNWOUND();
       ant_set_return(target, ant_err(e));
       return ANT_VOID;
     }

@@ -668,7 +668,7 @@ func primary(p: Parser): Result[Ast.Expr, Lex.Diagnostic] {
     for part in t.parts {
       Array.push(parts, try parsePart(part))
     }
-    return Result.ok(Ast.Template{ line: t.line, col: t.col, text: t.value, parts })
+    return Result.ok(Ast.Template{ line: t.line, col: t.col, text: t.value, parts, chunks: t.chunks })
   }
   if t.kind == "IDENT" {
     next(p)
